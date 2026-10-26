@@ -1,0 +1,13 @@
+{
+  "name": "@meridian/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure-TS indicator and signal engine. Zero DOM dependencies; runs in Web Workers and Node.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "sideEffects": false,
+  "scripts": { "typecheck": "tsc -p tsconfig.json" },
+  "dependencies": { "zod": "^4.6.7" }
+}
