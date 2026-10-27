@@ -31,11 +31,13 @@ export function GuidePanel() {
           aria-label="Jump to section"
           value=""
           onChange={(e) => {
+            // read the value now: React resets this controlled select before the next frame
+            const id = e.target.value;
             setQ('');
-            requestAnimationFrame(() => box.current?.querySelector(`#g-${e.target.value}`)?.scrollIntoView({ block: 'start' }));
+            requestAnimationFrame(() => box.current?.querySelector(`#g-${id}`)?.scrollIntoView({ block: 'start' }));
           }}
         >
-          <option value="">Sections…</option>
+          <option value="">Go to…</option>
           {sections.map((s) => (
             <option key={s.title} value={slug(s.title)}>
               {s.title}

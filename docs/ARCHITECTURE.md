@@ -63,6 +63,13 @@ fixtures/           Golden-reference fixtures (hand-computed today; reference CS
   across linked panes.
 - **Layout:** `dockview-react`, with the layout JSON persisted per workspace and saved layouts restoring both the grid and the
   docks.
+- **Two shells.** `App` picks `DesktopShell` (top bar, drawing rail, dock) or `MobileShell` (full-screen chart, bottom tabs,
+  panels full screen) from a media query, and sets `data-shell` on `<html>` for the `mobile:` CSS variant. Both are lazy
+  chunks; the dock library lives only in the desktop chunk. Panels are shared through `components/panelRegistry.tsx`.
+  `openPanel()` focuses a dock panel on desktop and switches tabs on phones.
+- **Chunks.** Workspace packages plus app `state/` and `lib/` form one `core` chunk that every feature chunk depends on. Without
+  that grouping, the bundler produced cross-chunk import cycles that broke module initialization order. Check with any chunk
+  graph tool after changing `manualChunks`.
 
 ## Vercel adaptation of the original stack
 

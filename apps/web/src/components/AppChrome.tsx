@@ -84,7 +84,7 @@ export const SHORTCUTS: [string, string][] = [
   ['Ctrl/⌘ Z · Ctrl/⌘ Y', 'Undo · Redo (drawings)'],
   ['← / →', 'Scroll chart'],
   ['+ / −', 'Zoom in / out'],
-  ['Alt R… (Shift ← / →)', 'Replay step back / forward'],
+  ['Shift ← / →', 'Replay: step back / forward'],
   ['Alt S', 'Snapshot active chart'],
   ['Alt 1…8', 'Focus chart pane N'],
   ['?', 'This help'],
@@ -93,7 +93,17 @@ export const SHORTCUTS: [string, string][] = [
 export function ShortcutsDialog() {
   const open = useUi((s) => s.shortcutsOpen);
   return (
-    <Modal open={open} onOpenChange={(o) => useUi.getState().set({ shortcutsOpen: o })} title="Keyboard shortcuts" width={520}>
+    <Modal
+      open={open}
+      onOpenChange={(o) => useUi.getState().set({ shortcutsOpen: o })}
+      title="Keyboard shortcuts"
+      width={520}
+      footer={
+        <button className="btn" onClick={() => (useUi.getState().set({ shortcutsOpen: false }), openPanel('guide'))}>
+          Open the full guide
+        </button>
+      }
+    >
       <table className="table">
         <tbody>
           {SHORTCUTS.map(([k, v]) => (

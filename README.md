@@ -48,6 +48,10 @@ static app plus one Node function.
   streams a plain-English briefing. Without an API key it falls back to a deterministic rule-based summary.
 - Command palette (Ctrl/⌘ K), TradingView-style hotkeys, dark and light themes, a colorblind-safe palette, and offline
   caching through a service worker.
+- **Phones:** a dedicated layout with a full-screen chart, bottom tabs (Chart, Watchlist, DeMark, Alerts, More), full-screen
+  panels and dialogs, touch-sized controls and an installable home-screen app. Phones never download the desktop dock.
+- **Built-in guide:** `docs/WALKTHROUGH.md` covers every tool and six strategic playbooks. It's also readable and searchable
+  inside the app (desktop: Panels → Guide; phone: More → Guide).
 
 ## Quick start
 
@@ -111,6 +115,7 @@ support `split`, `all` and `none` adjustment.
 
 ## Docs
 
+- `docs/WALKTHROUGH.md`: user guide: every feature, plus strategic playbooks
 - `docs/SPEC.md`: product spec
 - `docs/INDICATORS.md`: study rules
 - `docs/VERIFY_LOG.md`: uncertain rules and the tests that pin them

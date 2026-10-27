@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.0 — 2026-10-27
+
+### Phones
+- Dedicated mobile shell: the active chart fills the screen; Watchlist, DeMark status, Alerts and More are bottom tabs; panels
+  open full screen with a back button; dialogs become full-screen sheets; drawing tools are a swipeable strip; the tab bar
+  turns compact in landscape.
+- Touch sizing (36 px minimum targets, 16 px inputs so iOS doesn't zoom), safe-area insets, no double-tap delay, horizontal
+  scrolling for wide tables, and PNG app icons with web-app metadata for home-screen install.
+- The desktop dock is lazy-loaded, so phones never download it.
+
+### Guide
+- `docs/WALKTHROUGH.md`: every feature, how to read each DeMark-style study, and six strategic playbooks, with keyboard and
+  settings references. Rendered in-app as the **Guide** panel, with search and section jumps.
+- The Markdown renderer now joins soft-wrapped lines and supports tables and fenced code (this also helps analyst briefings).
+
+### Fixes
+- Switching between two symbols that both had data crashed the chart: the previous symbol's results were drawn against the
+  new bars. Results now reset on a series change, and the renderer ignores stale results.
+- Bars finalize at the real session close (a daily NYSE bar no longer stays provisional overnight), and resampled buckets
+  stay provisional until their period ends.
+- Pressing Enter quickly in symbol search no longer picks the previous search's first result.
+- Watchlist rows are reachable by keyboard; the shortcut list no longer shows a wrong replay binding.
+- A build-time chunk cycle that could break module initialization was removed (one acyclic `core` chunk).
+
 ## 0.1.0 — 2026-10-27 (first run)
 
 All of SPEC §9 was built in one pass at Brian's request ("as advanced as possible in first run"). The GATE demos were not

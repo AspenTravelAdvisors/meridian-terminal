@@ -48,7 +48,9 @@ test('More opens panels full screen with a back button', async ({ page }) => {
   await expect(page.getByRole('cell', { name: '20 bars' })).toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: /^Guide/ }).click();
-  await expect(page.getByPlaceholder('Search the guide')).toBeVisible();
+  await expect(page.locator('.guide table').first()).toBeVisible();
+  await page.getByPlaceholder('Search the guide').fill('TDST');
+  await expect(page.locator('.guide section').first()).toContainText('TDST');
 });
 
 test('dialogs become full-screen sheets', async ({ page }) => {
