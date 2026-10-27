@@ -174,7 +174,12 @@ body {
   }
   .input {
     height: 36px;
-    font-size: 16px; /* below 16px iOS zooms the page on focus */
+  }
+  /* below 16px iOS zooms the page on focus and stays zoomed, pushing dialog close buttons off screen */
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file']),
+  select,
+  textarea {
+    font-size: 16px;
   }
   textarea.input {
     height: auto;

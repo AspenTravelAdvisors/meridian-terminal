@@ -70,6 +70,19 @@ test('More opens panels full screen with a back button', async ({ page }) => {
   await expect(page.locator('.guide section').first()).toContainText('TDST');
 });
 
+test('text fields are at least 16 px so iOS does not zoom on focus', async ({ page }) => {
+  await page.getByRole('button', { name: 'Studies' }).click();
+  const search = page.getByRole('dialog').getByLabel('Search studies');
+  await expect(search).toBeVisible();
+  await expect(search).not.toBeFocused();
+  expect(await search.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Symbol search' }).click();
+  const sym = page.getByPlaceholder(/Symbol, name/);
+  await expect(sym).toBeVisible();
+  expect(await sym.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+});
+
 test('dialogs become full-screen sheets', async ({ page }) => {
   await page.getByRole('button', { name: 'Studies' }).click();
   const dlg = page.getByRole('dialog');

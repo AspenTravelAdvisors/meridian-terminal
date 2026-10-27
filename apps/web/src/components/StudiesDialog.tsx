@@ -1,6 +1,7 @@
 import { type AnyStudyDef, CATEGORIES, type Category, type JsonSchema, STUDIES, defaultsOf, getStudy, inputsSchema, resolveConfig } from '@meridian/engine';
 import { AlertTriangle, RotateCcw, Search, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useIsMobile } from '../lib/useMedia';
 import { activePane, newStudy, useLayouts, useScripts, useStudyDefaults, useUi, useWorkspace } from '../state/store';
 import type { OutputStyle, StudyInstanceCfg, TfBucket } from '../state/types';
 import { Field, Modal, Switch, TabPanel, Tabs } from './ui';
@@ -28,6 +29,7 @@ export function StudiesDialog() {
   const toggleFav = useStudyDefaults((s) => s.toggleFavorite);
   const templates = useLayouts((s) => s.templates);
   const scripts = useScripts((s) => s.scripts);
+  const mobile = useIsMobile(); // on a phone, focusing search on open would cover the list with the keyboard
   const paneStudies = useWorkspace((s) => (s.panes.find((p) => p.id === s.activePaneId) ?? s.panes[0])?.studies);
   // how many of each study the active chart already has, so a second tap is never a silent duplicate
   const onChart = useMemo(() => {
@@ -63,7 +65,7 @@ export function StudiesDialog() {
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">
             <Search className="size-4 text-dim" />
-            <input autoFocus className="h-7 flex-1 bg-transparent outline-none placeholder:text-faint" placeholder="Search studies…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search studies" />
+            <input autoFocus={!mobile} className="h-7 flex-1 bg-transparent outline-none placeholder:text-faint" placeholder="Search studies…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search studies" />
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
             {!q && cat === 'Templates' ? (
