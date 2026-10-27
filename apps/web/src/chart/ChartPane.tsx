@@ -617,6 +617,8 @@ function Legend({ surface: p, i, paneTops }: { surface: SurfaceProps; i: number;
   const showValues = useSettings((s) => s.showLegendValues);
   const ws = useWorkspace.getState();
   const ui = useUi.getState();
+  // touch has no hover: tapping a study name toggles its controls
+  const [openUid, setOpenUid] = useState<string | null>(null);
   const chg = b && prev ? b.c - prev.c : 0;
   const byUid = useMemo(() => new Map(p.results.map((r) => [r.id, r])), [p.results]);
   // which pane each non-overlay study occupies (same rule as the renderer)
@@ -629,6 +631,13 @@ function Legend({ surface: p, i, paneTops }: { surface: SurfaceProps; i: number;
     }
     if (!def || def.overlay || c.id === 'volume') return 0;
     return def.outputs(c.cfg).some((o) => o.kind === 'line' || o.kind === 'histogram') ? next++ : 0;
+  });
+  // Toggle on pointerup: Chromium's touch adjustment can retarget a tap's click onto the chart canvas next to this small
+  // label. Keyboard activation still arrives as a click with detail 0.
+  const toggleProps = (uid: string) => ({
+    'aria-expanded': openUid === uid,
+    onPointerUp: () => setOpenUid(openUid === uid ? null : uid),
+    onClick: (e: React.MouseEvent) => e.detail === 0 && setOpenUid(openUid === uid ? null : uid),
   });
   const row = (c: StudyInstanceCfg) => {
     const def = getStudy(c.id);
@@ -651,14 +660,14 @@ function Legend({ surface: p, i, paneTops }: { surface: SurfaceProps; i: number;
     const err = (r as (StudyResult & { error?: string }) | undefined)?.error ?? sp?.error;
     return (
       <div key={c.uid} className="legend-row group flex items-center gap-1.5">
-        <span className="font-medium text-text">{name}</span>
+        <button type="button" className="font-medium text-text" aria-label={`${name} controls`} {...toggleProps(c.uid)}>{name}</button>
         {nums && <span className="text-faint">{nums}</span>}
         {r?.provisional && <span className="rounded bg-raised px-1 text-[9px] uppercase tracking-wide text-warn" title="Forming bar — counts are provisional until the bar closes">prov</span>}
         {err && <span className="text-danger" title={err}>⚠</span>}
         {vals.map((x) => (
           <span key={x.id} className="tabular-nums text-dim">{c.id === 'volume' ? fmtVol(Math.abs(x.v!)) : fmtPrice(x.v!)}</span>
         ))}
-        <span className="pointer-events-auto ml-1 hidden items-center gap-0.5 group-hover:flex">
+        <span className={`pointer-events-auto ml-1 items-center gap-0.5 group-focus-within:flex group-hover:flex ${openUid === c.uid ? 'flex' : 'hidden'}`}>
           <button className="icon-btn" title="Hide" aria-label={`Hide ${name}`} onClick={() => ws.updateStudy(p.pane.id, c.uid, { visible: false })}><EyeOff className="size-3" /></button>
           {c.id !== 'script' && <button className="icon-btn" title="Settings" aria-label={`${name} settings`} onClick={() => ui.set({ studySettings: { paneId: p.pane.id, uid: c.uid } })}><Settings2 className="size-3" /></button>}
           <button className="icon-btn" title="Remove" aria-label={`Remove ${name}`} onClick={() => ws.removeStudy(p.pane.id, c.uid)}><X className="size-3" /></button>

@@ -28,6 +28,13 @@ export function StudiesDialog() {
   const toggleFav = useStudyDefaults((s) => s.toggleFavorite);
   const templates = useLayouts((s) => s.templates);
   const scripts = useScripts((s) => s.scripts);
+  const paneStudies = useWorkspace((s) => (s.panes.find((p) => p.id === s.activePaneId) ?? s.panes[0])?.studies);
+  // how many of each study the active chart already has, so a second tap is never a silent duplicate
+  const onChart = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const st of paneStudies ?? []) n.set(st.id, (n.get(st.id) ?? 0) + 1);
+    return n;
+  }, [paneStudies]);
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -88,6 +95,7 @@ export function StudiesDialog() {
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{d.name}</span>
                         <span className="text-[10px] text-faint">{d.overlay ? 'overlay' : 'pane'}</span>
+                        {onChart.has(d.id) && <span className="chip bg-accent/15 text-accent" title="Already on the active chart — remove copies from the chart legend or the Object Tree">on chart{onChart.get(d.id)! > 1 ? ` ×${onChart.get(d.id)}` : ''}</span>}
                         {d.verify?.length ? <span className="chip bg-warn/15 text-warn" title="Has ⚠ VERIFY parameters — see docs/VERIFY_LOG.md">⚠ verify</span> : null}
                       </div>
                       <div className="mt-0.5 line-clamp-2 text-[11px] text-dim">{d.description}</div>

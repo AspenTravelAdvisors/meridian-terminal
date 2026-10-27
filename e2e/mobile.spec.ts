@@ -30,6 +30,23 @@ test('touch targets are at least 36 px', async ({ page }) => {
   expect(small).toEqual([]);
 });
 
+test('tapping a study name in the legend reveals its remove button', async ({ page }) => {
+  const toggle = page.getByRole('button', { name: /controls$/ }).first();
+  const name = (await toggle.getAttribute('aria-label'))!.replace(/ controls$/, '');
+  const count = await page.getByRole('button', { name: `${name} controls` }).count();
+  const remove = page.getByRole('button', { name: `Remove ${name}` }).first();
+  await expect(remove).toBeHidden();
+  await toggle.tap();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await remove.tap();
+  await expect(page.getByRole('button', { name: `${name} controls` })).toHaveCount(count - 1);
+});
+
+test('the attribution link to tradingview.com is on the More page', async ({ page }) => {
+  await nav(page, 'More').click();
+  await expect(page.getByRole('link', { name: 'Charts by TradingView Lightweight Charts™' })).toHaveAttribute('href', 'https://www.tradingview.com/');
+});
+
 test('picking a symbol from the watchlist returns to the chart', async ({ page }) => {
   await page.getByRole('button', { name: 'Symbol search' }).click();
   await page.getByPlaceholder(/Symbol, name/).fill('SIM:TREND');
