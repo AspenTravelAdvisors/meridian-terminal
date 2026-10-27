@@ -9,6 +9,8 @@ export interface ServerEnv {
   ALLOWED_ORIGINS?: string;
   RESEND_API_KEY?: string;
   ALERT_EMAIL_FROM?: string;
+  /** comma-separated addresses alert emails may go to; email is off when unset */
+  ALERT_EMAIL_TO?: string;
 }
 
 export class HttpError extends Error {

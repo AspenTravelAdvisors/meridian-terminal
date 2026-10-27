@@ -89,7 +89,7 @@ Import the repository in Vercel (framework preset "Other"), then set any environ
 | `TWELVE_DATA_API_KEY` | optional equities/FX provider |
 | `ALPACA_KEY_ID`, `ALPACA_SECRET` | optional US equities provider |
 | `ALLOWED_ORIGINS` | comma-separated CORS allow-list for the API |
-| `RESEND_API_KEY`, `ALERT_EMAIL_FROM` | email delivery for alerts |
+| `RESEND_API_KEY`, `ALERT_EMAIL_FROM`, `ALERT_EMAIL_TO` | email delivery for alerts; only to the addresses listed in `ALERT_EMAIL_TO` |
 
 Secrets are read only on the server and never logged.
 

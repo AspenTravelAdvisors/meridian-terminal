@@ -55,7 +55,7 @@ describe('API', () => {
   });
 });
 
-import { assertPublicHttps, isPrivateAddress } from '../src/routes/notify';
+import { assertPublicHttps, isPrivateAddress, notifyRoute } from '../src/routes/notify';
 describe('notify SSRF guard', () => {
   it('rejects private, non-https and credentialed targets', async () => {
     for (const ip of ['127.0.0.1', '10.1.2.3', '172.20.0.1', '192.168.1.1', '169.254.169.254', '::1', '::ffff:10.0.0.1', 'fd00::1']) expect(isPrivateAddress(ip)).toBe(true);
@@ -66,5 +66,36 @@ describe('notify SSRF guard', () => {
     await expect(assertPublicHttps('https://169.254.169.254/latest', pub)).rejects.toThrow(/private/);
     await expect(assertPublicHttps('https://rebind.example/', async () => ['10.0.0.5'])).rejects.toThrow(/private/);
     await expect(assertPublicHttps('https://hooks.example.com/x', pub)).resolves.toBeInstanceOf(URL);
+  });
+});
+
+describe('notify email recipients', () => {
+  const sent: string[] = [];
+  const fakeFetch = (async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(String(init.body)).to[0]);
+    return new Response('{}', { status: 200 });
+  }) as unknown as typeof fetch;
+  const post = (to: string, ip: string) =>
+    new Request('https://app.test/api/notify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': ip },
+      body: JSON.stringify({ channel: 'email', to, subject: 's', text: 't' }),
+    });
+  const env = { RESEND_API_KEY: 'test-key', ALERT_EMAIL_TO: 'Me@Example.com, alerts@example.org' };
+
+  it('sends only to addresses in ALERT_EMAIL_TO (case-insensitive)', async () => {
+    const r = await notifyRoute(post('me@example.com', '203.0.113.1'), env, fakeFetch);
+    expect(r.status).toBe(200);
+    expect(sent).toEqual(['me@example.com']);
+  });
+
+  it('refuses any other recipient without calling the mail API', async () => {
+    sent.length = 0;
+    await expect(notifyRoute(post('stranger@example.net', '203.0.113.2'), env, fakeFetch)).rejects.toMatchObject({ status: 403 });
+    expect(sent).toEqual([]);
+  });
+
+  it('is off when ALERT_EMAIL_TO is unset, even with a Resend key', async () => {
+    await expect(notifyRoute(post('me@example.com', '203.0.113.3'), { RESEND_API_KEY: 'test-key' }, fakeFetch)).rejects.toMatchObject({ status: 501 });
   });
 });

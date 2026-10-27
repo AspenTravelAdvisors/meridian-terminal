@@ -37,7 +37,11 @@ export async function assertPublicHttps(raw: string, resolve: (h: string) => Pro
   return u;
 }
 
-export async function notifyRoute(req: Request, env: ServerEnv & { RESEND_API_KEY?: string; ALERT_EMAIL_FROM?: string }, fetcher: typeof fetch): Promise<Response> {
+/** Recipients alert emails may go to (ALERT_EMAIL_TO, comma-separated, case-insensitive). Empty → email is off. */
+export const allowedRecipients = (env: ServerEnv): string[] =>
+  (env.ALERT_EMAIL_TO ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+
+export async function notifyRoute(req: Request, env: ServerEnv, fetcher: typeof fetch): Promise<Response> {
   rateLimit(req, 'notify', 30);
   const b = await body(req, notifyBody, 20_000);
   if (b.channel === 'webhook') {
@@ -46,6 +50,10 @@ export async function notifyRoute(req: Request, env: ServerEnv & { RESEND_API_KE
     return json({ ok: r.ok, status: r.status });
   }
   if (!env.RESEND_API_KEY) throw new HttpError(501, 'email delivery is not configured (set RESEND_API_KEY)');
+  // Only to configured owner addresses, so this endpoint can't relay mail to arbitrary recipients.
+  const allowed = allowedRecipients(env);
+  if (!allowed.length) throw new HttpError(501, 'email delivery is not configured (set ALERT_EMAIL_TO to the addresses alerts may go to)');
+  if (!allowed.includes(b.to.toLowerCase())) throw new HttpError(403, 'this address is not in ALERT_EMAIL_TO');
   const r = await fetcher('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
