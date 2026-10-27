@@ -166,10 +166,18 @@ export const demarker1: StudyDef<DeMarker1Cfg, Dem1State> = {
 // ── DeMarker II (INDICATORS §6.4, ⚠ VERIFY components) ─────────────────────
 export const demarker2Schema = z.object({
   length: int(8, 2, 100, { title: 'Length' }),
-  bpHighVsPriorClose: bool(true, { title: 'BP: max(0, H − prior C)', group: 'Components', verify: 'INDICATORS §6.4' }),
-  bpCloseVsTrueLow: bool(true, { title: 'BP: C − true low', group: 'Components', verify: 'INDICATORS §6.4' }),
-  spPriorCloseVsLow: bool(true, { title: 'SP: max(0, prior C − L)', group: 'Components', verify: 'INDICATORS §6.4' }),
-  spTrueHighVsClose: bool(true, { title: 'SP: true high − C', group: 'Components', verify: 'INDICATORS §6.4' }),
+  rangeBasis: choice(['plain', 'true'] as const, 'plain', {
+    title: 'Close vs bar range',
+    group: 'Components',
+    description: 'plain: BP uses C − L and SP uses H − C · true: C − true low and true high − C.',
+    verify: 'INDICATORS §6.4',
+  }),
+  clampPriorClose: bool(true, {
+    title: 'Clamp prior-close terms at 0',
+    group: 'Components',
+    description: 'Use max(0, H − prior C) and max(0, prior C − L); off uses the raw differences, which gaps can push below 0.',
+    verify: 'INDICATORS §6.4',
+  }),
   ...zoneShape(60, 40),
 });
 export type DeMarker2Cfg = z.infer<typeof demarker2Schema>;
@@ -186,10 +194,13 @@ export const demarker2: StudyDef<DeMarker2Cfg, Dem2State> = {
   shortName: 'DeM II',
   version: '1.0.0',
   category: 'DeMark',
-  description: 'Buying pressure vs selling pressure built from prior-close and true-range components, summed over n bars (0–100). Components are individually switchable pending verification.',
+  description: 'Buying pressure max(0, H − prior C) + (C − L) vs selling pressure max(0, prior C − L) + (H − C), summed over n bars (0–100).',
   overlay: false,
   schema: demarker2Schema,
-  verify: [{ key: 'bpHighVsPriorClose', note: 'INDICATORS §6.4 component definitions' }],
+  verify: [
+    { key: 'rangeBasis', note: 'INDICATORS §6.4' },
+    { key: 'clampPriorClose', note: 'INDICATORS §6.4' },
+  ],
   outputs: (cfg) => zoneOutputs('dem2', 'DeMarker II', cfg.overbought, cfg.oversold),
   signals: zoneSignalSpecs('DEM2'),
   init: (cfg) => ({ sbp: sumInit(cfg.length), ssp: sumInit(cfg.length), zone: zoneInit(), v: NaN }),
@@ -198,8 +209,11 @@ export const demarker2: StudyDef<DeMarker2Cfg, Dem2State> = {
     if (i < 1) return;
     const C = x.c[i];
     const C1 = x.c[i - 1];
-    const bp = (cfg.bpHighVsPriorClose ? Math.max(0, x.h[i] - C1) : 0) + (cfg.bpCloseVsTrueLow ? C - trueLow(x, i) : 0);
-    const sp = (cfg.spPriorCloseVsLow ? Math.max(0, C1 - x.l[i]) : 0) + (cfg.spTrueHighVsClose ? trueHigh(x, i) - C : 0);
+    const plain = cfg.rangeBasis === 'plain';
+    const hc = x.h[i] - C1;
+    const cl = C1 - x.l[i];
+    const bp = (cfg.clampPriorClose ? Math.max(0, hc) : hc) + C - (plain ? x.l[i] : trueLow(x, i));
+    const sp = (cfg.clampPriorClose ? Math.max(0, cl) : cl) + (plain ? x.h[i] : trueHigh(x, i)) - C;
     sumPush(st.sbp, bp);
     sumPush(st.ssp, sp);
     if (!sumFull(st.sbp)) return;

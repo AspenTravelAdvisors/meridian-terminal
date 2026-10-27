@@ -264,7 +264,7 @@ export interface GeoSegment {
   src?: string;
 }
 export interface PivotPath {
-  points: { i: number; price: number; label: string; locked: boolean }[];
+  points: { i: number; price: number; label: string; locked: boolean; first?: { i: number; price: number } }[];
   color: string;
   src?: string;
 }
@@ -418,6 +418,15 @@ export class LevelsPrimitive extends BasePrimitive {
           else {
             ctx.lineWidth = 1;
             ctx.strokeText(pt.label, x, ty);
+          }
+        }
+        // "+" where the wave was first recognised before it shifted right
+        if (pt.first) {
+          const fx = this.x(pt.first.i);
+          const fy = this.y(pt.first.price);
+          if (fx !== null && fy !== null) {
+            ctx.fillStyle = p.color;
+            ctx.fillText('+', fx, peak ? fy - 8 : fy + 16);
           }
         }
       });

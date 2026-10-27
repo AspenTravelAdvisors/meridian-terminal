@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### DeMark-style rules reconciled with Symbolik
+
+Rules were checked against Symbolik's DeMARK help pages (public Sequential article and the subscriber "Indicator Descriptions"
+article) and changed to match. Details, previous behaviour and what is still open are in `docs/VERIFY_LOG.md`. Old behaviour
+is available as a config option where noted. Studies already on a saved chart keep the input values they were saved with
+(renamed or removed inputs take the new defaults); use **Reset inputs** in the Studies dialog, or re-add the study, to get the
+new defaults everywhere.
+
+- **Sequential / Combo:** TDST cancellation now needs the whole bar beyond the level; recycling at 100–200% of the prior
+  setup size or when a later setup reaches 22 bars; strict perfection. Sequential gains elective **Intersection** (postpones
+  the countdown start) and **8 vs 5** deferral; both show the 13 chip for the **12-bar** reaction window.
+- **D-Wave:** built on N-bar highs/lows (at or above the previous N bars); a `+` marks where a wave was first recognised.
+- **DeMarker II:** plain low/high components. **Anti-Differential:** down, down, up, down with the up-bar low check, now on,
+  with a follow-through signal. **Reverse Differential** is off by default (unresolved).
+- **TD MA I** breakout confirmation signals; **TD MA II** is now short/long moving averages on the price chart.
+- **Range Projection** uses true high/low and adds buffer levels for outside opens; **REBO** 23.6% / 61.8% with base, range
+  type and averaging; **TD Open** reverses to the prior close; **Trend Factor** auto pivot follows 5.56% swings; Points and
+  Lines go up to level 21.
+
 ### Charts
 - Chart elements explain themselves: hover a count, marker, level, line, cloud, wave label or the heat strip for a tooltip;
   click or tap for a card with what it means, its value and date, the study description and a settings shortcut. The engine's

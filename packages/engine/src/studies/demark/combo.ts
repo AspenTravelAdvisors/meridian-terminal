@@ -15,8 +15,8 @@ import {
   mL,
   newCountdown,
   newSetupSide,
+  longSetupRecycle,
   newSetupStep,
-  reachedRecycleCount,
   setupShape,
   setupStep,
   shouldRecycle,
@@ -33,13 +33,12 @@ export const comboSchema = z.object({
   }),
   v2From: int(11, 2, 13, { title: 'v2 relaxed from countdown #', group: 'Countdown', verify: 'INDICATORS §2 / VERIFY_LOG "bar 11+"' }),
   countdownLength: int(13, 5, 30, { title: 'Countdown length', group: 'Countdown' }),
-  ...countdownMgmtShape,
-  cancelOnIntersectionFailure: bool(false, {
-    title: 'Cancel on intersection failure',
-    group: 'Cancellation',
-    description: 'Setup bar 8 or 9 must overlap a setup bar three or more bars earlier, otherwise no countdown.',
-    verify: 'INDICATORS §1.6(c) — the reference applies Intersection to Sequential only; default off.',
+  reactionBars: int(12, 1, 50, {
+    title: 'Reaction window after 13 (bars)',
+    group: 'Countdown',
+    description: '12-bar rule: a reversal should follow a 13 within this many bars; the status chip stays up for the window.',
   }),
+  ...countdownMgmtShape,
   showSetup: bool(false, { title: 'Show setup counts', group: 'Display', description: 'Off by default so Sequential and Combo can share a chart.' }),
   showCountdown: bool(true, { title: 'Show combo countdown', group: 'Display' }),
   markerRow: int(2, 0, 5, { title: 'Marker row', group: 'Display', description: 'Stacking row so Combo numbers sit beyond Sequential’s.' }),
@@ -117,20 +116,16 @@ export function comboStep(cfg: ComboCfg, st: ComboState, x: SeriesCtx, w: Writer
     }
 
     const done = step.completed;
-    if (done) {
-      side.last = done;
-      const blocked = cfg.cancelOnIntersectionFailure && !done.intersect;
-      const restart = !side.cd.active ? !blocked : shouldRecycle(cfg, side.cd, done);
-      if (restart) {
-        if (side.cd.active) w.signal(`${P}_${name}_CD_RECYCLE`, 'neutral', x.c[i]);
-        // Combo countdown begins on setup bar 1: evaluate bars 1…9 retroactively now that the setup is known.
-        startCountdown(side.cd, done, done.i1);
-        for (let j = done.i1; j <= i; j++) evalBar(cfg, side, x, s, j, w, P);
-        continue;
-      }
-    } else if (reachedRecycleCount(cfg, side.su) && side.cd.active && side.last) {
-      startCountdown(side.cd, side.last, i);
-      w.signal(`${P}_${name}_CD_RECYCLE`, 'neutral', x.c[i], `setup reached ${cfg.recycleSetupCount}`);
+    if (done) side.last = done;
+    // Start on a fresh setup, or recycle on a qualifying later setup (size test at its 9, or the long-setup count).
+    const longRecycle = !done && longSetupRecycle(cfg, side.cd, side.su, side.last);
+    const from = done ?? (longRecycle ? side.last : null);
+    if (from && (!side.cd.active || longRecycle || shouldRecycle(cfg, side.cd, from))) {
+      if (side.cd.active) w.signal(`${P}_${name}_CD_RECYCLE`, 'neutral', x.c[i], longRecycle ? `setup reached ${cfg.recycleSetupCount}` : undefined);
+      // Combo countdown begins on setup bar 1: evaluate bars 1…i retroactively now that the setup is known.
+      startCountdown(side.cd, from, from.i1);
+      for (let j = from.i1; j <= i; j++) evalBar(cfg, side, x, s, j, w, P);
+      continue;
     }
     evalBar(cfg, side, x, s, i, w, P);
   }
@@ -154,7 +149,7 @@ export function comboStatus(cfg: ComboCfg, st: ComboState, x: SeriesCtx): StudyS
     const s: Sg = k === 0 ? 1 : -1;
     const dir = s > 0 ? 'bull' : 'bear';
     if (side.cd.active) chips.push({ text: `Combo ${SIDE_UP(s)} ${side.cd.count}`, dir, strength: side.cd.count / cfg.countdownLength });
-    if (side.last13 >= 0 && last - side.last13 <= 5) chips.push({ text: `Combo ${cfg.countdownLength} ✓`, dir, strength: 1 });
+    if (side.last13 >= 0 && last - side.last13 <= cfg.reactionBars) chips.push({ text: `Combo ${cfg.countdownLength} ✓`, dir, strength: 1 });
   });
   const [b, s] = st.sides;
   return {

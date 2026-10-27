@@ -28,7 +28,7 @@ export function confirmedPointAt(x: SeriesCtx, s: Sg, i: number, n: number): Poi
 }
 
 export const pointsSchema = z.object({
-  level: int(2, 1, 10, { title: 'Point level (bars each side)' }),
+  level: int(2, 1, 21, { title: 'Point level (bars each side)' }),
   showLevels: bool(true, { title: 'Show last point levels' }),
   showProvisional: bool(true, { title: 'Show unconfirmed candidates' }),
 });
@@ -95,20 +95,43 @@ export const tdPoints: StudyDef<PointsCfg, PointsState> = {
 
 // ── Trend Factor (INDICATORS §6.10) ─────────────────────────────────────────
 export const trendFactorSchema = z.object({
-  pivotMode: choice(['auto', 'manual'] as const, 'auto', { title: 'Pivot', description: 'auto: most recent level-3 point (high or low).' }),
+  pivotMode: choice(['auto', 'point', 'manual'] as const, 'auto', {
+    title: 'Pivot',
+    description: 'auto: the latest swing extreme once price has moved one step (5.56%) from the prior swing · point: latest TD Point · manual.',
+    verify: 'INDICATORS §6.10',
+  }),
   manualPivot: num(0, 0, 1e9, { title: 'Manual pivot price', step: 0.01 }),
-  pointLevel: int(3, 1, 10, { title: 'Auto pivot point level' }),
+  pointLevel: int(3, 1, 21, { title: 'Point pivot level' }),
   step: num(0.0556, 0.001, 0.5, { title: 'Step (fraction)', step: 0.0001 }),
 });
 export type TrendFactorCfg = z.infer<typeof trendFactorSchema>;
 
-export const trendFactor: StudyDef<TrendFactorCfg, { pivot: number }> = {
+interface TrendFactorState {
+  pivot: number;
+  /** auto pivot: +1 tracking a reference high, −1 a reference low, 0 not yet established */
+  dir: number;
+  /** bar of the running swing extreme (peak when dir = +1, trough when dir = −1) */
+  ext: number;
+  /** before the first swing: bars of the lowest low and highest high so far */
+  lo: number;
+  hi: number;
+}
+
+/** Reference price of a swing bar: its high (low) if it closed up (down) on the prior close, otherwise its close. */
+function refPrice(x: SeriesCtx, i: number, high: boolean): number {
+  const c1 = i > 0 ? x.c[i - 1] : x.c[i];
+  if (high) return x.c[i] > c1 ? x.h[i] : x.c[i];
+  return x.c[i] < c1 ? x.l[i] : x.c[i];
+}
+
+export const trendFactor: StudyDef<TrendFactorCfg, TrendFactorState> = {
   id: 'td-trend-factor',
   name: 'DeMark-style Trend Factor',
   shortName: 'TF',
   version: '1.0.0',
   category: 'DeMark',
-  description: 'Levels at ±5.56% steps from a pivot (11.1% and 22.2% emphasized). Pivot is manual or the latest level-3 point.',
+  description:
+    'Levels at ±5.56% steps from a pivot (11.1% and 22.2% emphasized). The auto pivot is the latest swing high (low) once price has rallied (declined) 5.56% from the prior swing; manual or TD Point pivots are also available.',
   overlay: true,
   schema: trendFactorSchema,
   outputs: () => [
@@ -116,10 +139,37 @@ export const trendFactor: StudyDef<TrendFactorCfg, { pivot: number }> = {
     ...[1, 2, 3, 4].map((k) => ({ kind: 'line' as const, id: `dn${k}`, title: `−${(k * 5.56).toFixed(1)}%`, color: 'bull' as const, render: 'level' as const, width: k % 2 === 0 ? 2 : 1, style: k % 2 === 0 ? ('solid' as const) : ('dotted' as const), label: `−${(k * 5.56).toFixed(1)}%` })),
     { kind: 'line', id: 'pivot', title: 'Pivot', color: 'muted', render: 'level', style: 'dashed', label: 'TF pivot' },
   ],
-  init: () => ({ pivot: NaN }),
+  init: () => ({ pivot: NaN, dir: 0, ext: -1, lo: -1, hi: -1 }),
   update(cfg, st, x, w) {
+    const i = w.i;
     if (cfg.pivotMode === 'manual') st.pivot = cfg.manualPivot > 0 ? cfg.manualPivot : NaN;
-    else {
+    else if (cfg.pivotMode === 'auto') {
+      // 5.56% swing tracking (INDICATORS §6.10): a rally of one step from the swing low makes the peak the reference
+      // high; it follows new highs until a one-step decline from it makes the trough the reference low, and so on.
+      const up = 1 + cfg.step;
+      const dn = 1 - cfg.step;
+      if (st.dir === 0) {
+        if (st.lo < 0 || x.l[i] < x.l[st.lo]) st.lo = i;
+        if (st.hi < 0 || x.h[i] > x.h[st.hi]) st.hi = i;
+        if (st.hi > st.lo && x.h[st.hi] >= x.l[st.lo] * up) {
+          st.dir = 1;
+          st.ext = st.hi;
+        } else if (st.lo > st.hi && x.l[st.lo] <= x.h[st.hi] * dn) {
+          st.dir = -1;
+          st.ext = st.lo;
+        }
+      } else if (st.dir > 0) {
+        if (x.l[i] <= x.h[st.ext] * dn) {
+          st.dir = -1;
+          st.ext = i;
+        } else if (x.h[i] > x.h[st.ext]) st.ext = i;
+      } else if (x.h[i] >= x.l[st.ext] * up) {
+        st.dir = 1;
+        st.ext = i;
+      } else if (x.l[i] < x.l[st.ext]) st.ext = i;
+      if (st.dir !== 0) st.pivot = refPrice(x, st.ext, st.dir > 0);
+      if (w.inspecting) w.inspect(`Trend Factor swing (${(cfg.step * 100).toFixed(2)}% step)`, st.dir !== 0, st.dir > 0 ? 'reference high' : st.dir < 0 ? 'reference low' : 'not yet');
+    } else {
       const ph = confirmedPointAt(x, 1, w.i, cfg.pointLevel);
       const pl = confirmedPointAt(x, -1, w.i, cfg.pointLevel);
       if (ph && pl) st.pivot = ph.i >= pl.i ? ph.p : -pl.p;
