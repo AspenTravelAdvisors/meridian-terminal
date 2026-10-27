@@ -39,7 +39,23 @@ export const INTERVAL_LABEL: Record<Interval, string> = {
 export const isIntraday = (iv: Interval): boolean => INTERVAL_MS[iv] < DAY;
 
 export type AssetType = 'stock' | 'etf' | 'index' | 'crypto' | 'fx' | 'future' | 'fund' | 'sim' | 'other';
-export type CalendarId = 'NYSE' | 'CME' | '24x7' | 'FX';
+export type CalendarId =
+  | 'NYSE'
+  | 'CME'
+  | '24x7'
+  | 'FX'
+  // non-US cash equity venues (regular session only; weekends excluded, local holidays are not modelled)
+  | 'TSX'
+  | 'LSE'
+  | 'XETRA'
+  | 'EURONEXT'
+  | 'SIX'
+  | 'BIT'
+  | 'BME'
+  | 'TSE'
+  | 'HKEX'
+  | 'ASX'
+  | 'NSE';
 export type ProviderId = 'yahoo' | 'binance' | 'coinbase' | 'stooq' | 'alpaca' | 'twelvedata' | 'sim' | 'csv';
 
 /** split = split-adjusted (default), all = split + dividend adjusted, none = raw prints. */

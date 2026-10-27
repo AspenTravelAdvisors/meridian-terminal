@@ -114,7 +114,10 @@ export function SymbolSearch() {
             <span className="w-40 shrink-0 truncate font-semibold">{s.symbol}</span>
             <span className="flex-1 truncate text-dim">{s.name}</span>
             <span className="text-[10px] uppercase text-faint">{s.type === 'sim' ? 'simulated' : s.type}</span>
-            <span className="w-24 truncate text-right text-[11px] text-faint">{s.exchange}</span>
+            <span className="w-28 truncate text-right text-[11px] text-faint">
+              {s.exchange}
+              {s.currency && s.currency !== 'USD' && s.type !== 'crypto' ? ` · ${s.currency}` : ''}
+            </span>
           </li>
         ))}
         {!list.length && <li className="px-3 py-6 text-center text-dim">No matches</li>}

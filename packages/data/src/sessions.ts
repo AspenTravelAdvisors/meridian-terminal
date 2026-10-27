@@ -75,12 +75,26 @@ export function nyseHolidays(y: number): string[] {
   return out.filter((d): d is string => d !== null);
 }
 
+const WEEKDAYS = [1, 2, 3, 4, 5];
+
 export const CALENDARS: Record<CalendarId, CalendarSpec> = {
   NYSE: { id: 'NYSE', timezone: 'America/New_York', open: 9 * 60 + 30, close: 16 * 60, days: [1, 2, 3, 4, 5], holidays: nyseHolidays },
   // CME Globex equity/rates: Sunday–Friday 17:00–16:00 Chicago with a daily one-hour break
   CME: { id: 'CME', timezone: 'America/Chicago', open: 17 * 60, close: 16 * 60, days: [0, 1, 2, 3, 4] },
   FX: { id: 'FX', timezone: 'America/New_York', open: 17 * 60, close: 17 * 60, days: [0, 1, 2, 3, 4] },
   '24x7': { id: '24x7', timezone: 'UTC', open: 0, close: 24 * 60, days: [0, 1, 2, 3, 4, 5, 6] },
+  TSX: { id: 'TSX', timezone: 'America/Toronto', open: 9 * 60 + 30, close: 16 * 60, days: WEEKDAYS },
+  LSE: { id: 'LSE', timezone: 'Europe/London', open: 8 * 60, close: 16 * 60 + 30, days: WEEKDAYS },
+  XETRA: { id: 'XETRA', timezone: 'Europe/Berlin', open: 9 * 60, close: 17 * 60 + 30, days: WEEKDAYS },
+  EURONEXT: { id: 'EURONEXT', timezone: 'Europe/Paris', open: 9 * 60, close: 17 * 60 + 30, days: WEEKDAYS },
+  SIX: { id: 'SIX', timezone: 'Europe/Zurich', open: 9 * 60, close: 17 * 60 + 30, days: WEEKDAYS },
+  BIT: { id: 'BIT', timezone: 'Europe/Rome', open: 9 * 60, close: 17 * 60 + 30, days: WEEKDAYS },
+  BME: { id: 'BME', timezone: 'Europe/Madrid', open: 9 * 60, close: 17 * 60 + 30, days: WEEKDAYS },
+  // Tokyo and Hong Kong have a lunch break; bars inside it simply never print, so only the outer bounds matter here
+  TSE: { id: 'TSE', timezone: 'Asia/Tokyo', open: 9 * 60, close: 15 * 60 + 30, days: WEEKDAYS },
+  HKEX: { id: 'HKEX', timezone: 'Asia/Hong_Kong', open: 9 * 60 + 30, close: 16 * 60, days: WEEKDAYS },
+  ASX: { id: 'ASX', timezone: 'Australia/Sydney', open: 10 * 60, close: 16 * 60, days: WEEKDAYS },
+  NSE: { id: 'NSE', timezone: 'Asia/Kolkata', open: 9 * 60 + 15, close: 15 * 60 + 30, days: WEEKDAYS },
 };
 
 const holidayCache = new Map<string, Set<string>>();

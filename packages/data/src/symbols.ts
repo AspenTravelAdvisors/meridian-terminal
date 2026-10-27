@@ -1,3 +1,4 @@
+import { CALENDARS } from './sessions';
 import type { AssetType, CalendarId, ProviderId, SymbolInfo } from './types';
 
 /** Parse "PROVIDER:TICKER" (provider optional) and route to a provider. */
@@ -18,16 +19,78 @@ export function parseSymbol(raw: string): { provider: ProviderId; ticker: string
 
 export const SYMBOL_RE = /^[A-Za-z0-9.\-^=:_/]{1,40}$/;
 
-export function calendarFor(type: AssetType, exchange = ''): CalendarId {
+/** Yahoo-style listing suffixes for non-US venues: calendar, currency and a display name. */
+const SUFFIX: Record<string, { calendar: CalendarId; currency: string; exchange: string }> = {
+  TO: { calendar: 'TSX', currency: 'CAD', exchange: 'Toronto' },
+  V: { calendar: 'TSX', currency: 'CAD', exchange: 'TSX Venture' },
+  NE: { calendar: 'TSX', currency: 'CAD', exchange: 'Cboe Canada' },
+  CN: { calendar: 'TSX', currency: 'CAD', exchange: 'CSE' },
+  L: { calendar: 'LSE', currency: 'GBp', exchange: 'London' },
+  IL: { calendar: 'LSE', currency: 'USD', exchange: 'London IOB' },
+  DE: { calendar: 'XETRA', currency: 'EUR', exchange: 'XETRA' },
+  F: { calendar: 'XETRA', currency: 'EUR', exchange: 'Frankfurt' },
+  PA: { calendar: 'EURONEXT', currency: 'EUR', exchange: 'Euronext Paris' },
+  AS: { calendar: 'EURONEXT', currency: 'EUR', exchange: 'Euronext Amsterdam' },
+  BR: { calendar: 'EURONEXT', currency: 'EUR', exchange: 'Euronext Brussels' },
+  LS: { calendar: 'EURONEXT', currency: 'EUR', exchange: 'Euronext Lisbon' },
+  IR: { calendar: 'EURONEXT', currency: 'EUR', exchange: 'Euronext Dublin' },
+  SW: { calendar: 'SIX', currency: 'CHF', exchange: 'SIX Swiss' },
+  MI: { calendar: 'BIT', currency: 'EUR', exchange: 'Milan' },
+  MC: { calendar: 'BME', currency: 'EUR', exchange: 'Madrid' },
+  T: { calendar: 'TSE', currency: 'JPY', exchange: 'Tokyo' },
+  HK: { calendar: 'HKEX', currency: 'HKD', exchange: 'Hong Kong' },
+  AX: { calendar: 'ASX', currency: 'AUD', exchange: 'ASX' },
+  NS: { calendar: 'NSE', currency: 'INR', exchange: 'NSE India' },
+  BO: { calendar: 'NSE', currency: 'INR', exchange: 'BSE India' },
+};
+
+/** Exchange names/codes that providers report for those venues (Yahoo `exchange` codes and display names). */
+const EXCHANGE: [RegExp, CalendarId][] = [
+  [/^(TOR|TSX|TORONTO|VAN|TSXV|CNQ|NEO)$|TORONTO|TSX/i, 'TSX'],
+  [/^(LSE|IOB)$|LONDON/i, 'LSE'],
+  [/^(GER|FRA|ETR|XETRA|BER|MUN|STU|DUS|HAM)$|XETRA|FRANKFURT/i, 'XETRA'],
+  [/^(PAR|AMS|BRU|LIS|ISE)$|EURONEXT|PARIS|AMSTERDAM/i, 'EURONEXT'],
+  [/^(EBS|VTX)$|SWISS|ZURICH/i, 'SIX'],
+  [/^MIL$|MILAN/i, 'BIT'],
+  [/^MCE$|MADRID/i, 'BME'],
+  [/^(JPX|TYO)$|TOKYO/i, 'TSE'],
+  [/^HKG$|HONG KONG/i, 'HKEX'],
+  [/^ASX$|AUSTRALIA/i, 'ASX'],
+  [/^(NSI|BSE)$|NSE|BOMBAY/i, 'NSE'],
+];
+
+/** Venue facts for a Yahoo-style ticker ("SAP.DE", "RY.TO") — undefined for US listings. */
+export function listingFor(ticker: string): { calendar: CalendarId; currency: string; exchange: string } | undefined {
+  const m = /\.([A-Z]{1,2})$/.exec(ticker.toUpperCase());
+  return m ? SUFFIX[m[1]] : undefined;
+}
+
+export function calendarFor(type: AssetType, exchange = '', ticker = ''): CalendarId {
   if (type === 'crypto' || type === 'sim') return '24x7';
   if (type === 'fx') return 'FX';
   if (type === 'future' || /CME|CBOT|NYMEX|COMEX|CBT|NYM|CMX/i.test(exchange)) return 'CME';
+  const listed = listingFor(ticker);
+  if (listed) return listed.calendar;
+  for (const [re, cal] of EXCHANGE) if (re.test(exchange)) return cal;
   return 'NYSE';
 }
 
 export function timezoneFor(cal: CalendarId): string {
-  return cal === 'CME' ? 'America/Chicago' : cal === '24x7' ? 'UTC' : 'America/New_York';
+  return CALENDARS[cal].timezone;
 }
+
+/** Trading currency for a listing when the provider does not report one. */
+export function currencyFor(type: AssetType, ticker: string, calendar: CalendarId): string {
+  if (type === 'crypto') return /USDT$/.test(ticker) ? 'USDT' : /USDC$/.test(ticker) ? 'USDC' : 'USD';
+  if (type === 'fx') return ticker.replace(/=X$/, '').slice(3, 6) || 'USD';
+  const listed = listingFor(ticker);
+  if (listed) return listed.currency;
+  return CALENDAR_CURRENCY[calendar] ?? 'USD';
+}
+
+const CALENDAR_CURRENCY: Partial<Record<CalendarId, string>> = {
+  TSX: 'CAD', LSE: 'GBp', XETRA: 'EUR', EURONEXT: 'EUR', SIX: 'CHF', BIT: 'EUR', BME: 'EUR', TSE: 'JPY', HKEX: 'HKD', ASX: 'AUD', NSE: 'INR',
+};
 
 const mk = (symbol: string, name: string, type: AssetType, exchange: string, provider: ProviderId = 'yahoo', currency = 'USD'): SymbolInfo => {
   const calendar = calendarFor(type, exchange);

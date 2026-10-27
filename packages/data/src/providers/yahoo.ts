@@ -1,4 +1,4 @@
-import { calendarFor, timezoneFor } from '../symbols';
+import { calendarFor, currencyFor, listingFor, timezoneFor } from '../symbols';
 import { barCloseTime } from '../sessions';
 import { resample } from '../transform';
 import type { AssetType, Bar, CorporateEvents, Interval, MarketDataProvider, Quote, SymbolInfo } from '../types';
@@ -61,7 +61,7 @@ export function parseYahooChart(j: YChart, interval: Interval, now: number) {
   const m = r.meta;
   const type = TYPE[m.instrumentType ?? ''] ?? 'other';
   const exchange = m.fullExchangeName ?? m.exchangeName ?? '';
-  const calendar = calendarFor(type, exchange);
+  const calendar = calendarFor(type, exchange, m.symbol);
   const ts = r.timestamp ?? [];
   const q = r.indicators.quote[0] ?? { open: [], high: [], low: [], close: [], volume: [] };
   const adj = r.indicators.adjclose?.[0]?.adjclose;
@@ -103,7 +103,7 @@ export function parseYahooChart(j: YChart, interval: Interval, now: number) {
     name: m.longName ?? m.shortName ?? m.symbol,
     exchange,
     type,
-    currency: m.currency ?? 'USD',
+    currency: m.currency ?? currencyFor(type, m.symbol, calendar),
     calendar,
     timezone: m.exchangeTimezoneName ?? timezoneFor(calendar),
     provider: 'yahoo',
@@ -159,9 +159,9 @@ export const yahoo: MarketDataProvider & { lastAdjFactor?: number[] } = {
       .filter((x) => x.symbol)
       .map((x) => {
         const type = TYPE[x.quoteType ?? ''] ?? 'other';
-        const exchange = x.exchDisp ?? x.exchange ?? '';
-        const calendar = calendarFor(type, exchange);
-        return { symbol: x.symbol, name: x.longname ?? x.shortname ?? x.symbol, exchange, type, currency: 'USD', calendar, timezone: timezoneFor(calendar), provider: 'yahoo' as const };
+        const exchange = x.exchDisp ?? listingFor(x.symbol)?.exchange ?? x.exchange ?? '';
+        const calendar = calendarFor(type, `${x.exchange ?? ''} ${exchange}`.trim(), x.symbol);
+        return { symbol: x.symbol, name: x.longname ?? x.shortname ?? x.symbol, exchange, type, currency: currencyFor(type, x.symbol, calendar), calendar, timezone: timezoneFor(calendar), provider: 'yahoo' as const };
       });
   },
   async getQuotes(tickers, fetcher, now) {
@@ -190,5 +190,6 @@ function intervalSpan(interval: Interval, limit: number, ivMs: number): number {
 }
 
 function placeholder(ticker: string): SymbolInfo {
-  return { symbol: ticker, name: ticker, exchange: '', type: 'other', currency: 'USD', calendar: 'NYSE', timezone: 'America/New_York', provider: 'yahoo' };
+  const calendar = calendarFor('stock', '', ticker);
+  return { symbol: ticker, name: ticker, exchange: listingFor(ticker)?.exchange ?? '', type: 'other', currency: currencyFor('stock', ticker, calendar), calendar, timezone: timezoneFor(calendar), provider: 'yahoo' };
 }
