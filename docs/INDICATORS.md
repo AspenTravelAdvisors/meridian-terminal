@@ -50,13 +50,23 @@ disagree or details are uncertain. Every ⚠ VERIFY parameter must be a config i
 ### 1.6 Cancellation ⚠ VERIFY
 A Buy Countdown in progress is cancelled when any enabled condition fires:
 - (a) a **Sell Setup** completes (default on);
-- (b) price closes above **TDST Resistance** of the setup that started the countdown (default on; config `cancelOnTdstBreak`, choose close vs. true-low test);
-- (c) optional "intersection-failure" rule (default off).
+- (b) a whole bar trades above **TDST Resistance** of the setup that started the countdown, i.e. its **True Low** is above the level
+  (default on; config `cancelOnTdstBreak`; `tdstCancelTest: 'trueExtreme' | 'close'`, default `trueExtreme` — confirmed against reference
+  charts, VERIFY_LOG note 4A). Sell side: True High below TDST Support.
+- (c) **Intersection** (Sequential only, elective), config `intersectionMode: 'off' | 'postpone' | 'cancel'`, default `off`. Intersection
+  holds when a bar's range overlaps the range of a bar of the same setup run three or more bars earlier. Setup bars 8 and 9 are tested at
+  completion. `postpone`: if neither intersects, the countdown waits and starts on the first later bar that intersects (that bar may count),
+  testing against setup-run bars up to three bars back; an opposite setup or a new same-direction setup drops the wait. `cancel`: no
+  countdown from that setup. The postpone behaviour matches the reference charts (VERIFY_LOG note 4C); ⚠ VERIFY whether the confirming bar
+  can itself be counted.
 
 ### 1.7 Recycling ⚠ VERIFY
 If a new same-direction setup completes while a countdown is active, compare setup sizes (`size = max TH − min TL` over setup bars):
-- If `newSize ≥ oldSize` and `newSize ≤ recycleFactor × oldSize` → **recycle**: restart the countdown from the new setup (default `recycleFactor = 1.618`).
-- Otherwise keep the original countdown. Config `recycleMode: 'size' | 'never' | 'always'`. Optional "setup reaches 18 bars → recycle" toggle.
+- If `newSize ≥ oldSize` and `newSize ≤ recycleFactor × oldSize` → **recycle**: restart the countdown from the new setup (default
+  `recycleFactor = 2.0`, i.e. 100–200 % — confirmed against reference charts, VERIFY_LOG note 4B).
+- Otherwise keep the original countdown. Config `recycleMode: 'size' | 'never' | 'always'`.
+- **Long setup:** if the same-direction setup run keeps counting until it reaches `recycleSetupCount` (default **22**) while a countdown is
+  active, restart the countdown on that bar (config `recycleOnLongSetup`, default on).
 
 ### 1.8 Risk levels [MED]
 - **Setup buy risk:** find the bar with the lowest True Low among setup bars, then `risk = TL − TR` of that bar.
@@ -74,7 +84,8 @@ If a new same-direction setup completes while a countdown is active, compare set
   3. `C[i] < C[i-1]`
   4. `C[i] <` close of the previous Combo countdown bar (first countdown bar: skip this test)
 - **Version 2 (less strict)**, config `comboVersion: 'strict' | 'v2'`: from countdown 11 onward, a bar only needs a close below the previous countdown bar's close.
-- Cancellation and recycling: reuse the §1.6/§1.7 machinery with independent config.
+- Cancellation and recycling: reuse the §1.6/§1.7 machinery with independent config (same defaults). Intersection postponing does not
+  apply to Combo; Combo keeps only an optional `cancelOnIntersectionFailure` (default off).
 - Signals `COMBO_BUY_13`, `COMBO_SELL_13`. Render Combo numbers in a different color/position than Sequential so both can show at once.
 
 ---

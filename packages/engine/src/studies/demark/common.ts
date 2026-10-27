@@ -52,21 +52,37 @@ export const setupShape = {
 export const countdownMgmtShape = {
   cancelOnOppositeSetup: bool(true, { title: 'Cancel on opposite setup', group: 'Cancellation', verify: 'INDICATORS §1.6(a)' }),
   cancelOnTdstBreak: bool(true, { title: 'Cancel on TDST break', group: 'Cancellation', verify: 'INDICATORS §1.6(b)' }),
-  tdstCancelTest: choice(['close', 'trueExtreme'] as const, 'close', {
+  tdstCancelTest: choice(['close', 'trueExtreme'] as const, 'trueExtreme', {
     title: 'TDST cancel test',
     group: 'Cancellation',
-    description: 'close: close beyond the level · trueExtreme: whole bar (true low / true high) beyond it.',
-    verify: 'INDICATORS §1.6(b)',
-  }),
-  cancelOnIntersectionFailure: bool(false, {
-    title: 'Cancel on intersection failure',
-    group: 'Cancellation',
-    description: 'Setup bar 8 or 9 must overlap setup bars 1–3, otherwise no countdown.',
-    verify: 'INDICATORS §1.6(c) — exact rule unconfirmed; default off.',
+    description: 'trueExtreme: whole bar (true low / true high) beyond the level · close: close beyond it.',
+    verify: 'INDICATORS §1.6(b) — trueExtreme per reference charts (VERIFY_LOG note 4A).',
   }),
   recycleMode: choice(['size', 'never', 'always'] as const, 'size', { title: 'Recycle mode', group: 'Recycling', verify: 'INDICATORS §1.7' }),
-  recycleFactor: num(1.618, 1, 5, { title: 'Recycle factor', group: 'Recycling', step: 0.001, verify: 'INDICATORS §1.7' }),
-  recycleOn18: bool(false, { title: 'Recycle when setup reaches 18', group: 'Recycling', verify: 'INDICATORS §1.7 optional toggle' }),
+  recycleFactor: num(2, 1, 5, {
+    title: 'Recycle factor',
+    group: 'Recycling',
+    step: 0.001,
+    description: 'Recycle when the new setup is 1×–factor× the size of the one that started the countdown.',
+    verify: 'INDICATORS §1.7 — 2.0 per reference (VERIFY_LOG note 4B).',
+  }),
+  recycleOnLongSetup: bool(true, {
+    title: 'Recycle when setup runs long',
+    group: 'Recycling',
+    description: 'A same-direction setup that keeps counting to the recycle count restarts the countdown.',
+    verify: 'INDICATORS §1.7',
+  }),
+  recycleSetupCount: int(22, 10, 50, { title: 'Recycle setup count', group: 'Recycling', verify: 'INDICATORS §1.7 — 22 per reference (VERIFY_LOG note 4B).' }),
+};
+
+export const intersectionShape = {
+  intersectionMode: choice(['off', 'postpone', 'cancel'] as const, 'off', {
+    title: 'Intersection',
+    group: 'Countdown',
+    description:
+      'Setup bar 8 or 9 (or, when postponing, any later bar) must overlap a setup bar three or more bars earlier. postpone: start the countdown on the first bar that does · cancel: no countdown when bar 9 has not.',
+    verify: 'INDICATORS §1.6(c) — postpone per reference (VERIFY_LOG note 4C).',
+  }),
 };
 
 export const setupSchemaPart = z.object(setupShape);
@@ -103,8 +119,6 @@ export interface SetupStep {
   /** the bar condition held this bar */
   cond: boolean;
   completed: SetupInfo | null;
-  /** count reached exactly 18 this bar (for the optional recycle rule) */
-  reached18: boolean;
 }
 
 /** Price flip in mirrored space (bearish flip for the buy side). INDICATORS §1.1 */
@@ -116,7 +130,7 @@ export function isFlip(x: SeriesCtx, s: Sg, i: number, lb: number): boolean {
 /** Setup bar condition in mirrored space: close below the close `lb` bars earlier. INDICATORS §1.2 */
 export const setupCond = (x: SeriesCtx, s: Sg, i: number, lb: number): boolean => i >= lb && mC(x, s, i) < mC(x, s, i - lb);
 
-export const newSetupStep = (): SetupStep => ({ flip: false, cond: false, completed: null, reached18: false });
+export const newSetupStep = (): SetupStep => ({ flip: false, cond: false, completed: null });
 
 /** Advance one side's setup count. Writes into `out` (reused across bars to avoid per-bar allocation). */
 export function setupStep(cfg: SetupCfg, su: SetupSide, x: SeriesCtx, s: Sg, i: number, out: SetupStep = newSetupStep()): SetupStep {
@@ -124,7 +138,6 @@ export function setupStep(cfg: SetupCfg, su: SetupSide, x: SeriesCtx, s: Sg, i: 
   const cond = setupCond(x, s, i, lb);
   const flip = cond && isFlip(x, s, i, lb);
   let completed: SetupInfo | null = null;
-  let reached18 = false;
   if (cond) {
     if (su.count > 0) su.count++;
     else if (flip) {
@@ -133,12 +146,24 @@ export function setupStep(cfg: SetupCfg, su: SetupSide, x: SeriesCtx, s: Sg, i: 
     }
   } else su.count = 0;
   if (su.count === cfg.setupLength) completed = describeSetup(cfg, x, s, su.i1, i);
-  if (su.count === 2 * cfg.setupLength) reached18 = true;
   out.flip = flip;
   out.cond = cond;
   out.completed = completed;
-  out.reached18 = reached18;
   return out;
+}
+
+/** Long-setup recycle trigger (INDICATORS §1.7): the setup count reached the recycle count on this bar. */
+export const reachedRecycleCount = (cfg: CdMgmtCfg, su: SetupSide): boolean => cfg.recycleOnLongSetup && su.count === cfg.recycleSetupCount;
+
+/**
+ * Intersection (INDICATORS §1.6(c), ⚠ VERIFY): bar `j`'s range overlaps the range of any setup bar from `i1` to `kMax`.
+ * Callers pass `kMax ≤ j − 3` (three or more bars earlier). Scans at most one setup run, so the cost stays bounded.
+ */
+export function overlapsEarlier(x: SeriesCtx, s: Sg, j: number, i1: number, kMax: number): boolean {
+  const hj = mH(x, s, j);
+  const lj = mL(x, s, j);
+  for (let k = i1; k <= kMax; k++) if (hj >= mL(x, s, k) && lj <= mH(x, s, k)) return true;
+  return false;
 }
 
 export function describeSetup(cfg: SetupCfg, x: SeriesCtx, s: Sg, i1: number, i9: number): SetupInfo {
@@ -165,10 +190,8 @@ export function describeSetup(cfg: SetupCfg, x: SeriesCtx, s: Sg, i1: number, i9
     thr = Math.min(mL(x, s, b(n - 3)), mL(x, s, b(n - 2)));
     perfected = mL(x, s, b(n - 1)) <= thr || mL(x, s, b(n)) <= thr;
   }
-  // Intersection (⚠ VERIFY): high of bar n-1 or n reaches the low of bar 3 or earlier.
-  let minEarly = Infinity;
-  for (let k = 1; k <= Math.min(3, n); k++) minEarly = Math.min(minEarly, mL(x, s, b(k)));
-  const intersect = n < 4 || Math.max(mH(x, s, b(n - 1)), mH(x, s, b(n))) >= minEarly;
+  // Intersection (⚠ VERIFY): bar n-1 or n overlaps a setup bar three or more bars earlier.
+  const intersect = n < 5 || overlapsEarlier(x, s, i9, i1, i9 - 3) || overlapsEarlier(x, s, i9 - 1, i1, i9 - 4);
   const info: SetupInfo = { i1, i9, size: maxTH - minTL, tdst, risk: minTL - tr, perfected, intersect };
   (info as SetupInfo & { perfThr?: number }).perfThr = thr;
   return info;

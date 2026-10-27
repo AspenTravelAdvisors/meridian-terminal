@@ -10,3 +10,6 @@ test-results
 .env.*
 !.env.example
 .DS_Store
+
+# Local reference fixtures built from vendor charts + third-party price data (fixtures/README.md) — never commit
+fixtures/**/REF-*

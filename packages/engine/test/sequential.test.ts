@@ -1,6 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { type Bar, computeStudy, defaultsOf, resolveConfig, sequential } from '../src';
+import { type Countdown, type SetupInfo, newCountdown, shouldRecycle } from '../src/studies/demark/common';
 import { arbBars, barsFromCloses } from './helpers';
 
 const DEF = defaultsOf(sequential);
@@ -62,7 +63,8 @@ describe('DeMark-style Sequential — hand-computed fixture', () => {
     expect(res.signals.some((s) => s.id === 'SEQ_BUY_CD_13')).toBe(false);
   });
 
-  it('cancels the buy countdown when price closes above TDST resistance', () => {
+  it('cancels the buy countdown when a whole bar trades above TDST resistance', () => {
+    // TDST = 14.5. Bar 25 (close 17): true low = min(L 15.5, prior close 16) = 15.5 > 14.5 → cancel.
     const closes = decline(22).concat([14, 15, 16, 17]);
     const res = computeStudy(sequential, DEF, barsFromCloses(closes));
     const cancel = res.signals.find((s) => s.id === 'SEQ_BUY_CD_CANCEL');
@@ -70,6 +72,66 @@ describe('DeMark-style Sequential — hand-computed fixture', () => {
     expect(cancel!.label).toBe('TDST break');
     expect(res.signals.some((s) => s.id === 'SEQ_BUY_CD_13')).toBe(false);
     expect(res.signals.some((s) => s.id === 'TDST_RES_BREAK')).toBe(true);
+  });
+
+  it('keeps the countdown when only the close is above TDST (true low still below)', () => {
+    // decline(22) has CD1…CD6 on bars 16–21. Bar 23: o=14, c=15, l=13.5 → close 15 > 14.5 but true low 13.5 < 14.5.
+    const b = barsFromCloses(decline(22).concat([14, 15]));
+    const byDefault = computeStudy(sequential, DEF, b);
+    expect(byDefault.signals.some((s) => s.id === 'SEQ_BUY_CD_CANCEL')).toBe(false);
+    const byClose = computeStudy(sequential, resolveConfig(sequential, { tdstCancelTest: 'close' }), b);
+    expect(byClose.signals.find((s) => s.id === 'SEQ_BUY_CD_CANCEL')?.i).toBe(23);
+  });
+
+  it('recycles when the same setup run reaches 22 (and not at 18)', () => {
+    // decline(31): setup bar 1 = bar 8, so count 18 = bar 25 and count 22 = bar 29. A 20-bar countdown is still running.
+    const cfg = resolveConfig(sequential, { countdownLength: 20 });
+    const res = computeStudy(sequential, cfg, bars);
+    const rec = res.signals.filter((s) => s.id === 'SEQ_BUY_CD_RECYCLE');
+    expect(rec.map((s) => s.i)).toEqual([29]);
+    expect(rec[0].label).toBe('setup reached 22');
+    // restarted on bar 29, which itself qualifies → CD1
+    expect(res.lines.countdown[29]).toBe(-1);
+    const off = computeStudy(sequential, resolveConfig(sequential, { countdownLength: 20, recycleOnLongSetup: false }), bars);
+    expect(off.signals.some((s) => s.id === 'SEQ_BUY_CD_RECYCLE')).toBe(false);
+  });
+
+  it('size recycle window is 1×–2× the original setup by default', () => {
+    const cd: Countdown = { ...newCountdown(), active: true, size: 10 };
+    const setup = (size: number) => ({ size }) as SetupInfo;
+    expect(shouldRecycle(DEF as never, cd, setup(9.9))).toBe(false);
+    expect(shouldRecycle(DEF as never, cd, setup(18))).toBe(true); // was outside the old 1.618 window
+    expect(shouldRecycle(DEF as never, cd, setup(20))).toBe(true);
+    expect(shouldRecycle(DEF as never, cd, setup(20.1))).toBe(false);
+  });
+
+  describe('intersection', () => {
+    // Setup bar 1 = bar 8 (as above). Bar 15 (setup bar 8) gaps down to [5.5, 7] and the decline continues, so neither
+    // bar 15 nor bar 16 overlaps a setup bar three or more bars earlier. Bar 17 [4.5, 6] vs bars 8–14 (lows ≥ 10): no.
+    // Bar 18 [4, 5.5] vs bars 8–15: its high 5.5 reaches bar 15's low 5.5 → intersection on bar 18.
+    const closes = decline(15).concat([6, 5.5, 5, 4.5, 4, 3.5, 3]);
+    const b = barsFromCloses(closes);
+    b[15] = { ...b[15], o: 6.5, h: 7, l: 5.5, c: 6 };
+    const run = (intersectionMode: string) => computeStudy(sequential, resolveConfig(sequential, { intersectionMode }), b);
+
+    it('off (default): countdown starts on setup bar 9 as usual', () => {
+      const r0 = run('off');
+      expect(r0.lines.countdown[16]).toBe(-1); // C 5.5 ≤ L[14] 10
+      expect(r0.lines.countdown[18]).toBe(-3);
+    });
+
+    it('postpone: countdown starts on the first intersecting bar, which can itself count', () => {
+      const rp = run('postpone');
+      expect(rp.lines.countdown[16]).toBe(0);
+      expect(rp.lines.countdown[17]).toBe(0);
+      expect(rp.lines.countdown[18]).toBe(-1); // C 4.5 ≤ L[16] 5
+      expect(rp.markers.some((m) => m.i === 18 && m.text === '—')).toBe(true);
+    });
+
+    it('cancel: no countdown from a setup that has not intersected by bar 9', () => {
+      const rc = run('cancel');
+      expect([...rc.lines.countdown].every((v) => v === 0)).toBe(true);
+    });
   });
 
   it('aggressive countdown uses L ≤ L[i-2]', () => {
@@ -90,11 +152,11 @@ describe('DeMark-style Sequential — hand-computed fixture', () => {
   });
 
   it('exposes every ⚠ VERIFY knob as an input', () => {
-    for (const k of ['tdstMode', 'cd13Qualifier', 'recycleFactor', 'recycleMode', 'cancelOnTdstBreak', 'cancelOnIntersectionFailure'])
+    for (const k of ['tdstMode', 'cd13Qualifier', 'recycleFactor', 'recycleMode', 'recycleSetupCount', 'cancelOnTdstBreak', 'tdstCancelTest', 'intersectionMode'])
       expect(k in DEF).toBe(true);
     expect(DEF.tdstMode).toBe('allSetupBars');
     expect(DEF.cd13Qualifier).toBe('low_vs_cd8_close');
-    expect(DEF.recycleFactor).toBe(1.618);
+    expect(DEF.recycleFactor).toBe(2);
   });
 });
 
@@ -128,6 +190,7 @@ function oracle(bars: Bar[]) {
     return { size: hi - lo, tdst: isBuy ? hi : lo };
   };
   type Cd = { active: boolean; count: number; cd8: number; tdst: number; size: number };
+  const lastInfo: Record<'b' | 's', { size: number; tdst: number } | null> = { b: null, s: null };
   const cds: Record<'b' | 's', Cd> = {
     b: { active: false, count: 0, cd8: NaN, tdst: NaN, size: NaN },
     s: { active: false, count: 0, cd8: NaN, tdst: NaN, size: NaN },
@@ -141,12 +204,17 @@ function oracle(bars: Bar[]) {
       const cd = cds[side];
       const done = isBuy ? bDone : sDone;
       const oppDone = isBuy ? sDone : bDone;
-      if (cd.active && (oppDone || (isBuy ? C[i] > cd.tdst : C[i] < cd.tdst))) cd.active = false;
+      // §1.6(b): cancel when the whole bar is beyond TDST (true low above / true high below)
+      if (cd.active && (oppDone || (isBuy ? TL(i) > cd.tdst : TH(i) < cd.tdst))) cd.active = false;
       if (done) {
         const info = setupInfo(i, isBuy);
-        if (!cd.active || (info.size >= cd.size && info.size <= 1.618 * cd.size)) {
+        lastInfo[side] = info;
+        if (!cd.active || (info.size >= cd.size && info.size <= 2 * cd.size)) {
           Object.assign(cd, { active: true, count: 0, cd8: NaN, tdst: info.tdst, size: info.size });
         }
+      } else if ((isBuy ? buy[i] : sell[i]) === 22 && cd.active && lastInfo[side]) {
+        // §1.7: the same-direction setup ran to 22 → restart the countdown on this bar
+        Object.assign(cd, { count: 0, cd8: NaN, tdst: lastInfo[side]!.tdst, size: lastInfo[side]!.size });
       }
       if (cd.active && i >= 2 && (isBuy ? C[i] <= L[i - 2] : C[i] >= H[i - 2])) {
         if (cd.count < 12) {

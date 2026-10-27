@@ -16,6 +16,7 @@ import {
   newCountdown,
   newSetupSide,
   newSetupStep,
+  reachedRecycleCount,
   setupShape,
   setupStep,
   shouldRecycle,
@@ -33,6 +34,12 @@ export const comboSchema = z.object({
   v2From: int(11, 2, 13, { title: 'v2 relaxed from countdown #', group: 'Countdown', verify: 'INDICATORS §2 / VERIFY_LOG "bar 11+"' }),
   countdownLength: int(13, 5, 30, { title: 'Countdown length', group: 'Countdown' }),
   ...countdownMgmtShape,
+  cancelOnIntersectionFailure: bool(false, {
+    title: 'Cancel on intersection failure',
+    group: 'Cancellation',
+    description: 'Setup bar 8 or 9 must overlap a setup bar three or more bars earlier, otherwise no countdown.',
+    verify: 'INDICATORS §1.6(c) — the reference applies Intersection to Sequential only; default off.',
+  }),
   showSetup: bool(false, { title: 'Show setup counts', group: 'Display', description: 'Off by default so Sequential and Combo can share a chart.' }),
   showCountdown: bool(true, { title: 'Show combo countdown', group: 'Display' }),
   markerRow: int(2, 0, 5, { title: 'Marker row', group: 'Display', description: 'Stacking row so Combo numbers sit beyond Sequential’s.' }),
@@ -121,9 +128,9 @@ export function comboStep(cfg: ComboCfg, st: ComboState, x: SeriesCtx, w: Writer
         for (let j = done.i1; j <= i; j++) evalBar(cfg, side, x, s, j, w, P);
         continue;
       }
-    } else if (step.reached18 && cfg.recycleOn18 && side.cd.active && side.last) {
+    } else if (reachedRecycleCount(cfg, side.su) && side.cd.active && side.last) {
       startCountdown(side.cd, side.last, i);
-      w.signal(`${P}_${name}_CD_RECYCLE`, 'neutral', x.c[i], 'setup reached 18');
+      w.signal(`${P}_${name}_CD_RECYCLE`, 'neutral', x.c[i], `setup reached ${cfg.recycleSetupCount}`);
     }
     evalBar(cfg, side, x, s, i, w, P);
   }

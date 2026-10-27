@@ -6,9 +6,13 @@ import { type AnyStudyDef, STUDIES, combo, defaultsOf, demarker2, differential, 
  * deliberate decision: update docs/VERIFY_LOG.md in the same commit.
  */
 describe('⚠ VERIFY defaults are pinned', () => {
-  it('Sequential: TDST over all setup bars, CD13 low vs CD8 close, recycle at 1.618× by size', () => {
+  it('Sequential: TDST over all setup bars, CD13 low vs CD8 close, recycle 1×–2× by size or at a 22-bar setup, whole-bar TDST cancel', () => {
     const d = defaultsOf(sequential);
-    expect(d).toMatchObject({ tdstMode: 'allSetupBars', cd13Qualifier: 'low_vs_cd8_close', recycleMode: 'size', recycleFactor: 1.618, recycleOn18: false, cancelOnOppositeSetup: true, cancelOnTdstBreak: true, tdstCancelTest: 'close', tdstBreakQualifier: false });
+    expect(d).toMatchObject({ tdstMode: 'allSetupBars', cd13Qualifier: 'low_vs_cd8_close', recycleMode: 'size', recycleFactor: 2, recycleOnLongSetup: true, recycleSetupCount: 22, cancelOnOppositeSetup: true, cancelOnTdstBreak: true, tdstCancelTest: 'trueExtreme', tdstBreakQualifier: false });
+  });
+
+  it('Combo shares the Sequential cancel/recycle defaults', () => {
+    expect(defaultsOf(combo)).toMatchObject({ recycleFactor: 2, recycleOnLongSetup: true, recycleSetupCount: 22, tdstCancelTest: 'trueExtreme', cancelOnIntersectionFailure: false });
   });
 
   it('Combo: version 2 relaxes the countdown from bar 11', () => {
@@ -38,8 +42,8 @@ describe('⚠ VERIFY defaults are pinned', () => {
     expect(defaultsOf(pressure)).toMatchObject({ length: 5, useVolume: true });
   });
 
-  it('Sequential: intersection-failure cancellation off (rule unconfirmed)', () => {
-    expect(defaultsOf(sequential).cancelOnIntersectionFailure).toBe(false);
+  it('Sequential: intersection off by default (elective; postpone and cancel modes available)', () => {
+    expect(defaultsOf(sequential).intersectionMode).toBe('off');
   });
 
   it('Differential: Anti-Differential off until its sequence is verified', () => {

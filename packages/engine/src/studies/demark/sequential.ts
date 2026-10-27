@@ -10,6 +10,7 @@ import {
   SIDES,
   countdownMgmtShape,
   f,
+  intersectionShape,
   markerPos,
   mC,
   mL,
@@ -17,6 +18,8 @@ import {
   newCountdown,
   newSetupSide,
   newSetupStep,
+  overlapsEarlier,
+  reachedRecycleCount,
   setupShape,
   setupStep,
   shouldRecycle,
@@ -44,6 +47,7 @@ export const sequentialSchema = z.object({
     verify: 'INDICATORS §1.5 — some sources compare the close instead of the low.',
   }),
   ...countdownMgmtShape,
+  ...intersectionShape,
   riskCloseBeyond: bool(true, { title: 'Risk breach: close beyond level', group: 'Risk' }),
   riskPriorCloseNotBeyond: bool(true, { title: 'Risk breach: prior close not beyond', group: 'Risk' }),
   riskNextOpenBeyond: bool(false, { title: 'Risk breach: next open beyond', group: 'Risk' }),
@@ -64,6 +68,9 @@ interface Side {
   pendBreach: number[]; // levels awaiting next-open confirmation
   lastCd13: number;
   lastSetup9: number;
+  /** completed setup whose countdown waits for intersection (postpone mode), and the last bar of its setup run */
+  ixPending: SetupInfo | null;
+  ixRunEnd: number;
 }
 
 export interface SequentialState {
@@ -81,6 +88,8 @@ const newSide = (): Side => ({
   pendBreach: [],
   lastCd13: -1,
   lastSetup9: -1,
+  ixPending: null,
+  ixRunEnd: -1,
 });
 
 const L_TDST_RES = 0;
@@ -199,17 +208,36 @@ export function sequentialStep(
 
     // ── Countdown start / recycle (INDICATORS §1.5, §1.7) ─────────────────
     if (done) {
-      const blocked = cfg.cancelOnIntersectionFailure && !done.intersect;
+      side.ixPending = null;
       if (!side.cd.active) {
-        if (!blocked) startCountdown(side.cd, done, i);
+        if (cfg.intersectionMode === 'off' || done.intersect) startCountdown(side.cd, done, i);
+        else if (cfg.intersectionMode === 'postpone') {
+          side.ixPending = done;
+          side.ixRunEnd = i;
+        }
       } else if (shouldRecycle(cfg, side.cd, done)) {
         startCountdown(side.cd, done, i);
         w.signal(`${P}_${name}_CD_RECYCLE`, 'neutral', x.c[i]);
         if (emit.markers && cfg.showCountdown) w.marker({ i, text: 'R', pos, color: 'warn', row: emit.row + 1, size: 1, tooltip: 'Countdown recycled' });
       }
-    } else if (step.reached18 && cfg.recycleOn18 && side.cd.active && side.last) {
+    } else if (reachedRecycleCount(cfg, side.su) && side.cd.active && side.last) {
       startCountdown(side.cd, side.last, i);
-      w.signal(`${P}_${name}_CD_RECYCLE`, 'neutral', x.c[i], 'setup reached 18');
+      w.signal(`${P}_${name}_CD_RECYCLE`, 'neutral', x.c[i], `setup reached ${cfg.recycleSetupCount}`);
+    } else if (side.ixPending) {
+      // Postponed start (INDICATORS §1.6(c)): wait for a bar overlapping a bar of the setup run three or more bars earlier.
+      const pend = side.ixPending;
+      if (steps[1 - k].completed) side.ixPending = null;
+      else {
+        if (side.su.count > 0 && side.su.i1 === pend.i1) side.ixRunEnd = i;
+        const hit = overlapsEarlier(x, s, i, pend.i1, Math.min(i - 3, side.ixRunEnd));
+        if (w.inspecting) w.inspect(`${name} intersection (countdown postponed)`, hit);
+        if (hit) {
+          side.ixPending = null;
+          startCountdown(side.cd, pend, i);
+          if (emit.markers && cfg.showCountdown)
+            w.marker({ i, text: '—', pos, color: s > 0 ? 'bullAlt' : 'bearAlt', row: emit.row + 1, size: 1, tooltip: 'Intersection confirmed: countdown starts' });
+        }
+      }
     }
 
     // ── Countdown counting ───────────────────────────────────────────────
@@ -356,7 +384,9 @@ export const sequential: StudyDef<SequentialCfg, SequentialState> = {
     { key: 'cd13Qualifier', note: 'INDICATORS §1.5' },
     { key: 'recycleFactor', note: 'INDICATORS §1.7' },
     { key: 'cancelOnTdstBreak', note: 'INDICATORS §1.6' },
-    { key: 'cancelOnIntersectionFailure', note: 'INDICATORS §1.6(c)' },
+    { key: 'recycleSetupCount', note: 'INDICATORS §1.7' },
+    { key: 'tdstCancelTest', note: 'INDICATORS §1.6(b)' },
+    { key: 'intersectionMode', note: 'INDICATORS §1.6(c)' },
   ],
   outputs: () => [
     { kind: 'line', id: 'tdst_res', title: 'TDST resistance', color: 'bear', render: 'level', width: 1, style: 'solid', label: 'TDST' },
