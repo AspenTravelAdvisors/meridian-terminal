@@ -14,7 +14,8 @@ test.beforeEach(async ({ page }) => {
 test('chart loads simulated data with DeMark-style studies and the required attribution', async ({ page }) => {
   const errs = errors(page);
   await expect(page.locator('[data-testid^="chart-"] canvas').first()).toBeVisible();
-  await expect(page.getByText('Charts by TradingView Lightweight Charts™')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Charts by TradingView Lightweight Charts™' })).toHaveAttribute('href', 'https://www.tradingview.com/');
+  await expect(page.locator('footer')).toContainText('© 2025 TradingView, Inc.');
   await expect(page.locator('footer')).toContainText('1,500 bars');
   await expect(page.getByText('SIM:DEMO · DeMark-style status', { exact: false })).toBeVisible();
   expect(errs).toEqual([]);

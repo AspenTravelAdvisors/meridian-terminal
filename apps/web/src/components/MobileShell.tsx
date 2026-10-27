@@ -290,7 +290,10 @@ function MoreScreen({ open }: { open(id: string): void }) {
       <p className="mt-4 text-center text-[10px] leading-relaxed text-faint">
         Informational tool — analysis, not investment advice.
         <br />
-        DeMark-style studies are Meridian's own implementations; Charts by TradingView Lightweight Charts™.
+        DeMark-style studies are Meridian's own implementations.
+        <br />
+        {/* license attribution (NOTICE text + link) — stands in for the on-chart logo, which is off */}
+        <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-text hover:underline">Charts by TradingView Lightweight Charts™</a> © 2025 TradingView, Inc.
       </p>
     </section>
   );

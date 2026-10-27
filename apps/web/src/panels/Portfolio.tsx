@@ -269,7 +269,7 @@ function MiniChart({ series }: { series: { name: string; color: string; points: 
   useEffect(() => {
     if (!el.current) return;
     const t = readTheme();
-    const chart = createChart(el.current, { autoSize: true, layout: { background: { type: ColorType.Solid, color: t.panel }, textColor: t.text, attributionLogo: true }, grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } }, rightPriceScale: { borderColor: t.border }, timeScale: { borderColor: t.border } });
+    const chart = createChart(el.current, { autoSize: true, layout: { background: { type: ColorType.Solid, color: t.panel }, textColor: t.text, attributionLogo: false }, grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } }, rightPriceScale: { borderColor: t.border }, timeScale: { borderColor: t.border } });
     series.forEach((s, k) => {
       const ser = k === 0 ? chart.addSeries(AreaSeries, { lineColor: s.color, topColor: `${s.color}55`, bottomColor: `${s.color}05`, lineWidth: 2, title: s.name }) : chart.addSeries(LineSeries, { color: s.color, lineWidth: 1, title: s.name });
       ser.setData(s.points.map((p) => ({ time: (Date.parse(`${p.date}T00:00:00Z`) / 1000) as UTCTimestamp, value: p.value })));

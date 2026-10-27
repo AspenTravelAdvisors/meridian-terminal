@@ -42,7 +42,7 @@ export function readTheme(): ChartTheme {
 export function chartOptions(t: ChartTheme): DeepPartial<ChartOptions> {
   return {
     autoSize: true,
-    layout: { background: { type: ColorType.Solid, color: t.bg }, textColor: t.text, fontSize: 11, fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif', attributionLogo: true, panes: { separatorColor: t.border, separatorHoverColor: withAlpha('#38bdf8', 0.3), enableResize: true } },
+    layout: { background: { type: ColorType.Solid, color: t.bg }, textColor: t.text, fontSize: 11, fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif', attributionLogo: false, panes: { separatorColor: t.border, separatorHoverColor: withAlpha('#38bdf8', 0.3), enableResize: true } },
     grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } },
     crosshair: { mode: CrosshairMode.Normal, vertLine: { color: t.crosshair, labelBackgroundColor: t.border }, horzLine: { color: t.crosshair, labelBackgroundColor: t.border } },
     rightPriceScale: { borderColor: t.border, scaleMargins: { top: 0.08, bottom: 0.08 } },

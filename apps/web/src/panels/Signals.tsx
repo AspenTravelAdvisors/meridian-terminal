@@ -232,7 +232,7 @@ function EquityChart({ eq, bh, times }: { eq: number[]; bh: number[]; times: num
   useEffect(() => {
     if (!el.current || !eq.length) return;
     const t = readTheme();
-    const chart = createChart(el.current, { autoSize: true, layout: { background: { type: ColorType.Solid, color: t.panel }, textColor: t.text, attributionLogo: true }, grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } }, rightPriceScale: { borderColor: t.border }, timeScale: { borderColor: t.border } });
+    const chart = createChart(el.current, { autoSize: true, layout: { background: { type: ColorType.Solid, color: t.panel }, textColor: t.text, attributionLogo: false }, grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } }, rightPriceScale: { borderColor: t.border }, timeScale: { borderColor: t.border } });
     let prev = -Infinity;
     const ts = times.map((x) => {
       let s = Math.floor(x / 1000);

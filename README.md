@@ -7,7 +7,7 @@ static app plus one Node function.
 
 > DeMark indicator names are trademarks of DeMark Analytics. Meridian implements its own descriptions of the rules
 > (see `docs/INDICATORS.md`) and labels them "DeMark-style". It is not affiliated with DeMark Analytics or TradingView.
-> Charts by TradingView Lightweight Charts™ (Apache-2.0); the attribution stays enabled. Analysis only, not investment advice.
+> Charts by TradingView Lightweight Charts™ (Apache-2.0); the license attribution (notice + link to tradingview.com) is in the status bar and on the phone More page, in place of the on-chart logo. Analysis only, not investment advice.
 
 ## Features
 

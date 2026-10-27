@@ -250,7 +250,8 @@ export function StatusBar() {
         {rt?.bars.length ? <span>{rt.bars.length.toLocaleString()} bars</span> : null}
         {rt?.computeMs !== undefined && rt.results.length > 0 && <span>engine {rt.computeMs.toFixed(1)} ms</span>}
         {rt?.lastUpdate && <span>updated {new Date(rt.lastUpdate).toLocaleTimeString()}</span>}
-        <span>Charts by TradingView Lightweight Charts™</span>
+        {/* license attribution (NOTICE text + link) — stands in for the on-chart logo, which is off */}
+        <span><a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-text hover:underline">Charts by TradingView Lightweight Charts™</a> © 2025 TradingView, Inc.</span>
       </span>
     </footer>
   );

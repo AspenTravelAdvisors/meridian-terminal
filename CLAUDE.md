@@ -13,7 +13,7 @@ DeMarker I & II, and more) alongside Ichimoku and a full standard indicator libr
 |---|---|
 | Monorepo | pnpm workspaces + Turborepo, TypeScript strict everywhere |
 | Web app | React 19 + Vite, Zustand (state), TanStack Query (server data), Tailwind + Radix primitives |
-| Charts | TradingView **Lightweight Charts v5** (Apache-2.0) with custom series + series primitives for markers/levels. Keep the required attribution enabled. |
+| Charts | TradingView **Lightweight Charts v5** (Apache-2.0) with custom series + series primitives for markers/levels. Keep the license attribution (NOTICE text + link to tradingview.com) visible in the status bar and phone More page; the on-chart logo is off (Brian, 2026-10-27). |
 | Layout | `dockview` for dockable, resizable, persisted panels |
 | Indicator engine | `packages/engine` — pure TS, zero DOM deps, runs in a Web Worker and in Node |
 | API server | Fastify + Zod, WebSocket fan-out for live bars |
