@@ -211,7 +211,8 @@ export class StudyRenderer {
       }
       const def = getStudy(c.id);
       const r = results.get(c.uid);
-      if (!def || !r) continue;
+      // results longer than the series belong to the previous symbol/interval (the engine has not caught up yet)
+      if (!def || !r || r.len > n) continue;
       const isVol = c.id === 'volume';
       const outs: OutputSpec[] = r.outputs;
       let firstSeries: ISeriesApi<SeriesType> | null = null;
@@ -267,7 +268,8 @@ export class StudyRenderer {
             const pts = [];
             for (let i = 0; i < vals.length; i++) {
               const v = vals[i];
-              const time = tm.displayAt(i)!;
+              const time = tm.displayAt(i);
+              if (time === null) continue;
               pts.push(Number.isFinite(v) ? { time, value: isVol ? Math.abs(v) : v, color: withAlpha(v >= 0 ? pos : neg, isVol ? 0.45 : 0.8) } : { time });
             }
             s.setData(pts as never);

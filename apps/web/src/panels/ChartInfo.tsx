@@ -222,7 +222,7 @@ export function RuleInspectorPanel() {
   const b = at !== null ? rt.bars[at] : undefined;
   return (
     <div className="panel-body p-2">
-      <p className="mb-2 px-1 text-[11px] text-dim">Hover a bar to see every rule condition evaluated on it. {b && <b className="text-text">{fmtTime(b.t, isIntraday(pane.interval), rt.info?.timezone)}</b>}</p>
+      <p className="mb-2 px-1 text-[11px] text-dim">Hover (or tap) a bar to see every rule condition evaluated on it. {b && <b className="text-text">{fmtTime(b.t, isIntraday(pane.interval), rt.info?.timezone)}</b>}</p>
       {[...grouped.entries()].map(([study, rs]) => {
         const cfg = pane.studies.find((s) => s.uid === study);
         return (

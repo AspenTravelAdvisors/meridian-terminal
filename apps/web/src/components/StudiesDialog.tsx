@@ -44,10 +44,10 @@ export function StudiesDialog() {
 
   return (
     <Modal open={open} onOpenChange={(o) => !o && close()} title="Indicators & studies" width={820} description="Search and add studies to the active chart">
-      <div className="flex h-[60vh] min-h-80">
-        <aside className="w-48 shrink-0 border-r border-border p-2">
+      <div className="flex h-[60vh] min-h-80 mobile:h-full mobile:min-h-0 mobile:flex-col">
+        <aside className="w-48 shrink-0 border-r border-border p-2 mobile:flex mobile:w-full mobile:gap-1 mobile:overflow-x-auto mobile:border-r-0 mobile:border-b">
           {(['Favorites', ...CATEGORIES.filter((c) => c !== 'Custom'), 'Scripts', 'Templates'] as const).map((c) => (
-            <button key={c} className="btn-ghost w-full justify-start" data-active={!q && cat === c} onClick={() => (setCat(c), setQ(''))}>
+            <button key={c} className="btn-ghost w-full justify-start mobile:w-auto mobile:shrink-0" data-active={!q && cat === c} onClick={() => (setCat(c), setQ(''))}>
               {CAT_LABEL[c]}
               <span className="ml-auto text-[10px] text-faint">{c === 'Favorites' ? favs.length : c === 'Templates' ? templates.length : c === 'Scripts' ? scripts.length : STUDIES.filter((d) => d.category === c).length}</span>
             </button>

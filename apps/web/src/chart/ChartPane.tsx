@@ -71,6 +71,12 @@ export const ChartPane = memo(function ChartPane({ pane, active, solo }: { pane:
       inspectors.delete(pane.id);
     };
   }, [pane.id]);
+  // a different series: drop the previous one's results at once so they are never drawn against the new bars
+  const seriesKey = `${pane.symbol}|${pane.interval}|${pane.adjust}|${pane.chartType}`;
+  useEffect(() => {
+    setResults([]);
+    sent.current = { key: '', firstT: NaN, finalLen: 0, lastFinalT: NaN };
+  }, [seriesKey]);
   useEffect(() => {
     const c = clientRef.current;
     if (!c) return;

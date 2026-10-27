@@ -32,11 +32,13 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
+        // One acyclic foundation chunk (workspace packages + app state/lib) that every shell and panel depends on.
+        // Letting the bundler scatter these across feature chunks produced import cycles between chunks, which broke
+        // module initialization order. The dock library stays inside the lazily loaded desktop shell.
         manualChunks(id) {
-          if (id.includes('lightweight-charts') || id.includes('fancy-canvas')) return 'charts';
-          if (id.includes('dockview')) return 'dock';
-          if (id.includes('node_modules/react') || id.includes('scheduler')) return 'react';
-          if (id.includes('radix-ui') || id.includes('@radix-ui')) return 'radix';
+          if (/[\\/]packages[\\/]/.test(id) || /[\\/]apps[\\/]web[\\/]src[\\/](state|lib)[\\/]/.test(id)) return 'core';
+          if (id.includes('node_modules') && /[\\/](zod|zustand|idb-keyval|fast-check)[\\/]/.test(id)) return 'core';
+          if (id.includes('lightweight-charts')) return 'charts';
           return undefined;
         },
       },

@@ -2,6 +2,9 @@
 @import '@meridian/ui/tokens.css';
 @import 'dockview-react/dist/styles/dockview.css';
 
+/* `mobile:` applies while the phone shell is active (set on <html> by App; also covers landscape phones) */
+@custom-variant mobile (&:where([data-shell='mobile'], [data-shell='mobile'] *));
+
 @theme inline {
   --color-bg: var(--bg);
   --color-panel: var(--panel);
@@ -52,7 +55,7 @@ body,
 
 @layer components {
   .btn {
-    @apply inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-raised px-2.5 text-[12px] text-text transition-colors hover:border-border-strong hover:bg-panel-2 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex h-7 shrink-0 items-center whitespace-nowrap gap-1.5 rounded-md border border-border bg-raised px-2.5 text-[12px] text-text transition-colors hover:border-border-strong hover:bg-panel-2 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
     @apply border-transparent bg-accent text-[#04111d] hover:bg-accent/85;
@@ -147,4 +150,39 @@ body,
 }
 .toast {
   animation: toast-in 160ms ease-out;
+}
+
+/* ── Touch & phones ─────────────────────────────────────────────────────── */
+button,
+a,
+[role='menuitem'] {
+  touch-action: manipulation; /* no double-tap zoom delay */
+}
+html,
+body {
+  overscroll-behavior: none; /* no pull-to-refresh or rubber-banding behind the chart */
+}
+/* Unlayered on purpose: beats size utilities so every control is a comfortable touch target. */
+@media (pointer: coarse) {
+  .btn,
+  .btn-ghost {
+    height: 36px;
+  }
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .input {
+    height: 36px;
+    font-size: 16px; /* below 16px iOS zooms the page on focus */
+  }
+  textarea.input {
+    height: auto;
+  }
+}
+[data-shell='mobile'] .table {
+  min-width: max-content; /* wide tables scroll sideways instead of crushing columns */
+}
+[data-shell='mobile'] .panel-body {
+  padding-bottom: 12px;
 }

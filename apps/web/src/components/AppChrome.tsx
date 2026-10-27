@@ -189,7 +189,7 @@ export function Toasts() {
   const toasts = useUi((s) => s.toasts);
   const Icon = { info: Info, ok: CheckCircle2, warn: TriangleAlert, error: AlertCircle };
   return (
-    <div className="pointer-events-none fixed bottom-10 right-3 z-[70] flex w-80 flex-col gap-2" role="status" aria-live="polite">
+    <div className="pointer-events-none fixed bottom-10 right-3 z-[70] flex w-80 flex-col gap-2 mobile:bottom-[calc(64px+env(safe-area-inset-bottom))] mobile:left-3 mobile:w-auto" role="status" aria-live="polite">
       {toasts.map((t) => {
         const I = Icon[t.tone];
         return (

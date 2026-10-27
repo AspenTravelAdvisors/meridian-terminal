@@ -23,7 +23,7 @@ import type { ReactNode } from 'react';
 import { TOOL_LABELS } from '../chart/drawings';
 import { activePane, useDrawings, useSettings, useUi } from '../state/store';
 import type { DrawingType } from '../state/types';
-import { Tooltip } from './ui';
+import { Tooltip as Tip } from './ui';
 
 const FibIcon = () => (
   <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
@@ -66,19 +66,26 @@ const TOOLS: { id: DrawingType; icon: ReactNode; key?: string }[][] = [
   ],
 ];
 
-export function DrawingToolbar() {
+/** Vertical rail on desktop; a horizontal, swipeable strip on phones (no hover tooltips on touch). */
+export function DrawingToolbar({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const tool = useUi((s) => s.tool);
   const magnet = useSettings((s) => s.magnet);
   const setUi = useUi.getState().set;
+  const h = orientation === 'horizontal';
+  const Tooltip = h ? ({ children }: { children: ReactNode; content?: ReactNode; side?: string }) => <>{children}</> : Tip;
+  const groupCls = h ? 'flex shrink-0 items-center gap-0.5 border-l border-border pl-1' : 'flex flex-col items-center gap-0.5 border-t border-border pt-1';
   return (
-    <nav className="flex w-10 shrink-0 flex-col items-center gap-0.5 overflow-y-auto border-r border-border bg-panel py-1.5" aria-label="Drawing tools">
+    <nav
+      className={h ? 'flex h-11 shrink-0 items-center gap-0.5 overflow-x-auto border-t border-border bg-panel px-1.5' : 'flex w-10 shrink-0 flex-col items-center gap-0.5 overflow-y-auto border-r border-border bg-panel py-1.5'}
+      aria-label="Drawing tools"
+    >
       <Tooltip side="right" content="Cursor (Esc)">
         <button className="icon-btn size-8" data-active={!tool} aria-label="Cursor" aria-pressed={!tool} onClick={() => setUi({ tool: null })}>
           <Crosshair className="size-4" />
         </button>
       </Tooltip>
       {TOOLS.map((group, g) => (
-        <div key={g} className="flex flex-col items-center gap-0.5 border-t border-border pt-1">
+        <div key={g} className={groupCls}>
           {group.map((t) => (
             <Tooltip key={t.id} side="right" content={<span>{TOOL_LABELS[t.id]} {t.key && <span className="kbd">{t.key}</span>}</span>}>
               <button className="icon-btn size-8" data-active={tool === t.id} aria-label={TOOL_LABELS[t.id]} aria-pressed={tool === t.id} onClick={() => setUi({ tool: tool === t.id ? null : t.id, selectedDrawing: null })}>
@@ -88,7 +95,7 @@ export function DrawingToolbar() {
           ))}
         </div>
       ))}
-      <div className="mt-auto flex flex-col items-center gap-0.5 border-t border-border pt-1">
+      <div className={h ? `${groupCls} ml-auto` : 'mt-auto flex flex-col items-center gap-0.5 border-t border-border pt-1'}>
         <Tooltip side="right" content={`Magnet: ${magnet} — snaps to O/H/L/C`}>
           <button
             className="icon-btn size-8"

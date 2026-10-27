@@ -1,6 +1,6 @@
 /* Meridian Terminal service worker: offline shell + cached market data (stale-while-revalidate). */
-const VERSION = 'meridian-v1';
-const SHELL = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest'];
+const VERSION = 'meridian-v2';
+const SHELL = ['/', '/index.html', '/theme-init.js', '/favicon.svg', '/apple-touch-icon.png', '/icon-192.png', '/manifest.webmanifest'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });

@@ -60,8 +60,11 @@ export function WatchlistPanel() {
               return (
                 <tr key={s} className={`group cursor-pointer ${s === activeSym ? 'bg-raised/70' : ''}`} onClick={() => useWorkspace.getState().setSymbol(activePane().id, s)} title={name}>
                   <td className="max-w-28 truncate font-medium">
-                    {s.replace(/^BINANCE:/, '')}
-                    {parseSymbol(s).provider === 'sim' && <span className="ml-1 text-[9px] text-warn">SIM</span>}
+                    {/* the row is clickable for the mouse; this button makes it reachable by keyboard and touch AT */}
+                    <button className="w-full truncate text-left" aria-label={`Open ${s}`}>
+                      {s.replace(/^BINANCE:/, '')}
+                      {parseSymbol(s).provider === 'sim' && <span className="ml-1 text-[9px] text-warn">SIM</span>}
+                    </button>
                   </td>
                   <td className="text-right">{q ? fmtPrice(q.last) : quotes.isLoading ? '…' : '—'}</td>
                   <td className="text-right" style={{ color: q ? (q.changePct >= 0 ? 'var(--ok)' : 'var(--danger)') : undefined }}>{q ? fmtPct(q.changePct) : ''}</td>

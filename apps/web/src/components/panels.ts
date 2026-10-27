@@ -17,6 +17,7 @@ export const PANEL_DEFS: { id: string; title: string; area: PanelArea }[] = [
   { id: 'tester', title: 'Signal Tester', area: 'bottom' },
   { id: 'script', title: 'Script Editor', area: 'bottom' },
   { id: 'alertlog', title: 'Alert Log', area: 'bottom' },
+  { id: 'guide', title: 'Guide', area: 'right-bottom' },
 ];
 
 let api: DockviewApi | null = null;
@@ -25,8 +26,13 @@ export const getDockApi = () => api;
 
 const anchor: Record<PanelArea, string> = { 'right-top': 'watchlist', 'right-bottom': 'tdstatus', bottom: 'portfolio' };
 
+// The mobile shell has no dock: it registers a handler that shows the panel full screen instead.
+let mobileOpener: ((id: string) => void) | null = null;
+export const setMobileOpener = (f: ((id: string) => void) | null) => (mobileOpener = f);
+
 /** Open (or focus) a panel, placing it in its home area. */
 export function openPanel(id: string) {
+  if (mobileOpener) return mobileOpener(id);
   if (!api) return;
   const existing = api.getPanel(id);
   if (existing) {

@@ -40,7 +40,7 @@ export function ChartGrid() {
 
 const SPEEDS = [1, 2, 5, 10, 25];
 
-function ReplayBar() {
+export function ReplayBar() {
   const activeId = useWorkspace((s) => s.activePaneId);
   const rp = useUi((s) => s.replay[activeId]);
   const len = useUi((s) => s.runtime[activeId]?.bars.length ?? 0);
@@ -64,7 +64,7 @@ function ReplayBar() {
   }, [rp?.active, rp?.playing, rp?.speed, activeId]);
   if (!rp || (!rp.active && !rp.selecting)) return null;
   return (
-    <div className="flex h-9 shrink-0 items-center gap-2 border-t border-border bg-panel px-3 text-[12px]" role="toolbar" aria-label="Bar replay">
+    <div className="flex h-9 shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-t border-border bg-panel px-3 text-[12px]" role="toolbar" aria-label="Bar replay">
       <span className="font-semibold text-accent">Bar replay</span>
       {rp.selecting ? (
         <span className="text-dim">Click a bar on the chart to start the replay there…</span>

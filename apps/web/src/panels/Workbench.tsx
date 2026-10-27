@@ -173,9 +173,9 @@ export function ScriptEditorPanel() {
           <input type="checkbox" checked={plain || monacoOk === false} disabled={monacoOk === false} onChange={(e) => setPlain(e.target.checked)} /> {monacoOk === false ? 'Plain editor (Monaco unavailable)' : 'Plain editor'}
         </label>
       </div>
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 mobile:flex-col">
         <div
-          className="min-w-0 flex-1"
+          className="min-h-0 min-w-0 flex-1"
           onKeyDown={(e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
               e.preventDefault();
@@ -199,7 +199,7 @@ export function ScriptEditorPanel() {
             </Suspense>
           )}
         </div>
-        <aside className="flex w-64 shrink-0 flex-col gap-2 overflow-auto border-l border-border p-2 text-[12px]">
+        <aside className="flex w-64 shrink-0 flex-col gap-2 overflow-auto border-l border-border p-2 text-[12px] mobile:max-h-[42%] mobile:w-full mobile:border-l-0 mobile:border-t">
           <div className="text-[11px] text-faint">Runs on {pane.symbol} · {pane.interval} in a sandboxed worker (no network, 3 s budget).</div>
           {r?.inputs.length ? (
             <div className="space-y-1">

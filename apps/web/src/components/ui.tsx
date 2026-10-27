@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import { Dialog as D, DropdownMenu as M, Switch as S, Tabs as T, Tooltip as Tip } from 'radix-ui';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 export function Modal({ open, onOpenChange, title, children, width = 560, footer, description }: { open: boolean; onOpenChange(o: boolean): void; title: ReactNode; children: ReactNode; width?: number; footer?: ReactNode; description?: string }) {
   return (
@@ -8,8 +8,8 @@ export function Modal({ open, onOpenChange, title, children, width = 560, footer
       <D.Portal>
         <D.Overlay className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[1px]" />
         <D.Content
-          className="fixed left-1/2 top-[8vh] z-50 flex max-h-[84vh] w-[calc(100vw-24px)] -translate-x-1/2 flex-col rounded-lg border border-border bg-panel text-text shadow-[var(--shadow)] focus:outline-none"
-          style={{ maxWidth: width }}
+          className="fixed left-1/2 top-[8vh] z-50 flex max-h-[84vh] w-[calc(100vw-24px)] max-w-(--modal-w) -translate-x-1/2 flex-col rounded-lg border border-border bg-panel text-text shadow-[var(--shadow)] focus:outline-none mobile:inset-0 mobile:top-0 mobile:h-dvh mobile:max-h-none mobile:w-full mobile:max-w-none mobile:translate-x-0 mobile:rounded-none mobile:border-0 mobile:pt-[env(safe-area-inset-top)] mobile:pb-[env(safe-area-inset-bottom)]"
+          style={{ '--modal-w': `${width}px` } as CSSProperties}
           aria-describedby={description ? undefined : undefined}
         >
           <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
@@ -46,7 +46,7 @@ export function Menu({ trigger, children, align = 'start' }: { trigger: ReactNod
     <M.Root>
       <M.Trigger asChild>{trigger}</M.Trigger>
       <M.Portal>
-        <M.Content align={align} sideOffset={4} className="z-[55] min-w-44 rounded-md border border-border bg-panel p-1 text-[12px] text-text shadow-[var(--shadow)]">
+        <M.Content align={align} sideOffset={4} className="z-[55] max-h-(--radix-dropdown-menu-content-available-height) min-w-44 overflow-y-auto rounded-md border border-border bg-panel p-1 text-[12px] text-text shadow-[var(--shadow)] mobile:min-w-56 mobile:text-[14px]">
           {children}
         </M.Content>
       </M.Portal>
@@ -55,7 +55,7 @@ export function Menu({ trigger, children, align = 'start' }: { trigger: ReactNod
 }
 export function MenuItem({ children, onSelect, active, disabled, hint }: { children: ReactNode; onSelect(): void; active?: boolean; disabled?: boolean; hint?: string }) {
   return (
-    <M.Item disabled={disabled} onSelect={onSelect} className="flex cursor-default select-none items-center justify-between gap-4 rounded px-2 py-1.5 outline-none data-[disabled]:opacity-40 data-[highlighted]:bg-raised" data-active={active}>
+    <M.Item disabled={disabled} onSelect={onSelect} className="flex cursor-default select-none items-center justify-between gap-4 rounded px-2 py-1.5 outline-none mobile:py-2.5 data-[disabled]:opacity-40 data-[highlighted]:bg-raised" data-active={active}>
       <span className={active ? 'text-accent' : ''}>{children}</span>
       {hint && <span className="kbd">{hint}</span>}
     </M.Item>
@@ -78,9 +78,9 @@ export function Switch({ checked, onChange, label, id }: { checked: boolean; onC
 export function Tabs({ tabs, value, onChange, children }: { tabs: { id: string; label: ReactNode }[]; value: string; onChange(v: string): void; children: ReactNode }) {
   return (
     <T.Root value={value} onValueChange={onChange} className="flex h-full min-h-0 flex-col">
-      <T.List className="flex shrink-0 gap-1 border-b border-border px-2">
+      <T.List className="flex shrink-0 gap-1 overflow-x-auto border-b border-border px-2">
         {tabs.map((t) => (
-          <T.Trigger key={t.id} value={t.id} className="-mb-px border-b-2 border-transparent px-2.5 py-1.5 text-[12px] text-dim hover:text-text data-[state=active]:border-accent data-[state=active]:text-text">
+          <T.Trigger key={t.id} value={t.id} className="-mb-px shrink-0 whitespace-nowrap border-b-2 border-transparent px-2.5 py-1.5 text-[12px] mobile:py-2.5 mobile:text-[13px] text-dim hover:text-text data-[state=active]:border-accent data-[state=active]:text-text">
             {t.label}
           </T.Trigger>
         ))}

@@ -12,7 +12,8 @@ export function SymbolSearch() {
   const close = () => useUi.getState().set({ symbolSearch: { ...st, open: false } });
   const [q, setQ] = useState('');
   const [type, setType] = useState<(typeof TYPES)[number]>('all');
-  const [results, setResults] = useState<SymbolInfo[]>([]);
+  // results are tagged with the query they answer, so a fast Enter never picks a stale list
+  const [results, setResults] = useState<{ q: string; list: SymbolInfo[] }>({ q: '', list: [] });
   const [sel, setSel] = useState(0);
   const [loading, setLoading] = useState(false);
   const recents = useRecents((s) => s.symbols);
@@ -32,7 +33,7 @@ export function SymbolSearch() {
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        setResults(await searchClient(q, ctrl.signal));
+        setResults({ q, list: await searchClient(q, ctrl.signal) });
       } finally {
         setLoading(false);
       }
@@ -44,9 +45,9 @@ export function SymbolSearch() {
   }, [q, st.open]);
 
   const list = useMemo(() => {
-    const base = q.trim() ? results : [...recents.map((r) => CURATED.find((c) => c.symbol === r) ?? ({ symbol: r, name: 'Recent', exchange: '', type: 'other' } as SymbolInfo)), ...CURATED.filter((c) => !recents.includes(c.symbol))];
-    const typed = type === 'all' ? base : base.filter((r) => r.type === type);
+    const base = q.trim() ? (results.q === q ? results.list : []) : [...recents.map((r) => CURATED.find((c) => c.symbol === r) ?? ({ symbol: r, name: 'Recent', exchange: '', type: 'other' } as SymbolInfo)), ...CURATED.filter((c) => !recents.includes(c.symbol))];
     const raw = q.trim().toUpperCase();
+    const typed = (type === 'all' ? base : base.filter((r) => r.type === type)).slice().sort((a, b) => Number(b.symbol === raw) - Number(a.symbol === raw));
     // allow entering any valid symbol directly (e.g. a ticker the search doesn't know)
     if (raw && SYMBOL_RE.test(raw) && !typed.some((r) => r.symbol === raw)) typed.push({ symbol: raw, name: 'Use symbol as typed', exchange: '', type: 'other', currency: '', calendar: 'NYSE', timezone: 'America/New_York', provider: 'yahoo' });
     return typed.slice(0, 40);
@@ -68,7 +69,7 @@ export function SymbolSearch() {
         <Search className="size-4 text-dim" />
         <input
           ref={inputRef}
-          className="h-8 flex-1 bg-transparent text-[14px] outline-none placeholder:text-faint"
+          className="h-8 min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-faint mobile:text-[16px]"
           placeholder="Symbol, name, or PROVIDER:TICKER (BINANCE:BTCUSDT, SIM:DEMO)…"
           value={q}
           onChange={(e) => {
