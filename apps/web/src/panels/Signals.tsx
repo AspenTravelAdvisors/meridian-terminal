@@ -10,7 +10,9 @@ import { getBarsCached } from '../data/useBars';
 import { compute } from '../engine/compute';
 import { postJson } from '../lib/api';
 import { fmtNum, fmtPct, fmtPrice, signalLabel } from '../lib/format';
-import { activePane, useWatchlists, useWorkspace } from '../state/store';
+import { runScriptSandboxed } from '../engine/script';
+import { activePane, useScripts, useUi, useWatchlists, useWorkspace } from '../state/store';
+import type { UserScript } from '../state/types';
 import { fetchMatrix, type MatrixCellDto } from './hooks';
 
 function useUniverses() {
@@ -24,6 +26,14 @@ const openSymbol = (s: string, iv?: Interval) => {
   if (iv) ws.setInterval(ws.activePaneId, iv);
 };
 
+/** A saved script's signals over `bars`, in screener-row form (study = script name). */
+async function scriptSignals(sc: UserScript, bars: Parameters<typeof runScriptSandboxed>[1], lookback: number): Promise<ScanRow['signals']> {
+  const { result } = await runScriptSandboxed(sc.code, bars, sc.inputs);
+  if (result.error) throw new Error(`${sc.name}: ${result.error}`);
+  const n = bars.length;
+  return result.signals.filter((s) => n - 1 - s.i <= lookback).map((s) => ({ id: s.id, study: sc.name, dir: s.dir, barsAgo: n - 1 - s.i }));
+}
+
 // ── Screener ────────────────────────────────────────────────────────────────
 const SCREEN_STUDIES = ['td-sequential', 'td-combo', 'td-demarker-1', 'td-rei', 'ichimoku', 'rsi', 'td-dwave'];
 
@@ -35,20 +45,31 @@ export function ScreenerPanel() {
   const [lookback, setLookback] = useState(5);
   const [signalFilter, setSignalFilter] = useState<string[]>([]);
   const [sort, setSort] = useState<'bars' | 'symbol' | 'chg'>('bars');
+  const scripts = useScripts((s) => s.scripts);
+  const [scriptIds, setScriptIds] = useState<string[]>([]);
   const allSignals = useMemo(() => studies.flatMap((id) => getStudy(id)?.signals?.map((s) => s.id) ?? []), [studies]);
   const run = useMutation({
     mutationFn: async () => {
       const symbols = universes[uni] ?? [];
       const body = { symbols, interval, studies: studies.map((id) => ({ id })), lookback, signals: signalFilter.length ? signalFilter : undefined };
-      try {
-        return { ...(await postJson<{ rows: (ScanRow & { name?: string })[]; ms: number }>('/api/scan', body)), where: 'server' };
-      } catch {
+      const chosen = scripts.filter((sc) => scriptIds.includes(sc.id));
+      // user scripts run in this browser's sandbox, so a scan that includes them runs here too
+      if (!chosen.length)
+        try {
+          return { ...(await postJson<{ rows: (ScanRow & { name?: string })[]; ms: number }>('/api/scan', body)), where: 'server' };
+        } catch {
+          /* fall through to the browser */
+        }
+      {
         const t0 = performance.now();
         const rows = await Promise.all(
           symbols.map(async (s) => {
             try {
               const bars = await getBarsCached(s, interval, 500);
-              return await compute<ScanRow>({ op: 'scan', symbol: s, bars, studies: body.studies, lookback, signals: body.signals });
+              const row = await compute<ScanRow>({ op: 'scan', symbol: s, bars, studies: body.studies, lookback, signals: body.signals });
+              for (const sc of chosen) row.signals.push(...(await scriptSignals(sc, bars, lookback)));
+              row.signals.sort((a, b) => a.barsAgo - b.barsAgo);
+              return row;
             } catch (e) {
               return { symbol: s, error: (e as Error).message, last: NaN, changePct: NaN, bars: 0, statuses: {}, signals: [] } as ScanRow;
             }
@@ -87,6 +108,17 @@ export function ScreenerPanel() {
             ))}
           </div>
         </Field>
+        {!!scripts.length && (
+          <Field label="Scripts">
+            <div className="flex flex-wrap gap-1">
+              {scripts.map((sc) => (
+                <button key={sc.id} className="btn-ghost h-7" data-active={scriptIds.includes(sc.id)} aria-pressed={scriptIds.includes(sc.id)} onClick={() => setScriptIds((s) => (s.includes(sc.id) ? s.filter((x) => x !== sc.id) : [...s, sc.id]))}>
+                  {sc.name}
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
         <Field label="Only rows with signal">
           <select className="input" multiple size={1} value={signalFilter} onChange={(e) => setSignalFilter([...e.target.selectedOptions].map((o) => o.value))} title="Ctrl/⌘-click to select several">
             {allSignals.map((s) => <option key={s} value={s}>{signalLabel(s)}</option>)}
@@ -255,15 +287,37 @@ export function TesterPanel() {
   const [scope, setScope] = useState<'active' | string>('active');
   const [interval, setIv] = useState<Interval>('1D');
   const [studyId, setStudyId] = useState('td-combo');
-  const study = getStudy(studyId);
+  const scripts = useScripts((s) => s.scripts);
+  // a saved Meridian Script can be the signal source too ("script:<id>")
+  const script = studyId.startsWith('script:') ? scripts.find((sc) => `script:${sc.id}` === studyId) : undefined;
+  const study = script ? undefined : getStudy(studyId);
+  const [scriptSigs, setScriptSigs] = useState<{ id: string; dir: string }[]>([]);
+  const signalOptions = script ? scriptSigs : (study?.signals ?? []);
   const [sigs, setSigs] = useState<string[]>(['COMBO_BUY_13', 'COMBO_SELL_13']);
   const [horizons, setHorizons] = useState('1,5,10,20,60');
   const [selH, setSelH] = useState(20);
   const [strategy, setStrategy] = useState(false);
   const [cfg, setCfg] = useState<Omit<StrategyConfig, 'entries' | 'stopLevels'>>({ exitOnOpposite: true, stop: 'level', stopPct: 5, atrMult: 2, atrLength: 14, timeStopBars: 20, takeProfitPct: 0, feesBps: 2, slippageBps: 3, entryAt: 'nextOpen', allowShort: true });
   useEffect(() => {
-    const ids = study?.signals?.filter((s) => s.dir !== 'neutral').map((s) => s.id) ?? [];
-    setSigs(ids.slice(0, 2));
+    if (!script) {
+      const ids = study?.signals?.filter((s) => s.dir !== 'neutral').map((s) => s.id) ?? [];
+      setSigs(ids.slice(0, 2));
+      return;
+    }
+    // learn the script's signal ids by running it on the active chart
+    const rt = useUi.getState().runtime[useWorkspace.getState().activePaneId];
+    let live = true;
+    runScriptSandboxed(script.code, rt?.bars ?? [], script.inputs).then(({ result }) => {
+      if (!live) return;
+      const seen = new Map<string, string>();
+      for (const s of result.signals) if (!seen.has(s.id)) seen.set(s.id, s.dir);
+      const opts = [...seen].map(([id, dir]) => ({ id, dir }));
+      setScriptSigs(opts);
+      setSigs(opts.filter((o) => o.dir !== 'neutral').map((o) => o.id).slice(0, 2));
+    });
+    return () => {
+      live = false;
+    };
   }, [studyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = useMutation({
@@ -274,7 +328,14 @@ export function TesterPanel() {
       for (const s of symbols) {
         try {
           const bars = (await getBarsCached(s, interval, 5000, 600_000)).filter((b) => b.final !== false);
-          const ev = await compute<{ events: { i: number; dir: 'bull' | 'bear' | 'neutral'; id: string }[]; lines: { riskBuy?: Float64Array; riskSell?: Float64Array } }>({ op: 'events', bars, study: studyId, signals: sigs });
+          type Events = { events: { i: number; dir: 'bull' | 'bear' | 'neutral'; id: string }[]; lines: { riskBuy?: Float64Array; riskSell?: Float64Array } };
+          let ev: Events;
+          if (script) {
+            const { result } = await runScriptSandboxed(script.code, bars, script.inputs, { timeoutMs: 6000 });
+            if (result.error) throw new Error(`${script.name}: ${result.error}`);
+            const want = new Set(sigs);
+            ev = { events: result.signals.filter((s) => want.has(s.id)).map((s) => ({ i: s.i, dir: s.dir, id: s.id })), lines: {} };
+          } else ev = await compute<Events>({ op: 'events', bars, study: studyId, signals: sigs });
           const es = await compute<EventStudyResult>({ op: 'eventStudy', bars, events: ev.events, horizons: hs, seed: 11, samples: 600 });
           let strat;
           if (strategy && symbols.length === 1) {
@@ -324,11 +385,16 @@ export function TesterPanel() {
         <Field label="Study">
           <select className="input" value={studyId} onChange={(e) => setStudyId(e.target.value)}>
             {SIGNAL_STUDIES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {!!scripts.length && (
+              <optgroup label="My scripts">
+                {scripts.map((sc) => <option key={sc.id} value={`script:${sc.id}`}>{sc.name}</option>)}
+              </optgroup>
+            )}
           </select>
         </Field>
         <Field label="Signals">
           <select className="input" multiple size={1} value={sigs} onChange={(e) => setSigs([...e.target.selectedOptions].map((o) => o.value))} title="Ctrl/⌘-click to select several">
-            {study?.signals?.map((s) => <option key={s.id} value={s.id}>{signalLabel(s.id)}</option>)}
+            {signalOptions.map((s) => <option key={s.id} value={s.id}>{signalLabel(s.id)}</option>)}
           </select>
         </Field>
         <Field label="Horizons (bars)"><input className="input w-28" value={horizons} onChange={(e) => setHorizons(e.target.value)} /></Field>
