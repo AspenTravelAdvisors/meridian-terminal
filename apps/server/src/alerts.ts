@@ -1,6 +1,6 @@
 import { type Interval, INTERVALS, fetchBars } from '@meridian/data';
 import { type AlertSpec, type Bar, alertBars, alertPayload, evaluateAlert, shouldFire } from '@meridian/engine';
-import { and, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import { type Db, newId, schema } from './db';
 import { type ServerEnv, mapLimit } from './http';
 import { sendEmail, sendWebhook } from './routes/notify';
@@ -188,8 +188,8 @@ export async function alertActivity(db: Db, userId: string, since: number) {
       .select()
       .from(alertEvents)
       .where(and(eq(alertEvents.userId, userId), sql`${alertEvents.at} > ${since}`))
-      .orderBy(alertEvents.at)
-      .limit(500),
+      .orderBy(desc(alertEvents.at))
+      .limit(200),
     db.select().from(alertState).where(eq(alertState.userId, userId)),
   ]);
   return { events, states };

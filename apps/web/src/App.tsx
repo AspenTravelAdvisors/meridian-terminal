@@ -7,6 +7,7 @@ import { SymbolSearch } from './components/SymbolSearch';
 import { TooltipProvider } from './components/ui';
 import { useIsMobile } from './lib/useMedia';
 import { useAlertManager } from './panels/Alerts';
+import { useAccount } from './state/account';
 import { useSettings, useWorkspace } from './state/store';
 
 // Each shell is its own chunk: phones never download the dock library, desktops never download the mobile shell.
@@ -45,6 +46,9 @@ applyDeepLink();
 
 function Shell() {
   useThemeApplier();
+  useEffect(() => {
+    void useAccount.getState().refresh();
+  }, []);
   useHotkeys();
   useAlertManager();
   const mobile = useIsMobile();

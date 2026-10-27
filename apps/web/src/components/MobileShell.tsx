@@ -31,6 +31,7 @@ import {
   Sun,
   Table2,
   Undo2,
+  UserRound,
 } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { ChartPane } from '../chart/ChartPane';
@@ -56,6 +57,7 @@ const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
 
 /** Everything that is not a bottom tab, as tiles on the More screen. */
 const MORE: { id: string; icon: ReactNode; blurb: string }[] = [
+  { id: 'account', icon: <UserRound className="size-5" />, blurb: 'Sign in, sync your devices, push alerts' },
   { id: 'guide', icon: <BookOpen className="size-5" />, blurb: 'How every tool works and how to combine them' },
   { id: 'analyst', icon: <Bot className="size-5" />, blurb: 'Plain-English briefing from the engine output' },
   { id: 'portfolio', icon: <Briefcase className="size-5" />, blurb: 'Holdings, P&L, returns, risk, import' },

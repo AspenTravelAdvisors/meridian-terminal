@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import { AccountPanel } from '../panels/Account';
 import { AlertLogPanel, AlertsPanel } from '../panels/Alerts';
 import { GuidePanel } from '../panels/Guide';
 import { DataWindowPanel, ObjectTreePanel, RuleInspectorPanel, SymbolDetailsPanel } from '../panels/ChartInfo';
@@ -26,4 +27,5 @@ export const PANELS: Record<string, ComponentType> = {
   script: ScriptEditorPanel,
   alertlog: AlertLogPanel,
   guide: GuidePanel,
+  account: AccountPanel,
 };

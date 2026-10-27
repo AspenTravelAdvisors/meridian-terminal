@@ -1,5 +1,5 @@
 /* Meridian Terminal service worker: offline shell + cached market data (stale-while-revalidate). */
-const VERSION = 'meridian-v2';
+const VERSION = 'meridian-v3';
 const SHELL = ['/', '/index.html', '/theme-init.js', '/favicon.svg', '/apple-touch-icon.png', '/icon-192.png', '/manifest.webmanifest'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -41,7 +41,26 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(fetch(req).then((res) => { const copy = res.clone(); caches.open(VERSION).then((c) => c.put('/index.html', copy)); return res; }).catch(() => caches.match('/index.html')));
   }
 });
+// Web Push from the alert scheduler: arrives with every Meridian tab closed.
+self.addEventListener('push', (e) => {
+  let d = {};
+  try {
+    d = e.data ? e.data.json() : {};
+  } catch {
+    d = { body: e.data ? e.data.text() : '' };
+  }
+  e.waitUntil(
+    self.registration.showNotification(d.title || 'Meridian alert', { body: d.body || '', tag: d.tag, renotify: !!d.tag, icon: '/icon-192.png', badge: '/icon-192.png', data: { url: d.url || '/' } }),
+  );
+});
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  e.waitUntil(self.clients.matchAll({ type: 'window' }).then((cs) => (cs[0] ? cs[0].focus() : self.clients.openWindow('/'))));
+  const url = new URL((e.notification.data && e.notification.data.url) || '/', self.location.origin).href;
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+      const c = cs.find((x) => new URL(x.url).origin === self.location.origin);
+      if (!c) return self.clients.openWindow(url);
+      return c.focus().then((w) => (url !== self.location.origin + '/' && w && 'navigate' in w ? w.navigate(url) : w));
+    }),
+  );
 });

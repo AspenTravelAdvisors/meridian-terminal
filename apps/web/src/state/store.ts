@@ -496,3 +496,18 @@ export const useUi = create<UiState>()((set, get) => ({
   },
   dismiss: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
 }));
+
+/** Persisted stores that sync to the signed-in account, by persist key (must match SYNC_KEYS in apps/server). */
+export const SYNCED_STORES = {
+  'meridian.workspace': useWorkspace,
+  'meridian.layouts': useLayouts,
+  'meridian.settings': useSettings,
+  'meridian.drawings': useDrawings,
+  'meridian.watchlists': useWatchlists,
+  'meridian.recents': useRecents,
+  'meridian.alerts': useAlerts,
+  'meridian.portfolio': usePortfolio,
+  'meridian.journal': useJournal,
+  'meridian.scripts': useScripts,
+  'meridian.studyDefaults': useStudyDefaults,
+} as const;
