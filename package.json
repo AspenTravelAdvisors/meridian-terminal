@@ -16,7 +16,7 @@
     "test:watch": "vitest",
     "test:golden": "vitest run --project golden",
     "test:coverage": "vitest run --coverage",
-    "bench": "vitest run --project bench",
+    "bench": "node scripts/bench-engine.mjs",
     "lint": "eslint .",
     "typecheck": "turbo run typecheck",
     "e2e": "playwright test",

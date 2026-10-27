@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { bool, int, num } from '../../core/params';
 import type { Geometry, SeriesCtx, StudyDef, Writer } from '../../core/types';
-import { type Sg, SIDES, mC, mH, mL, mO, mTL } from './common';
+import { type Sg, mC, mH, mL, mO, mTL } from './common';
 import { confirmedPointAt } from './points';
 
 export const tdLinesSchema = z.object({
@@ -114,7 +114,8 @@ export const tdLines: StudyDef<TdLinesCfg, TdLinesState> = {
   ],
   init: () => ({ sides: [newSide(), newSide()] }),
   update(cfg, st, x, w) {
-    SIDES.forEach((s, k) => stepSide(cfg, st.sides[k], x, s, w.i, w));
+    stepSide(cfg, st.sides[0], x, 1, w.i, w);
+    stepSide(cfg, st.sides[1], x, -1, w.i, w);
     const [sup, dem] = st.sides;
     w.line(0, sup.line ? lineAt(sup.line, w.i) : NaN);
     w.line(1, dem.line ? -lineAt(dem.line, w.i) : NaN);

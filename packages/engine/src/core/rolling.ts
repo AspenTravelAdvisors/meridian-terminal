@@ -19,7 +19,8 @@ export function ringInit(n: number): Ring {
 export function ringPush(r: Ring, x: number): number {
   const out = r.count === r.n ? r.buf[r.head] : NaN;
   r.buf[r.head] = x;
-  r.head = (r.head + 1) % r.n;
+  // wrap with a compare instead of `%` (integer modulo is the slowest op on this hot path)
+  r.head = r.head + 1 === r.n ? 0 : r.head + 1;
   if (r.count < r.n) r.count++;
   return out;
 }
@@ -27,7 +28,8 @@ export function ringPush(r: Ring, x: number): number {
 /** k = 0 → most recent value, k = 1 → previous, … */
 export function ringAgo(r: Ring, k: number): number {
   if (k >= r.count) return NaN;
-  return r.buf[(r.head - 1 - k + r.n * 2) % r.n];
+  const j = r.head - 1 - k; // k < count ≤ n, so j ≥ −n
+  return r.buf[j < 0 ? j + r.n : j];
 }
 
 export const ringFull = (r: Ring): boolean => r.count === r.n;
@@ -98,23 +100,40 @@ export function extInit(n: number, isMax: boolean): Extreme {
 
 export function extPush(e: Extreme, x: number): number {
   const seq = e.pushed++;
-  // pop from back while dominated
-  while (e.size > 0) {
-    const back = (e.head + e.size - 1) % e.cap;
-    const bv = e.val[back];
-    if (e.isMax ? bv <= x : bv >= x) e.size--;
-    else break;
+  const cap = e.cap;
+  const val = e.val;
+  const seqs = e.seq;
+  const head = e.head;
+  let size = e.size;
+  // pop from back while dominated (separate loops keep the comparison branch-free)
+  if (e.isMax) {
+    while (size > 0) {
+      const back = head + size - 1;
+      if (val[back >= cap ? back - cap : back] <= x) size--;
+      else break;
+    }
+  } else {
+    while (size > 0) {
+      const back = head + size - 1;
+      if (val[back >= cap ? back - cap : back] >= x) size--;
+      else break;
+    }
   }
-  const pos = (e.head + e.size) % e.cap;
-  e.seq[pos] = seq;
-  e.val[pos] = x;
-  e.size++;
+  const p = head + size;
+  const pos = p >= cap ? p - cap : p;
+  seqs[pos] = seq;
+  val[pos] = x;
+  size++;
   // drop expired from front
-  while (e.size > 0 && e.seq[e.head] <= seq - e.n) {
-    e.head = (e.head + 1) % e.cap;
-    e.size--;
+  let h = head;
+  const oldest = seq - e.n;
+  while (size > 0 && seqs[h] <= oldest) {
+    h = h + 1 === cap ? 0 : h + 1;
+    size--;
   }
-  return e.val[e.head];
+  e.head = h;
+  e.size = size;
+  return val[h];
 }
 
 export const extValue = (e: Extreme): number => (e.size ? e.val[e.head] : NaN);

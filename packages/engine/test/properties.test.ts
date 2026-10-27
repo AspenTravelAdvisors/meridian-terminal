@@ -94,3 +94,21 @@ describe.each(STUDIES.map((d) => [d.id, d] as const))('%s', (_id, def) => {
     expect(ser(computeStudy(def, cfg, bars, { aux }))).toBe(ser(computeStudy(def, cfg, bars, { aux })));
   });
 });
+
+describe('runner bulk path', () => {
+  // load() runs each study in one tight loop with columnar signal/marker buffers; it must match bar-by-bar update()
+  it.each(STUDIES.map((d) => [d.id, d] as const))('%s: load() equals update() bar by bar, every field', (_id, def) => {
+    const cfg = defaultsOf(def);
+    const bars = fc.sample(arbBars(120, 220), { numRuns: 1, seed: 11 })[0];
+    const aux = auxFor(def, cfg, bars);
+    const bulk = new Engine([{ def, cfg }], 60_000);
+    const step = new Engine([{ def, cfg }], 60_000);
+    if (aux) for (const [k, v] of Object.entries(aux)) (bulk.store.setAux(k, v), step.store.setAux(k, v));
+    bulk.load(bars);
+    for (const b of bars) step.update(b);
+    const [a, b] = [bulk.results()[0], step.results()[0]];
+    expect(a.markers).toEqual(b.markers);
+    expect(a.signals).toEqual(b.signals);
+    for (const id of Object.keys(a.lines)) expect(Array.from(a.lines[id])).toEqual(Array.from(b.lines[id]));
+  });
+});
