@@ -37,20 +37,28 @@ export async function assertPublicHttps(raw: string, resolve: (h: string) => Pro
   return u;
 }
 
-export async function notifyRoute(req: Request, env: ServerEnv & { RESEND_API_KEY?: string; ALERT_EMAIL_FROM?: string }, fetcher: typeof fetch): Promise<Response> {
-  rateLimit(req, 'notify', 30);
-  const b = await body(req, notifyBody, 20_000);
-  if (b.channel === 'webhook') {
-    const url = await assertPublicHttps(b.url);
-    const r = await fetcher(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'MeridianTerminal-Alerts/0.1' }, body: JSON.stringify(b.payload), redirect: 'manual', signal: AbortSignal.timeout(8000) });
-    return json({ ok: r.ok, status: r.status });
-  }
+/** POST a JSON payload to a public HTTPS webhook (SSRF-guarded, no redirects, 8 s timeout). */
+export async function sendWebhook(raw: string, payload: Record<string, unknown>, fetcher: typeof fetch): Promise<{ ok: boolean; status: number }> {
+  const url = await assertPublicHttps(raw);
+  const r = await fetcher(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'MeridianTerminal-Alerts/0.3' }, body: JSON.stringify(payload), redirect: 'manual', signal: AbortSignal.timeout(8000) });
+  return { ok: r.ok, status: r.status };
+}
+
+/** Send a plain-text e-mail through Resend. */
+export async function sendEmail(env: ServerEnv, to: string, subject: string, text: string, fetcher: typeof fetch): Promise<{ ok: boolean; status: number }> {
   if (!env.RESEND_API_KEY) throw new HttpError(501, 'email delivery is not configured (set RESEND_API_KEY)');
   const r = await fetcher('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: env.ALERT_EMAIL_FROM ?? 'Meridian Alerts <alerts@resend.dev>', to: [b.to], subject: b.subject, text: b.text }),
+    body: JSON.stringify({ from: env.ALERT_EMAIL_FROM ?? 'Meridian Alerts <alerts@resend.dev>', to: [to], subject, text }),
     signal: AbortSignal.timeout(8000),
   });
-  return json({ ok: r.ok, status: r.status });
+  return { ok: r.ok, status: r.status };
+}
+
+export async function notifyRoute(req: Request, env: ServerEnv, fetcher: typeof fetch): Promise<Response> {
+  rateLimit(req, 'notify', 30);
+  const b = await body(req, notifyBody, 20_000);
+  if (b.channel === 'webhook') return json(await sendWebhook(b.url, b.payload, fetcher));
+  return json(await sendEmail(env, b.to, b.subject, b.text, fetcher));
 }

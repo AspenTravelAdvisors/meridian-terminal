@@ -1,11 +1,17 @@
 import { HttpError, type ServerEnv, corsHeaders, errorResponse, json } from './http';
+import { accountRoutes } from './routes/account';
+import { alertRoutes } from './routes/alerts';
 import { analystRoute } from './routes/analyst';
 import { barsRoute, healthRoute, quotesRoute, searchRoute } from './routes/market';
 import { notifyRoute } from './routes/notify';
+import { pushRoutes } from './routes/push';
 import { matrixRoute, scanRoute } from './routes/scan';
+import { syncRoutes } from './routes/sync';
 
 export type { ServerEnv } from './http';
 export { ruleBasedBriefing } from './routes/analyst';
+export { installDb, openPglite, migrate, type Db } from './db';
+export { runAlerts } from './alerts';
 
 type Handler = (req: Request, env: ServerEnv, fetcher: typeof fetch) => Promise<Response> | Response;
 
@@ -18,6 +24,10 @@ const ROUTES: Record<string, { GET?: Handler; POST?: Handler }> = {
   '/api/matrix': { POST: matrixRoute },
   '/api/analyst': { POST: analystRoute },
   '/api/notify': { POST: notifyRoute },
+  ...accountRoutes,
+  ...syncRoutes,
+  ...pushRoutes,
+  ...alertRoutes,
 };
 
 /** Framework-agnostic entry point: Vercel function, Vite dev middleware and the standalone Node server all call this. */

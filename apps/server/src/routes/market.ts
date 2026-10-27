@@ -1,5 +1,6 @@
 import { INTERVALS, SYMBOL_RE, fetchBars, fetchQuotes, searchSymbols, toWire } from '@meridian/data';
 import { z } from 'zod';
+import { databaseUrl } from '../db';
 import { HttpError, type ServerEnv, json, query, rateLimit } from '../http';
 
 const barsQuery = z.object({
@@ -46,5 +47,7 @@ export function healthRoute(_req: Request, env: ServerEnv): Response {
     service: 'meridian-terminal',
     analyst: env.ANTHROPIC_API_KEY ? 'anthropic' : 'rule-based',
     providers: { yahoo: true, binance: true, coinbase: true, stooq: true, sim: true, alpaca: !!(env.ALPACA_KEY_ID && env.ALPACA_SECRET_KEY), twelvedata: !!env.TWELVE_DATA_API_KEY },
+    accounts: databaseUrl(env) ? 'postgres' : env.VERCEL ? 'off' : 'embedded',
+    email: !!env.RESEND_API_KEY,
   });
 }

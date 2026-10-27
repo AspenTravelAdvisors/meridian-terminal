@@ -30,9 +30,12 @@ export interface ScriptResult {
   ms: number;
 }
 
-const NaNs = (n: number) => new Float64Array(n).fill(NaN);
-
+/**
+ * The script API. Self-contained on purpose (no references to anything outside its own body), so its source text
+ * can also be evaluated inside the server's QuickJS sandbox — see SCRIPT_API_SOURCE.
+ */
 function build(bars: readonly Bar[], inputValues: Record<string, number>, out: ScriptResult) {
+  const NaNs = (len: number) => new Float64Array(len).fill(NaN);
   const n = bars.length;
   const col = (f: (b: Bar) => number) => Float64Array.from(bars, f);
   const open = col((b) => b.o);
@@ -182,6 +185,9 @@ function build(bars: readonly Bar[], inputValues: Record<string, number>, out: S
     abs: Math.abs, max: Math.max, min: Math.min, sqrt: Math.sqrt, log: Math.log, pow: Math.pow, round: Math.round, floor: Math.floor, ceil: Math.ceil,
   };
 }
+
+/** Source of the script API function, for runtimes that evaluate scripts in an isolated interpreter. */
+export const SCRIPT_API_SOURCE: string = build.toString();
 
 /** Execute a script. Callers are responsible for sandboxing (Worker without network) and time limits. */
 export function runScript(code: string, bars: readonly Bar[], inputValues: Record<string, number> = {}, now: () => number = () => 0): ScriptResult {
