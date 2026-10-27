@@ -1,6 +1,6 @@
 {
   "name": "@meridian/portfolio",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Tax lots, transactions, P&L, returns and risk math.",

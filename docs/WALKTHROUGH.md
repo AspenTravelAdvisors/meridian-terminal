@@ -13,8 +13,9 @@ A few honesty notes before you start:
   spec, but nobody has checked them against reference charts yet. Treat their output as provisional.
 - **Simulated data is labelled.** Symbols starting with `SIM:` are generated series for practice and demos, badged
   **SIMULATED**. A real symbol never silently falls back to simulated prices.
-- **Your data stays in your browser.** Watchlists, drawings, alerts, portfolio and journal live in this browser's storage.
-  Export anything you care about (Portfolio → Transactions → Export CSV).
+- **Your data stays in your browser unless you sign in.** Without an account, watchlists, drawings, alerts, portfolio and
+  journal live only in this browser's storage. With an account (person icon in the top bar, or More → Account) they sync to
+  your other devices, and alerts run on the server with Meridian closed. See [Account and sync](#account-sync-and-background-alerts).
 
 ---
 
@@ -65,6 +66,7 @@ Deep links work too: `/?symbol=BINANCE:ETHUSDT&interval=4h` opens straight to th
 | `AAPL`, `SPY`, `^GSPC`, `ES=F`, `EURUSD=X` | Yahoo, with Stooq as a fallback (Alpaca / Twelve Data if the server has keys) |
 | `BINANCE:BTCUSDT` | Binance, with a live WebSocket stream; Coinbase as a fallback |
 | `SIM:DEMO`, `SIM:TREND`, `SIM:CHOP` | Simulated series for practice (always badged) |
+| `SAP.DE`, `RY.TO`, `VOD.L`, `7203.T` | Yahoo, on the listing's own exchange hours, time zone and currency |
 
 The **Symbol** panel shows the exchange, session calendar, time zone and which provider actually served the data.
 
@@ -80,8 +82,9 @@ Meridian: never act on a provisional 9 or 13 as if it were complete.
 ### Chart types and scales
 - **Candles, hollow candles, bars, line, area, baseline.**
 - **Heikin Ashi** smooths the candles for *display*. Studies still run on the real prices underneath.
-- **Renko** and **Range** bars replace time with price movement, and studies run on the bricks. The box size is set
-  automatically from recent volatility (average true range).
+- **Renko** and **Range** bars replace time with price movement, and studies run on the bricks. By default the box size is
+  set from recent volatility (average true range, 14 bars). **Chart type → Box size…** changes the ATR length or sets a
+  fixed size in price units.
 - **Scales:** regular, logarithmic (use it for long histories), percent, and indexed to 100 (use it to compare symbols).
 - **Adjustment:** split-adjusted (default), split + dividend, or unadjusted.
 - **Compare (+):** overlay up to five other symbols.
@@ -340,17 +343,22 @@ Create alerts from the **Alerts** panel (or the Alert button). Conditions:
 - **Price**: crosses above or below, is above, is below.
 - **Study value**: a study output crosses a value, for example DeMarker I crossing 40.
 - **Drawing**: price crosses one of your drawn lines.
+- **Script**: a `signal()` from one of your saved Meridian Scripts.
 
 Options:
 - **Once** or **every bar**.
 - Evaluate on **bar close (final)** or **intrabar**. Intrabar alerts are faster but can fire on a count that later disappears.
 - Expiry date.
-- Delivery: in-app toast, browser notification, webhook URL, or e-mail (if the server is configured).
+- Delivery: in-app toast, **Notify my devices** (a browser notification; push to every device you turned on when signed in),
+  webhook URL, or e-mail (if the server is configured).
 
 Every firing is recorded in the **Alert Log** with the bar, the message, whether it was provisional, and where it was delivered.
 
-Alerts are evaluated **in your browser while Meridian is open** (about every 30–60 seconds). Close the tab and they stop. For
-anything critical, keep a tab open on an always-on machine.
+**Where alerts run.** Signed out, alerts are checked **in your browser while Meridian is open** (every 30 seconds) and stop
+when you close the tab. Signed in, the **server** checks them and pushes to your devices **with Meridian closed**, as often
+as its scheduler runs. The line under the Create button tells you which is happening. The server and your browser share one
+record of what fired, so an alert never fires twice for the same bar. Setup for minute-by-minute server checks is in
+**Account → Background alerts** and `docs/ACCOUNTS.md`.
 
 A good set to start with: *Seq SETUP 9* (both sides) on the daily chart of your watchlist names, *CD 13* on the weekly chart,
 and *TDST break* on anything you hold.
@@ -387,7 +395,9 @@ signal(crossover(fast, slow), { id: 'RIBBON_UP', dir: 'bull', text: '▲' })
 - Every run also performs a **look-ahead check**: it replays shorter histories and warns if any value changes when future
   bars are added. A script that "peeks" will be flagged.
 - **Save**, then **Add to chart**. The chart re-runs the script whenever you save, and its signals are drawn as markers.
-  Alerts, the screener and the tester currently work with built-in studies only.
+- Saved scripts also work in **Alerts** (condition *Script*), the **Screener** (toggle it under *Scripts*; the scan then runs
+  in your browser) and the **Signal Tester** (pick it under *My scripts*). Server-side alerts run scripts in an isolated
+  interpreter with no network access.
 
 ---
 
@@ -510,6 +520,24 @@ it in replay, automate the watching with alerts, journal every live instance, an
 
 ---
 
+## Account, sync and background alerts
+
+Open the **person icon** in the top bar (phone: **More → Account**).
+
+- **Create account with a passkey.** Pick a username and confirm with Face ID, Touch ID or Windows Hello. There's no
+  password. On Apple devices the passkey syncs through iCloud Keychain, so your Mac signs in with the passkey made on your
+  iPhone. **Save the recovery code** shown once. It signs you in if you lose every device.
+- **Sync** starts at once. This device's data is merged into the account, edits upload a moment later, and other devices'
+  edits arrive when you switch back to the app (and every 30 seconds). The dot on the person icon is green when synced.
+- **Notifications on your devices → Turn on for this device**, then **Send a test**. On iPhone/iPad, add Meridian to the
+  Home Screen first (Share → Add to Home Screen) and turn notifications on from the installed app.
+- **Background alerts** shows when the server last checked your alerts. "Running" means alerts arrive with every tab
+  closed. If it isn't running every minute, the panel shows the one-time setup.
+- **Passkeys:** rename, remove, or add one for a device outside iCloud. **Sign out** keeps this device's data.
+  **Delete account** removes the cloud copy.
+
+---
+
 ## Settings
 
 - **Theme:** dark, light, or follow the system. **Signal palette:** standard, or colourblind-safe (Okabe–Ito). Every signal
@@ -526,9 +554,10 @@ it in replay, automate the watching with alerts, journal every live instance, an
 - Market data comes from public endpoints through Meridian's server. Every response says which provider served it, and the
   status bar shows any fallbacks.
 - Real symbols never fall back to simulated data. If every provider fails, the chart says so and offers the demo series.
-- Your settings, layouts, drawings, watchlists, alerts, scripts, journal and portfolio are stored **only in this browser**.
-  Clearing site data deletes them, so export the portfolio as CSV regularly.
-- Alerts only run while the app is open.
+- Signed out, your settings, layouts, drawings, watchlists, alerts, scripts, journal and portfolio are stored **only in this
+  browser**, and clearing site data deletes them. Signed in, they are also kept in your account and restored when you sign
+  in again. Journal screenshots stay on the device that took them.
+- Signed out, alerts only run while the app is open.
 - Study rules marked ⚠ are unverified. The full list, with the test that pins each default, is in `docs/VERIFY_LOG.md`.
 
 ---

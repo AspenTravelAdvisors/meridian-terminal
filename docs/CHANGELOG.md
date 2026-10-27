@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.3.0 — 2026-10-27 (current; review this as the combined demo)
+
+0.3.0 contains everything from 0.1.0 and 0.2.0 plus the items below, and it is the single build to review. Brian waived the
+phase-by-phase GATE demos ("as advanced as possible in first run") and asked that the current version incorporate every
+feature. The full feature list is in `README.md` § Features and the user guide is `docs/WALKTHROUGH.md`.
+
+### Accounts, sync and background alerts
+- **Passkey accounts:** sign up and sign in with Face ID, Touch ID, Windows Hello or a security key, with no passwords. On
+  Apple devices passkeys sync through iCloud Keychain. Includes extra passkeys per device, a one-time recovery code, sign
+  out and delete account. Without `SIGNUP_CODE` only the owner's (first) account can be created.
+- **Cloud sync** of watchlists, alerts and alert log, portfolio, journal notes, drawings, layouts and templates, scripts,
+  study defaults, settings and the workspace. Edits on two devices are merged by id. Data survives clearing a browser's
+  site data.
+- **Server-side alert scheduler** (`/api/cron/alerts`): checks every account's alerts with Meridian closed, using the
+  same evaluator as the browser, at most once per bar. It delivers by **Web Push** (iPhone/iPad via the Home Screen app,
+  Mac, Windows, Android), webhook and e-mail. Open tabs stand down while the scheduler is running.
+- **Postgres** with a Drizzle schema: Neon on Vercel (`DATABASE_URL`), embedded PGlite for dev, tests and `pnpm serve`. This
+  closes the "Postgres-compatible schema" item.
+- Setup guide: `docs/ACCOUNTS.md`.
+
+### Scripts everywhere
+- Meridian Script signals now work in **alerts** (browser and server), the **screener** and the **signal tester**.
+  Server-side scripts run in a QuickJS WebAssembly sandbox with no network, a memory ceiling and a deadline.
+
+### Charts and data
+- **Renko / Range box size:** Chart type → Box size… sets auto (ATR length) or a fixed price amount.
+- **Non-US listings** (XETRA, Frankfurt, Toronto, TSX-V, London, Euronext, SIX, Milan, Madrid, Tokyo, Hong Kong, ASX,
+  NSE/BSE) get their own session hours, time zone and currency in search and on the chart. Bars finalize at the local
+  close. Local holidays outside the NYSE are not modelled yet.
+
+### Engine performance
+- Columnar signal and marker buffers, a bulk commit loop and no-copy one-shot results: about 15% less CPU per run. A new
+  test checks that bulk load equals bar-by-bar update for every study.
+- `pnpm bench` now measures the bundled engine. The old Vitest harness inflated timings about 1.6×. On the shared build
+  containers the best runs are under 150 ms and medians straddle it (`docs/PERFORMANCE.md`).
+
+### Decisions recorded
+- Brian approved the three Vercel stack adaptations (CLAUDE.md, `docs/ARCHITECTURE.md`).
+
+### Known gaps
+- On Vercel Hobby, Vercel Cron runs the scheduler once a day. Minute-by-minute background alerts need Vercel Pro
+  (`ALERT_CRON_SCHEDULE="* * * * *"`) or a free external scheduler hitting `/api/cron/alerts` (`docs/ACCOUNTS.md`).
+- Real iPhones/Safari, live push delivery, e-mail (needs a Resend key) and Alpaca/Twelve Data (need keys) are untested
+  from the build sandbox. Passkeys are tested end to end with Chromium's virtual authenticator.
+- Journal screenshots don't sync. They stay on the device that took them.
+- ⚠ VERIFY rules: being checked separately (`docs/VERIFY_LOG.md`).
+
 ## 0.2.0 — 2026-10-27
 
 ### Phones

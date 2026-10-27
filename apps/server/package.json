@@ -1,6 +1,6 @@
 {
   "name": "@meridian/server",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Web-standard (Request → Response) API handlers. Bundled to Vercel Functions, mounted in Vite dev, or served by the standalone Node server.",
