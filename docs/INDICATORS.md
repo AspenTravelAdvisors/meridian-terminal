@@ -49,7 +49,8 @@ disagree or details are uncertain. Every ⚠ VERIFY parameter must be a config i
   (config `cd8Qualifier`, default off).
 - **Intersection, elective (Sequential only):** the countdown does not start until a bar's high reaches the low of a setup
   bar at least three bars earlier. At setup completion test bars 8 and 9; if neither intersects, postpone and test each later
-  bar against the setup bars until one does. A new setup in either direction drops a pending start. Config
+  bar against the setup bars until one does. While waiting, setup extension bars (10, 11, … of the same run) count as setup
+  bars to intersect with (confirmed on a reference chart, VERIFY_LOG note 6). A new setup in either direction drops a pending start. Config
   `requireIntersection` (default off), `intersectionScope: 'anyLaterBar' | 'setupBarsOnly'` (default `anyLaterBar`).
   ⚠ The reference says "later setup counts" without saying whether non-setup bars after the setup may confirm.
 - **Aggressive Countdown** option: count bars where `L[i] ≤ L[i-2]` (config `countdownMode: 'standard' | 'aggressive'`).

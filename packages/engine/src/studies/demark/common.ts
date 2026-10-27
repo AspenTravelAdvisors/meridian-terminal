@@ -173,8 +173,8 @@ export function describeSetup(cfg: SetupCfg, x: SeriesCtx, s: Sg, i1: number, i9
  * before j. `iEnd` is bar 9 at completion and the end of the setup run (extension bars) while a countdown waits.
  * Loops over at most one setup run.
  */
-export function intersectsSetup(x: SeriesCtx, s: Sg, i1: number, i9: number, j: number): boolean {
-  const last = Math.min(i9, j - 3);
+export function intersectsSetup(x: SeriesCtx, s: Sg, i1: number, iEnd: number, j: number): boolean {
+  const last = Math.min(iEnd, j - 3);
   const h = mH(x, s, j);
   for (let k = i1; k <= last; k++) if (h >= mL(x, s, k)) return true;
   return false;

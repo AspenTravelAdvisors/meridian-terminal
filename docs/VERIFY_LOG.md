@@ -13,7 +13,7 @@ existed.
 | 2026-10-27 | DeMark-style Sequential | TDST break qualifier (`tdstBreakQualifier`) | off | `verify.test.ts` | Symbolik descriptions ² | open — reference marks TDST qualified/disqualified when breakout qualifiers are on; exact qualifier not given |
 | 2026-10-27 | DeMark-style Sequential | CD13 qualifier (`cd13Qualifier`) | `low_vs_cd8_close` (bar 13 low ≤ close of CD bar 8, else deferred "+") | `sequential.test.ts` › defers bar 13 with "+"… | Symbolik help ¹ ² | **confirmed** — buy 13 low ≤ CD8 close (sell: high ≥), "+" on deferral |
 | 2026-10-27 | DeMark-style Sequential / Combo | Cancellation (`cancelOnOppositeSetup`, `cancelOnTdstBreak`, `tdstCancelTest`) | on / on / **`trueExtreme`** (buy: true low above TDST resistance) | `symbolik.test.ts` › TDST cancellation uses the whole bar; Sequential oracle | Symbolik help ¹ ² | **fixed** — was `close`; `close` stays an option |
-| 2026-10-27 | DeMark-style Sequential | Intersection (`requireIntersection`, `intersectionScope`) | off / `anyLaterBar` — when on, *postpones* the countdown start until a bar's high reaches the low of a setup bar ≥ 3 bars earlier | `symbolik.test.ts` › elective intersection postpones the countdown start | Symbolik help ¹ ² | **fixed** — replaces `cancelOnIntersectionFailure` (which blocked the countdown and tested bars 8–9 vs 1–3 only). Removed from Combo (Sequential-only per reference). ⚠ open: whether non-setup bars may confirm (`intersectionScope`) |
+| 2026-10-27 | DeMark-style Sequential | Intersection (`requireIntersection`, `intersectionScope`) | off / `anyLaterBar` — when on, *postpones* the countdown start until a bar's high reaches the low of a setup bar ≥ 3 bars earlier | `symbolik.test.ts` › elective intersection postpones the countdown start | Symbolik help ¹ ² | **fixed** — replaces `cancelOnIntersectionFailure` (which blocked the countdown and tested bars 8–9 vs 1–3 only). Removed from Combo (Sequential-only per reference). Extension bars count as setup bars while waiting (reference chart, note 6). ⚠ open: whether non-setup bars may confirm (`intersectionScope`) |
 | 2026-10-27 | DeMark-style Sequential / Combo | Recycling (`recycleFactor`, `recycleMode`, `recycleOnLongSetup`, `recycleSetupCount`) | **2.0** (100–200%), `size`, **on**, **22** | `symbolik.test.ts` › Recycling…; Sequential oracle | Symbolik help ¹ ² | **fixed** — was 1.618 and an off-by-default 18-bar toggle; the long-setup rule only applies to a *later* setup |
 | 2026-10-27 | DeMark-style Sequential / Combo | Perfection test | buy: bar 8 or 9 low **<** min(bar 6, bar 7 low) | `symbolik.test.ts` › a tie with bars 6–7 does not perfect the 9 | Symbolik descriptions ² | **fixed** — was ≤ |
 | 2026-10-27 | DeMark-style Sequential | 8-vs-5 deferral (`cd8Qualifier`) | off (elective): would-be 8 needs low ≤ CD5 close, else "+" | `symbolik.test.ts` › elective 8-vs-5 deferral | Symbolik help ¹ ² | **added** |
@@ -60,3 +60,25 @@ existed.
    received, so no bar-by-bar comparison has been made yet. It also gives rules for studies we don't ship yet (Alignment,
    Channels 1–3, Directional, Flip-Flop, Exit 1, In Range, Point Reversal, LV, Double Point, Gap/Lap); see that article if any
    are added.
+6. **Reference-chart check (2026-10-27).** Brian supplied screenshots of Symbolik's charts. They are kept outside the repo
+   because the material is copyrighted. Expected counts were read off the screenshots and run against public OHLC for the
+   same bars (Yahoo `^GSPC`/`QQQ`/`NVDA` daily, Coinbase `BTC-USD` daily). They live as local, git-ignored `REF-*` fixtures
+   (8 files; see `fixtures/README.md`). The vendor's feed may differ slightly. BTC 2017 was charted on Kraken, so only its
+   first eight Combo counts are compared.
+   - **Pass bar for bar with the current defaults:** 13 setup 9s (SPX 2011 and 2018, QQQ 2010, NVDA 2024, BTC 2018) and 10
+     TDST levels. Sequential: two QQQ 2010 countdowns 1–13 (13s on 06-30 and 08-24). Combo: BTC 2018 1–13 (13 on 12-14),
+     SPX 2011 1–12, and the BTC 2017 recycled count. This confirms the whole-bar TDST cancel (SPX 2011-07-07 closed above
+     1345.20 while its true low stayed below, and the count went on) and the 200 % recycle window (BTC 2017).
+   - **Intersection extension bars:** NVDA 2024 sell setup 9 = 05-24, countdown 1 = 06-04. The intersecting bar is 05-31,
+     whose low reaches the high of 05-28 (setup bar 10). Bars 1–9 alone never intersect, so the test now includes the
+     setup run's extension bars (`symbolik.test.ts` › setup extension bars…).
+   - **Still open, not changed:**
+     - (a) NVDA: after "+" on 07-10 the vendor prints 13 on 07-11, whose close (127.40) is below the high two bars
+       earlier (133.82). Only the 13-vs-8 test passes there.
+     - (b) SPX 2011-10-04 Combo 13 (close 1123.95 above the prior close and the prior countdown close): neither `strict`
+       nor `v2` produces it.
+     - (c) SPX 2018: an arrow on 04-02 for the 03-27 buy setup, despite a flip on 03-29 (deferred perfection survives a
+       flip).
+     - (d) Display: the vendor hides failed setups and counts past 9, removes cancelled or recycled countdown numbers, and
+       draws a Combo countdown risk level (≈ 1024 on SPX 2011 = 1074.77 − true range 50.35).
+     The fixtures leave these cells blank.

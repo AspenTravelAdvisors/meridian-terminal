@@ -112,6 +112,22 @@ describe('Sequential — elective intersection postpones the countdown start', (
     const r = computeStudy(sequential, resolveConfig(sequential, { requireIntersection: true, intersectionScope: 'setupBarsOnly' }), bars);
     expect(r.lines.countdown[20] + 0).toBe(0);
   });
+
+  it('setup extension bars (10, 11, …) count as setup bars to intersect with', () => {
+    // Setup on bars 8–16 as in decline(); bars 15–16 (setup 8–9) gap down to [5.5, 7] and [5, 6.5], so neither reaches
+    // a setup low ≥ 3 bars earlier (bars 8–13, lows ≥ 10.5). Bar 17 (setup 10) gaps again to [2, 3]. Bars 18–19 stay
+    // below every low ≥ 3 bars back (≤ bar 16: lowest 5). Bar 20's high 2.2 reaches bar 17's low 2 → countdown
+    // starts on bar 20; its close 1.9 > low of bar 18 (1.8), so CD1 is bar 21 (1.5 ≤ 1.5). Mirrors NVDA 2024-05-31.
+    const b = barsFromCloses(decline(22));
+    const ext: [number, number, number, number][] = [
+      [6.5, 7, 5.5, 6], [6, 6.5, 5, 5.5], [3, 3, 2, 2.5], [2.5, 2.6, 1.8, 2], [2, 2.1, 1.5, 1.8], [1.8, 2.2, 1.6, 1.9], [1.9, 2, 1.4, 1.5],
+    ];
+    ext.forEach(([o, h, l, c], k) => (b[15 + k] = { ...b[15 + k], o, h, l, c }));
+    const r = computeStudy(sequential, resolveConfig(sequential, { requireIntersection: true }), b);
+    expect(r.lines.setup[17]).toBe(-10);
+    for (const i of [16, 17, 18, 19, 20]) expect(r.lines.countdown[i] + 0).toBe(0);
+    expect(r.lines.countdown[21]).toBe(-1);
+  });
 });
 
 describe('Sequential — elective 8-vs-5 deferral', () => {
