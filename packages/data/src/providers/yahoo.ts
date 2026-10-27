@@ -1,4 +1,5 @@
 import { calendarFor, timezoneFor } from '../symbols';
+import { barCloseTime } from '../sessions';
 import { resample } from '../transform';
 import type { AssetType, Bar, CorporateEvents, Interval, MarketDataProvider, Quote, SymbolInfo } from '../types';
 import { INTERVAL_MS, isIntraday } from '../types';
@@ -57,6 +58,10 @@ async function chart(ticker: string, params: string, fetcher: typeof fetch, sign
 export function parseYahooChart(j: YChart, interval: Interval, now: number) {
   const r = j.chart.result?.[0];
   if (!r) throw new ProviderError('yahoo', 'empty result', 404);
+  const m = r.meta;
+  const type = TYPE[m.instrumentType ?? ''] ?? 'other';
+  const exchange = m.fullExchangeName ?? m.exchangeName ?? '';
+  const calendar = calendarFor(type, exchange);
   const ts = r.timestamp ?? [];
   const q = r.indicators.quote[0] ?? { open: [], high: [], low: [], close: [], volume: [] };
   const adj = r.indicators.adjclose?.[0]?.adjclose;
@@ -71,7 +76,7 @@ export function parseYahooChart(j: YChart, interval: Interval, now: number) {
     if (o == null || h == null || l == null || c == null || !(c > 0)) continue;
     const t = ts[k] * 1000;
     const b: Bar = { t, o, h: Math.max(h, o, c), l: Math.min(l, o, c), c, v: q.volume[k] ?? 0 };
-    if (t + ivMs > now) b.final = false;
+    if (barCloseTime(calendar, interval === '4h' ? '1h' : interval, t, ivMs) > now) b.final = false;
     bars.push(b);
     adjFactor.push(adj?.[k] != null && c ? (adj[k] as number) / c : 1);
   }
@@ -93,10 +98,6 @@ export function parseYahooChart(j: YChart, interval: Interval, now: number) {
     splits: Object.values(r.events?.splits ?? {}).map((s) => ({ t: s.date * 1000, ratio: s.numerator / (s.denominator || 1) })),
     dividends: Object.values(r.events?.dividends ?? {}).map((d) => ({ t: d.date * 1000, amount: d.amount })),
   };
-  const m = r.meta;
-  const type = TYPE[m.instrumentType ?? ''] ?? 'other';
-  const exchange = m.fullExchangeName ?? m.exchangeName ?? '';
-  const calendar = calendarFor(type, exchange);
   const info: SymbolInfo = {
     symbol: m.symbol,
     name: m.longName ?? m.shortName ?? m.symbol,
@@ -137,7 +138,7 @@ export const yahoo: MarketDataProvider & { lastAdjFactor?: number[] } = {
     let bars = p.bars.filter((b) => b.t < to);
     let adj = p.adjFactor.slice(0, bars.length);
     if (interval === '4h') {
-      bars = resample(bars, '4h', p.info.calendar);
+      bars = resample(bars, '4h', p.info.calendar, now);
       adj = bars.map(() => 1);
     }
     if (bars.length > limit) {

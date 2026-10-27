@@ -1,5 +1,5 @@
 import { periodKey, tzOffsetMs } from '@meridian/engine';
-import { CALENDARS, sessionOpenFor } from './sessions';
+import { CALENDARS, barCloseTime, sessionOpenFor } from './sessions';
 import type { AdjustMode, Bar, CalendarId, CorporateEvents, Interval } from './types';
 import { INTERVAL_MS } from './types';
 
@@ -10,7 +10,11 @@ const DAY = 86_400_000;
  * are 09:30–13:30 and 13:30–16:00 ET); daily+ buckets follow the exchange-local calendar (Monday weeks,
  * calendar months/quarters). The last bucket is provisional when its source bars are.
  */
-export function resample(bars: readonly Bar[], to: Interval, calendar: CalendarId = '24x7'): Bar[] {
+/**
+ * Aggregate bars into a higher interval. With `now`, a bucket whose period has not ended stays provisional even when
+ * every constituent bar is final (e.g. a weekly bar on a Wednesday) — counts must not finalize before the bar closes.
+ */
+export function resample(bars: readonly Bar[], to: Interval, calendar: CalendarId = '24x7', now?: number): Bar[] {
   const toMs = INTERVAL_MS[to];
   const tz = CALENDARS[calendar].timezone;
   const keyOf = (t: number): number => {
@@ -56,6 +60,8 @@ export function resample(bars: readonly Bar[], to: Interval, calendar: CalendarI
       last.final = b.final === false ? false : last.final;
     }
   }
+  const tail = out[out.length - 1];
+  if (tail && now !== undefined && barCloseTime(calendar, to, tail.t, toMs) > now) tail.final = false;
   return out;
 }
 

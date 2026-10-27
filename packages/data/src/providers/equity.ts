@@ -1,5 +1,6 @@
 import { tzOffsetMs } from '@meridian/engine';
 import { calendarFor, timezoneFor } from '../symbols';
+import { barCloseTime } from '../sessions';
 import { resample } from '../transform';
 import type { Bar, Interval, MarketDataProvider, SymbolInfo } from '../types';
 import { INTERVAL_MS } from '../types';
@@ -32,13 +33,13 @@ export const stooq: MarketDataProvider = {
         const t = Date.UTC(y, m - 1, d, 14, 30);
         return { t, o: +r[1], h: +r[2], l: +r[3], c: +r[4], v: +(r[5] ?? 0) || 0 };
       });
-    if (interval === '3M') bars = resample(bars, '3M', 'NYSE');
+    if (interval === '3M') bars = resample(bars, '3M', 'NYSE', now);
     if (opts.to) bars = bars.filter((b) => b.t < opts.to!);
     const limit = opts.limit ?? 1500;
     const hasMore = bars.length > limit;
     bars = bars.slice(-limit);
     const last = bars[bars.length - 1];
-    if (last && last.t + INTERVAL_MS[interval] > now) last.final = false;
+    if (last && barCloseTime('NYSE', interval, last.t, INTERVAL_MS[interval]) > now) last.final = false;
     return { provider: 'stooq', info: equityInfo(ticker, 'stooq'), bars, events: { splits: [], dividends: [] }, simulated: false, hasMore };
   },
 };
@@ -74,10 +75,10 @@ export function alpaca(keyId: string, secret: string, feed = 'iex'): MarketDataP
         signal: opts.signal,
       });
       let bars: Bar[] = (j.bars ?? []).map((b) => ({ t: Date.parse(b.t), o: b.o, h: b.h, l: b.l, c: b.c, v: b.v }));
-      if (re) bars = resample(bars, re, 'NYSE');
+      if (re) bars = resample(bars, re, 'NYSE', now);
       bars = bars.slice(-limit);
       const last = bars[bars.length - 1];
-      if (last && last.t + ivMs > now) last.final = false;
+      if (last && barCloseTime('NYSE', interval, last.t, ivMs) > now) last.final = false;
       // Alpaca applies the adjustment server-side; report it as already applied
       return { provider: 'alpaca', info: equityInfo(ticker, 'alpaca'), bars, events: { splits: [], dividends: [] }, simulated: false, hasMore: bars.length >= limit * 0.9, preAdjusted: true };
     },
@@ -125,9 +126,9 @@ export function twelveData(apiKey: string): MarketDataProvider {
       if (j.status !== 'ok') throw new ProviderError('twelvedata', j.message ?? 'error', 404);
       const tz = j.meta?.exchange_timezone ?? 'America/New_York';
       let bars: Bar[] = (j.values ?? []).map((v) => ({ t: zonedToEpoch(v.datetime, tz), o: +v.open, h: +v.high, l: +v.low, c: +v.close, v: +(v.volume ?? 0) || 0 }));
-      if (re) bars = resample(bars, re, 'NYSE');
+      if (re) bars = resample(bars, re, 'NYSE', now);
       const last = bars[bars.length - 1];
-      if (last && last.t + INTERVAL_MS[interval] > now) last.final = false;
+      if (last && barCloseTime('NYSE', interval, last.t, INTERVAL_MS[interval]) > now) last.final = false;
       const info = { ...equityInfo(ticker, 'twelvedata', j.meta?.exchange), currency: j.meta?.currency ?? 'USD', timezone: tz };
       return { provider: 'twelvedata', info, bars, events: { splits: [], dividends: [] }, simulated: false, hasMore: bars.length >= limit };
     },

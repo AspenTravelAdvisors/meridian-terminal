@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type Bar,
   adjustBars,
+  barCloseTime,
   csvToBars,
   fetchBars,
   futureBarTimes,
@@ -180,5 +181,35 @@ describe('simulated feed', () => {
     const lastFullDay = daily[daily.length - 2];
     const hourlyThatDay = a.filter((x) => x.t >= lastFullDay.t && x.t < lastFullDay.t + 86_400_000);
     expect(hourlyThatDay[hourlyThatDay.length - 1].c).toBeCloseTo(lastFullDay.c, 9);
+  });
+});
+
+describe('bar close times (counts finalize only when the bar has closed)', () => {
+  const H = 3_600_000;
+  const at = (iso: string) => Date.parse(iso);
+  it('an NYSE daily bar closes at 16:00 ET the same day, whatever its timestamp convention', () => {
+    const close = at('2026-10-26T20:00:00Z'); // 16:00 EDT
+    expect(barCloseTime('NYSE', '1D', at('2026-10-26T13:30:00Z'), 24 * H)).toBe(close); // Yahoo: session open
+    expect(barCloseTime('NYSE', '1D', at('2026-10-26T14:30:00Z'), 24 * H)).toBe(close); // Stooq: fixed 14:30 UTC
+    expect(barCloseTime('NYSE', '1D', at('2026-01-05T14:30:00Z'), 24 * H)).toBe(at('2026-01-05T21:00:00Z')); // EST
+  });
+  it('intraday buckets end at the session close, not interval-length later', () => {
+    expect(barCloseTime('NYSE', '4h', at('2026-10-26T17:30:00Z'), 4 * H)).toBe(at('2026-10-26T20:00:00Z'));
+    expect(barCloseTime('NYSE', '1h', at('2026-10-26T18:30:00Z'), H)).toBe(at('2026-10-26T19:30:00Z'));
+  });
+  it('weekly bars close Friday 16:00 ET; monthly and quarterly at the next period start', () => {
+    expect(barCloseTime('NYSE', '1W', at('2026-10-26T13:30:00Z'), 7 * 24 * H)).toBe(at('2026-10-30T20:00:00Z'));
+    expect(barCloseTime('24x7', '1M', at('2026-10-01T00:00:00Z'), 30 * 24 * H)).toBe(at('2026-11-01T00:00:00Z'));
+    expect(barCloseTime('24x7', '3M', at('2026-10-01T00:00:00Z'), 91 * 24 * H)).toBe(at('2027-01-01T00:00:00Z'));
+    expect(barCloseTime('24x7', '1M', at('2026-01-01T00:00:00Z'), 30 * 24 * H)).toBe(at('2026-02-01T00:00:00Z')); // 31-day month
+  });
+  it('24x7 intraday bars are a plain interval', () => {
+    expect(barCloseTime('24x7', '1h', at('2026-10-27T02:00:00Z'), H)).toBe(at('2026-10-27T03:00:00Z'));
+  });
+  it('resample keeps a still-open bucket provisional even when every constituent is final', () => {
+    const days: Bar[] = ['2026-10-26', '2026-10-27', '2026-10-28'].map((d, k) => ({ t: at(`${d}T00:00:00Z`), o: 10 + k, h: 11 + k, l: 9 + k, c: 10.5 + k, v: 100 }));
+    const wed = at('2026-10-28T12:00:00Z');
+    expect(resample(days, '1W', '24x7', wed).at(-1)!.final).toBe(false);
+    expect(resample(days, '1W', '24x7', at('2026-11-02T00:00:01Z')).at(-1)!.final).toBeUndefined();
   });
 });

@@ -163,3 +163,28 @@ export function sessionOpenFor(calId: CalendarId, t: number): number {
   if (cal.open > cal.close && local < open) open -= DAY;
   return open - off;
 }
+
+/**
+ * When a bar that opens at `t` stops forming. Session-aware for exchange calendars: an NYSE daily bar is complete at the
+ * 16:00 ET close (not 24 h after its timestamp) and the last intraday bucket ends at the close. Weekly, monthly and
+ * quarterly bars end at the next period start. Errs late, never early, so a bar is never finalized while it can still change.
+ */
+export function barCloseTime(calId: CalendarId, interval: string, t: number, intervalMs: number): number {
+  const cal = CALENDARS[calId];
+  const off = calId === '24x7' ? 0 : tzOffsetMs(t, cal.timezone);
+  const local = t + off;
+  const dayStart = Math.floor(local / DAY) * DAY;
+  if (interval === '1M' || interval === '3M') {
+    const d = new Date(local);
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + (interval === '3M' ? 3 - (d.getUTCMonth() % 3) : 1), 1) - off;
+  }
+  const dayHours = cal.open < cal.close; // single-day session (NYSE)
+  if (interval === '1W') {
+    const monday = dayStart - ((new Date(local).getUTCDay() + 6) % 7) * DAY;
+    return dayHours ? monday + 4 * DAY + cal.close * 60_000 - off : monday + 7 * DAY - off;
+  }
+  if (calId === '24x7' || !dayHours) return t + intervalMs;
+  const sessionClose = dayStart + cal.close * 60_000 - off;
+  if (intervalMs >= DAY) return sessionClose;
+  return local - dayStart < cal.close * 60_000 ? Math.min(t + intervalMs, sessionClose) : t + intervalMs;
+}

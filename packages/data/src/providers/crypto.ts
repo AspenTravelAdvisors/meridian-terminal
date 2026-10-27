@@ -50,7 +50,7 @@ export const binance: MarketDataProvider = {
       if (Number(r[6]) >= now) b.final = false;
       return b;
     });
-    if (interval === '3M') bars = resample(bars, '3M', '24x7');
+    if (interval === '3M') bars = resample(bars, '3M', '24x7', now);
     return { provider: 'binance', info: cryptoInfo(ticker, 'binance'), bars, events: { splits: [], dividends: [] }, simulated: false, hasMore: rows.length >= limit };
   },
   async getQuotes(tickers, fetcher) {
@@ -113,7 +113,7 @@ export const coinbase: MarketDataProvider = {
     out.sort((a, b) => a.t - b.t);
     const dedup = out.filter((b, k) => k === 0 || b.t !== out[k - 1].t);
     for (const b of dedup) if (b.t + gran * 1000 > now) b.final = false;
-    const bars = re ? resample(dedup, re, '24x7') : dedup;
+    const bars = re ? resample(dedup, re, '24x7', now) : dedup;
     return { provider: 'coinbase', info: cryptoInfo(product.replace('-', ''), 'coinbase'), bars, events: { splits: [], dividends: [] }, simulated: false, hasMore: dedup.length > 0 && INTERVAL_MS[interval] < 30 * DAY };
   },
 };

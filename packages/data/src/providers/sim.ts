@@ -112,7 +112,7 @@ export function simBars(sym: string, interval: Interval, now: number, to: number
   const end = Math.min(to ?? Infinity, now + 1);
   if (interval === '1D' || interval === '1W' || interval === '1M' || interval === '3M') {
     let bars = daily.map((b, k) => (k === daily.length - 1 ? { ...b, final: false } : b));
-    if (interval !== '1D') bars = resample(bars, interval, '24x7');
+    if (interval !== '1D') bars = resample(bars, interval, '24x7', now);
     bars = bars.filter((b) => b.t < end);
     return bars.slice(-limit);
   }
