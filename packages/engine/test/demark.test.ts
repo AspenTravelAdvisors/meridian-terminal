@@ -89,13 +89,31 @@ describe('DeMark-style DeMarker I', () => {
 });
 
 describe('DeMark-style DeMarker II', () => {
-  it('stays within 0–100 and every component switch is honoured', () => {
-    // (on a linear fixture both BP components are equal, so the ratio would not change — use a random walk)
-    const bars = randomWalk(120, 3);
-    const all = computeStudy(demarker2, defaultsOf(demarker2), bars);
-    const onlyClose = computeStudy(demarker2, resolveConfig(demarker2, { bpHighVsPriorClose: false, spPriorCloseVsLow: false }), bars);
-    for (const r of [all, onlyClose]) for (const v of r.lines.dem2) if (Number.isFinite(v)) expect(v >= 0 && v <= 100).toBe(true);
-    expect(Array.from(all.lines.dem2)).not.toEqual(Array.from(onlyClose.lines.dem2));
+  it('stays within 0–100 and the true-range basis is honoured', () => {
+    // randomWalk opens at the prior close (true low = low), so lift every 4th bar whole to create gaps
+    const bars = randomWalk(120, 3).map((b, i) => (i % 4 ? b : { ...b, o: b.o * 1.02, h: b.h * 1.02, l: b.l * 1.02, c: b.c * 1.02 }));
+    const plain = computeStudy(demarker2, defaultsOf(demarker2), bars);
+    const tr = computeStudy(demarker2, resolveConfig(demarker2, { rangeBasis: 'true' }), bars);
+    for (const r of [plain, tr]) for (const v of r.lines.dem2) if (Number.isFinite(v)) expect(v >= 0 && v <= 100).toBe(true);
+    expect(Array.from(plain.lines.dem2)).not.toEqual(Array.from(tr.lines.dem2));
+  });
+
+  it('uses the plain low and high: BP = max(0, H − prior C) + (C − L), SP = max(0, prior C − L) + (H − C)', () => {
+    // Bars 1 and 2 each gap up the same way: prior C, open +1, high +2, low +0.5, close +1.5 → BP = 2 + 1 = 3,
+    // SP = 0 + 0.5 = 0.5 → 3 / 3.5 over the 2-bar window. (The true low would be the prior close, giving BP = 3.5.)
+    const bars: Bar[] = [
+      { t: 0, o: 10, h: 10, l: 10, c: 10, v: 1 },
+      { t: 1, o: 11, h: 12, l: 10.5, c: 11.5, v: 1 },
+      { t: 2, o: 12.5, h: 13.5, l: 12, c: 13, v: 1 },
+    ];
+    const r = computeStudy(demarker2, resolveConfig(demarker2, { length: 2 }), bars);
+    expect(r.lines.dem2[2]).toBeCloseTo((100 * 3) / 3.5, 10);
+    // Two gaps down with the clamp off: BP = (8.5 − 10) + 0.2 and (6 − 7.2) + 0.2 → negative sum, value below 0.
+    const gap: Bar[] = [bars[0], { t: 1, o: 8, h: 8.5, l: 7, c: 7.2, v: 1 }, { t: 2, o: 5.5, h: 6, l: 4.5, c: 4.7, v: 1 }];
+    const raw = computeStudy(demarker2, resolveConfig(demarker2, { length: 2, clampPriorClose: false }), gap);
+    expect(raw.lines.dem2[2]).toBeLessThan(0);
+    // clamped (default): BP = 0.2 + 0.2, SP = (3 + 1.3) + (2.7 + 1.3) → 0.4 / 8.7
+    expect(computeStudy(demarker2, resolveConfig(demarker2, { length: 2 }), gap).lines.dem2[2]).toBeCloseTo((100 * 0.4) / 8.7, 10);
   });
 });
 
@@ -203,6 +221,25 @@ describe('DeMark-style D-Wave', () => {
     expect(piv.find((p) => p.label === '3')).toBeUndefined();
     const two = piv.find((p) => p.label === '2');
     expect(two && two.price).toBeLessThan(80);
+    // the shifted wave keeps a "+" where it was first recognised (the original wave-2 area, above its new low)
+    expect(two?.first).toBeDefined();
+    expect(two!.first!.i).toBeLessThan(two!.i);
+    expect(two!.first!.price).toBeGreaterThan(two!.price);
+  });
+
+  it('an N-bar high is a high at or above each of the previous N highs (ties count by default)', () => {
+    // Bars 0–21 fall (high 121 − i, low 2 below) → origin on bar 21 (low 98). Bars 22–32 hold high 99.5; bars 33 and
+    // 34 both reach 100. Bar 34 ties the highest of the previous 13 highs (bars 21 and 33) → a 13-bar high by default.
+    // The strict alternative needs a high above the previous 12, which bar 33's tie blocks.
+    const H = [...Array.from({ length: 22 }, (_, i) => 121 - i), ...Array<number>(11).fill(99.5), 100, 100];
+    const bars = H.map((h, i) => {
+      const l = i <= 21 ? h - 2 : 98.5;
+      return { t: Date.UTC(2024, 0, 1) + i * 86_400_000, o: (h + l) / 2, h, l, c: (h + l) / 2, v: 1000 };
+    });
+    const first = (cfg: Record<string, unknown>) =>
+      computeStudy(dwave, resolveConfig(dwave, cfg), bars).signals.filter((s) => s.id === 'DWAVE_1_START').map((s) => s.i);
+    expect(first({})).toEqual([34]);
+    expect(first({ nBarTest: 'abovePriorNMinus1' })).toEqual([]);
   });
 });
 
