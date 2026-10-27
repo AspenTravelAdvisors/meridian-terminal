@@ -85,3 +85,19 @@ deployment doesn't have. The equivalents here are:
 | Alert worker/scheduler | in-app evaluator (every 30 s while open) + server relay for webhook/email | no background workers |
 
 The Postgres-compatible schema and a server-side alert scheduler are still open for a stateful deployment target.
+
+### Site password gate
+
+The deployment is private: one shared password (`SITE_PASSWORD`) protects every page and every `/api` route.
+`apps/server/src/gate.ts` runs as Vercel Routing Middleware (`functions/_middleware.func`, emitted by
+`scripts/build-vercel.mjs`) in front of the CDN and the API function, and in front of `pnpm serve`. It runs in the app,
+so it needs no Vercel plan feature.
+
+- **Sign in / out:** `/__login` (form) and `/__logout`. A session is an HttpOnly, Secure, SameSite=Lax cookie that lasts 30
+  days, signed with HMAC-SHA256 keyed by the password. Changing the password signs everyone out.
+- **Signed out:** pages redirect to `/__login?next=…` (same-site paths only). `/api` returns `401` with
+  `x-meridian-auth: required`; the app then sends you to sign in.
+- **Production fails closed:** a production build with no `SITE_PASSWORD` serves a "locked" page and `503` for the API,
+  never the open site. Preview builds and `pnpm serve` are open when the password is unset.
+- **Limits:** about 10 password attempts per minute per address, counted per instance, so use a long passphrase. The
+  service worker never caches the sign-in page or a redirect as the app shell. `pnpm dev` (Vite) is not gated.

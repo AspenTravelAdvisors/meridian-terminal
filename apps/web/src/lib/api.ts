@@ -10,6 +10,15 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The site password gate (apps/server/src/gate.ts) answers 401 + `x-meridian-auth: required` when the session has
+ * expired: go to the sign-in page and come back here afterwards.
+ */
+export function signInIfRequired(res: Response): void {
+  if (res.status === 401 && res.headers.get('x-meridian-auth') === 'required' && typeof location !== 'undefined')
+    location.assign(`/__login?next=${encodeURIComponent(location.pathname + location.search)}`);
+}
+
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
@@ -17,6 +26,7 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   } catch (e) {
     throw new ApiError(0, e instanceof Error ? `network error: ${e.message}` : 'network error');
   }
+  signInIfRequired(res);
   const text = await res.text();
   let body: unknown = null;
   try {

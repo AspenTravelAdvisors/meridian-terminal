@@ -3,7 +3,8 @@
  * Emits a Vercel Build Output API v3 tree (.vercel/output) so the deployment is fully deterministic:
  *   static/          ← apps/web/dist (Vite build)
  *   functions/api.func  ← one bundled Node function serving every /api/* route (apps/server)
- *   config.json      ← routing: immutable assets, filesystem, /api → function, SPA fallback, security headers
+ *   functions/_middleware.func ← edge middleware: the SITE_PASSWORD gate in front of every page and /api route
+ *   config.json      ← routing: security headers, gate, immutable assets, filesystem, /api → function, SPA fallback
  * Vercel picks up .vercel/output automatically when the build command produces it.
  */
 import { build } from 'esbuild';
@@ -48,6 +49,24 @@ writeFileSync(
   JSON.stringify({ runtime: 'nodejs22.x', handler: 'index.js', launcherType: 'Nodejs', shouldAddHelpers: false, supportsResponseStreaming: true, maxDuration: 60 }, null, 2),
 );
 
+// Password gate (apps/server/src/gate.ts). Production builds fail closed: no SITE_PASSWORD → locked, never open.
+const mw = join(out, 'functions/_middleware.func');
+mkdirSync(mw, { recursive: true });
+const gateRequired = process.env.VERCEL_ENV === 'production';
+await build({
+  entryPoints: [join(root, 'apps/server/src/middleware.ts')],
+  bundle: true,
+  platform: 'browser',
+  target: 'es2022',
+  format: 'esm',
+  outfile: join(mw, 'index.js'),
+  minify: true,
+  legalComments: 'none',
+  logLevel: 'warning',
+  define: { __GATE_REQUIRED__: JSON.stringify(gateRequired), __GATE_HEADERS__: JSON.stringify(security) },
+});
+writeFileSync(join(mw, '.vc-config.json'), JSON.stringify({ runtime: 'edge', entrypoint: 'index.js' }, null, 2));
+
 
 
 writeFileSync(
@@ -57,6 +76,7 @@ writeFileSync(
       version: 3,
       routes: [
         { src: '/(.*)', headers: security, continue: true },
+        { src: '/(.*)', middlewarePath: '_middleware', continue: true },
         { src: '/assets/(.*)', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }, continue: true },
         { src: '/(sw\\.js|manifest\\.webmanifest)', headers: { 'Cache-Control': 'no-cache' }, continue: true },
         { handle: 'filesystem' },
@@ -68,4 +88,4 @@ writeFileSync(
     2,
   ),
 );
-console.log('✓ .vercel/output ready (static + functions/api.func)');
+console.log(`✓ .vercel/output ready (static + functions/api.func + password gate${gateRequired ? ', required' : ''})`);

@@ -84,6 +84,7 @@ Import the repository in Vercel (framework preset "Other"), then set any environ
 
 | Variable | Purpose |
 |---|---|
+| `SITE_PASSWORD` | **required in production**: the password for the site and API (see ARCHITECTURE § Site password gate). With it unset, production is locked |
 | `ANTHROPIC_API_KEY` | enables the AI analyst (otherwise a rule-based briefing) |
 | `ANTHROPIC_MODEL` | analyst model, default `claude-opus-5-5` |
 | `TWELVE_DATA_API_KEY` | optional equities/FX provider |

@@ -6,6 +6,7 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { chartActions, snapshotters } from '../chart/bus';
 import { Empty, Select } from '../components/ui';
 import { runScriptSandboxed } from '../engine/script';
+import { signInIfRequired } from '../lib/api';
 import { canvasToBlob } from '../lib/download';
 import { fmtTime, signalLabel } from '../lib/format';
 import { Markdown } from '../lib/markdown';
@@ -497,6 +498,7 @@ export function AnalystPanel() {
         body: JSON.stringify({ kind, symbol: kind === 'chart' ? pane.symbol : undefined, interval: kind === 'chart' ? pane.interval : undefined, question: qText || undefined, context }),
         signal: ac.signal,
       });
+      signInIfRequired(res);
       if (!res.ok || !res.body) {
         const j = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(j?.error ?? `HTTP ${res.status} — the analyst API is unavailable on this host`);
