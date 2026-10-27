@@ -1,5 +1,5 @@
 import type { VolumeProfile } from '@meridian/engine';
-import type { IChartApi, IPrimitivePaneRenderer, ISeriesApi, ISeriesPrimitive, Logical, SeriesAttachedParameter, SeriesType, Time } from 'lightweight-charts';
+import type { Coordinate, IChartApi, IPrimitivePaneRenderer, ISeriesApi, ISeriesPrimitive, Logical, PrimitiveHoveredItem, SeriesAttachedParameter, SeriesType, Time } from 'lightweight-charts';
 
 type CanvasRenderingTarget2D = Parameters<IPrimitivePaneRenderer['draw']>[0];
 
@@ -9,6 +9,35 @@ export type Dash = 'solid' | 'dashed' | 'dotted';
 export function setDash(ctx: Ctx, d: Dash | undefined, w = 1) {
   ctx.setLineDash(d === 'dashed' ? [6 * w, 4 * w] : d === 'dotted' ? [1.5 * w, 3 * w] : []);
 }
+
+/** A chart element under the pointer, resolved to a human explanation by `explain.ts`. */
+export interface ChartHit {
+  kind: 'marker' | 'count' | 'level' | 'segment' | 'pivot' | 'time' | 'cloud' | 'line' | 'histogram' | 'heat' | 'note';
+  /** study instance uid ('journal' for notes); absent for anonymous geometry */
+  src?: string;
+  /** study output id (levels, lines, count columns, clouds) */
+  out?: string;
+  /** bar index the element belongs to */
+  i: number;
+  /** text as drawn on the chart */
+  text?: string;
+  /** engine-provided detail (marker tooltip, note body) */
+  tip?: string;
+  value?: number;
+  /** side of the bar a marker sits on */
+  pos?: 'above' | 'below' | 'at';
+  color: string;
+  provisional?: boolean;
+}
+type Scored = { hit: ChartHit; prio: number; dist: number };
+const better = (a: Scored | null, b: Scored) => (!a || b.prio > a.prio || (b.prio === a.prio && b.dist < a.dist) ? b : a);
+const segDist = (px: number, py: number, x1: number, y1: number, x2: number, y2: number) => {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 ? Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2)) : 0;
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+};
 
 /** Base series primitive drawing in media (CSS-pixel) coordinates on the series' pane. */
 export abstract class BasePrimitive implements ISeriesPrimitive<Time> {
@@ -23,6 +52,7 @@ export abstract class BasePrimitive implements ISeriesPrimitive<Time> {
           target.useMediaCoordinateSpace(({ context, mediaSize }) => {
             if (!this.chart || !this.series) return;
             context.save();
+            this.size = { w: mediaSize.width, h: mediaSize.height };
             try {
               this.draw(context, mediaSize.width, mediaSize.height);
             } finally {
@@ -33,6 +63,10 @@ export abstract class BasePrimitive implements ISeriesPrimitive<Time> {
     },
   ];
   protected zOrder: 'bottom' | 'normal' | 'top' = 'normal';
+  /** pane size at the last draw (hit tests run between draws) */
+  protected size = { w: 0, h: 0 };
+  /** report hits to the chart (pointer cursor); off while a drawing tool is active or explanations are disabled */
+  explain = true;
 
   attached(p: SeriesAttachedParameter<Time>) {
     this.chart = p.chart as IChartApi;
@@ -64,6 +98,14 @@ export abstract class BasePrimitive implements ISeriesPrimitive<Time> {
     return (this.chart?.timeScale().options().barSpacing as number | undefined) ?? 6;
   }
   protected abstract draw(ctx: Ctx, w: number, h: number): void;
+  /** The explainable element at pane-local (x, y), if any. */
+  explainAt(_x: number, _y: number): ChartHit | null {
+    return null;
+  }
+  hitTest(x: number, y: number): PrimitiveHoveredItem | null {
+    if (!this.explain || !this.explainAt(x, y)) return null;
+    return { externalId: 'explain', zOrder: this.zOrder, cursorStyle: 'pointer' };
+  }
 }
 
 // ── Text markers (DeMark counts, pattern labels, journal notes) ─────────────
@@ -77,8 +119,13 @@ export interface MarkerItem {
   style: 'solid' | 'hollow' | 'muted' | 'boxed';
   provisional?: boolean;
   price?: number;
+  /** study uid, or 'journal' */
+  src?: string;
+  tip?: string;
 }
 export interface LabelColumn {
+  src: string;
+  out: string;
   values: Float64Array;
   row: number;
   posColor: string;
@@ -93,6 +140,7 @@ export class TextMarkersPrimitive extends BasePrimitive {
   private columns: LabelColumn[] = [];
   private highs: ArrayLike<number> = [];
   private lows: ArrayLike<number> = [];
+  private boxes: { x1: number; y1: number; x2: number; y2: number; hit: ChartHit }[] = [];
   hollowProvisional = true;
   bg = '#0b0f14';
   protected override zOrder = 'top' as const;
@@ -119,8 +167,9 @@ export class TextMarkersPrimitive extends BasePrimitive {
     const from = Math.max(0, vr.from);
     const to = Math.min(this.highs.length - 1, vr.to);
     ctx.textAlign = 'center';
+    this.boxes = [];
     const used = new Map<string, number>();
-    const place = (i: number, pos: string, row: number, text: string, color: string, size: number, style: string, provisional: boolean, price?: number) => {
+    const place = (i: number, pos: string, row: number, text: string, color: string, size: number, style: string, provisional: boolean, price: number | undefined, hit: () => ChartHit) => {
       const x = this.x(i);
       if (x === null) return;
       const anchor = price ?? (pos === 'above' ? this.highs[i] : this.lows[i]);
@@ -134,6 +183,8 @@ export class TextMarkersPrimitive extends BasePrimitive {
       const off = 8 + (row + dup) * step;
       const y = pos === 'above' ? ya - off : pos === 'below' ? ya + off + fs * 0.7 : ya + fs * 0.35;
       ctx.font = `${size >= 2 ? 700 : 500} ${fs}px ui-sans-serif, system-ui, sans-serif`;
+      const half = ctx.measureText(text).width / 2 + 3;
+      this.boxes.push({ x1: x - half, x2: x + half, y1: y - fs - 1, y2: y + 3, hit: hit() });
       ctx.globalAlpha = style === 'muted' ? 0.55 : 1;
       const hollow = style === 'hollow' || (provisional && this.hollowProvisional);
       if (style === 'boxed') {
@@ -167,14 +218,25 @@ export class TextMarkersPrimitive extends BasePrimitive {
         if (!Number.isFinite(v) || v === 0) continue;
         const pos = v > 0 ? 'above' : 'below';
         const a = Math.abs(v);
-        place(i, pos, col.row, String(a), v > 0 ? col.posColor : col.negColor, 1, col.mutedAbove !== undefined && a > col.mutedAbove ? 'muted' : 'solid', i >= col.provisionalFrom);
+        const color = v > 0 ? col.posColor : col.negColor;
+        const provisional = i >= col.provisionalFrom;
+        place(i, pos, col.row, String(a), color, 1, col.mutedAbove !== undefined && a > col.mutedAbove ? 'muted' : 'solid', provisional, undefined, () => ({ kind: 'count', src: col.src, out: col.out, i, value: v, text: String(a), color, provisional }));
       }
     }
     for (let i = from; i <= to; i++) {
       const ms = this.byIndex.get(i);
       if (!ms) continue;
-      for (const m of ms) if (!dense || m.size >= 2) place(m.i, m.pos, m.row, m.text, m.color, m.size, m.style, !!m.provisional, m.price);
+      for (const m of ms)
+        if (!dense || m.size >= 2)
+          place(m.i, m.pos, m.row, m.text, m.color, m.size, m.style, !!m.provisional, m.price, () => ({ kind: m.src === 'journal' ? 'note' : 'marker', src: m.src, i: m.i, text: m.text, tip: m.tip, pos: m.pos, color: m.color, provisional: m.provisional }));
     }
+  }
+
+  override explainAt(x: number, y: number): ChartHit | null {
+    let best: Scored | null = null;
+    for (const b of this.boxes)
+      if (x >= b.x1 - 2 && x <= b.x2 + 2 && y >= b.y1 - 2 && y <= b.y2 + 2) best = better(best, { hit: b.hit, prio: 0, dist: Math.hypot(x - (b.x1 + b.x2) / 2, y - (b.y1 + b.y2) / 2) });
+    return best?.hit ?? null;
   }
 }
 
@@ -187,6 +249,8 @@ export interface LevelRun {
   dash: Dash;
   width: number;
   label?: string;
+  src?: string;
+  out?: string;
 }
 export interface GeoSegment {
   i1: number;
@@ -197,12 +261,16 @@ export interface GeoSegment {
   dash?: Dash;
   width?: number;
   label?: string;
+  src?: string;
 }
 export interface PivotPath {
   points: { i: number; price: number; label: string; locked: boolean }[];
   color: string;
+  src?: string;
 }
 export interface CloudData {
+  src?: string;
+  out?: string;
   a: Float64Array;
   b: Float64Array;
   offset: number;
@@ -214,7 +282,7 @@ export class LevelsPrimitive extends BasePrimitive {
   runs: LevelRun[] = [];
   segments: GeoSegment[] = [];
   paths: PivotPath[] = [];
-  timeMarks: { i: number; label: string; color: string }[] = [];
+  timeMarks: { i: number; label: string; color: string; src?: string }[] = [];
   profiles: (VolumeProfile & { color: string; upColor: string })[] = [];
   vrvp: (VolumeProfile & { color: string; upColor: string }) | null = null;
   clouds: CloudData[] = [];
@@ -372,6 +440,62 @@ export class LevelsPrimitive extends BasePrimitive {
     }
   }
 
+  override explainAt(x: number, y: number): ChartHit | null {
+    const vr = this.visible();
+    if (!vr) return null;
+    let best: Scored | null = null;
+    const near = 5;
+    for (const p of this.paths)
+      for (const pt of p.points) {
+        const px = this.x(pt.i);
+        const py = this.y(pt.price);
+        if (px === null || py === null) continue;
+        const d = Math.hypot(x - px, y - py);
+        // the wave label sits beside the pivot, so accept a generous radius
+        if (d <= 14) best = better(best, { hit: { kind: 'pivot', src: p.src, i: pt.i, text: pt.label, value: pt.price, color: p.color, provisional: !pt.locked }, prio: 3, dist: d });
+      }
+    for (const r of this.runs) {
+      if (r.i2 < vr.from || r.i1 > vr.to) continue;
+      const x1 = this.x(r.i1 - 0.5);
+      const x2 = this.x(r.i2 + 0.5);
+      const ry = this.y(r.price);
+      if (x1 === null || x2 === null || ry === null || x < x1 || x > x2) continue;
+      const d = Math.abs(y - ry);
+      if (d <= near) best = better(best, { hit: { kind: 'level', src: r.src, out: r.out, i: r.i1, text: r.label, value: r.price, color: r.color }, prio: 2, dist: d });
+    }
+    for (const s of this.segments) {
+      const x1 = this.x(s.i1);
+      const x2 = this.x(s.i2);
+      const y1 = this.y(s.p1);
+      const y2 = this.y(s.p2);
+      if (x1 === null || x2 === null || y1 === null || y2 === null) continue;
+      const d = segDist(x, y, x1, y1, x2, y2);
+      if (d <= near) {
+        const l = this.chart?.timeScale().coordinateToLogical(x as Coordinate);
+        const t = x2 === x1 ? 0 : (x - x1) / (x2 - x1);
+        best = better(best, { hit: { kind: 'segment', src: s.src, i: l === null || l === undefined ? s.i2 : Math.round(l), text: s.label, value: s.p1 + t * (s.p2 - s.p1), color: s.color }, prio: 2, dist: d });
+      }
+    }
+    for (const m of this.timeMarks) {
+      const mx = this.x(m.i);
+      if (mx === null) continue;
+      const d = Math.abs(x - mx);
+      if (d <= 4) best = better(best, { hit: { kind: 'time', src: m.src, i: m.i, text: m.label, color: m.color }, prio: 1, dist: d });
+    }
+    if (!best && this.clouds.length) {
+      const l = this.chart?.timeScale().coordinateToLogical(x as Coordinate);
+      const k = l === null || l === undefined ? NaN : Math.round(l);
+      for (const c of this.clouds) {
+        const j = k - c.offset;
+        const ya = this.y(c.a[j]);
+        const yb = this.y(c.b[j]);
+        if (ya === null || yb === null || !Number.isFinite(c.a[j]) || !Number.isFinite(c.b[j])) continue;
+        if (y >= Math.min(ya, yb) && y <= Math.max(ya, yb)) return { kind: 'cloud', src: c.src, out: c.out, i: k, color: c.a[j] >= c.b[j] ? c.up : c.down, value: c.a[j] - c.b[j] };
+      }
+    }
+    return best?.hit ?? null;
+  }
+
   private drawProfile(ctx: Ctx, p: VolumeProfile & { color: string; upColor: string }, right: boolean, w: number) {
     let x1: number;
     let width: number;
@@ -424,6 +548,14 @@ export class HeatStripPrimitive extends BasePrimitive {
   setData(cells: Map<number, { bull: number; bear: number; neutral: number }>) {
     this.cells = cells;
     this.update();
+  }
+  override explainAt(x: number, y: number): ChartHit | null {
+    if (!this.enabled || y < this.size.h - 9) return null;
+    const l = this.chart?.timeScale().coordinateToLogical(x as Coordinate);
+    if (l === null || l === undefined) return null;
+    const i = Math.round(l);
+    const c = this.cells.get(i);
+    return c ? { kind: 'heat', i, color: c.bull >= c.bear ? this.colors.bull : this.colors.bear } : null;
   }
   protected draw(ctx: Ctx, _w: number, h: number) {
     if (!this.enabled) return;

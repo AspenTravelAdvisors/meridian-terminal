@@ -35,12 +35,16 @@ export function SettingsDialog() {
           <Switch checked={s.showLegendValues} onChange={(v) => s.set({ showLegendValues: v })} label="Show values in legend" />
           <Switch checked={s.showHeatStrip} onChange={(v) => s.set({ showHeatStrip: v })} label="Signal heat strip under price" />
           <Switch checked={s.hollowProvisional} onChange={(v) => s.set({ hollowProvisional: v })} label="Draw provisional (forming-bar) counts hollow" />
+          <Switch checked={s.chartTips} onChange={(v) => s.set({ chartTips: v })} label="Explain chart elements on hover / tap" />
         </section>
         <section className="flex flex-col gap-3">
           <h3 className="section-title px-0">Data & behaviour</h3>
           <Switch checked={s.live} onChange={(v) => s.set({ live: v })} label="Live updates (stream / polling)" />
           <Field label="Default adjustment for new charts">
             <Select value={s.defaultAdjust} onChange={(v) => s.set({ defaultAdjust: v })} options={[{ value: 'split', label: 'Split-adjusted' }, { value: 'all', label: 'Split + dividend' }, { value: 'none', label: 'Unadjusted' }]} />
+          </Field>
+          <Field label="When the symbol or interval changes" hint="Zoom is kept either way. New charts always open on the newest bar.">
+            <Select value={s.viewOnChange} onChange={(v) => s.set({ viewOnChange: v })} options={[{ value: 'latest', label: 'Jump to the newest bar' }, { value: 'keep', label: 'Keep position relative to the newest bar' }]} />
           </Field>
           <Field label="Magnet">
             <Select value={s.magnet} onChange={(v) => s.set({ magnet: v })} options={[{ value: 'off', label: 'Off' }, { value: 'weak', label: 'Weak (near OHLC)' }, { value: 'strong', label: 'Strong (always snap)' }]} />

@@ -87,6 +87,14 @@ Meridian: never act on a provisional 9 or 13 as if it were complete.
 - **Compare (+):** overlay up to five other symbols.
 - **Visible-range volume profile:** volume by price for whatever is on screen.
 
+### Reading what's on the chart
+- **Hover** any count, marker, level, line, cloud, wave label or the heat strip for a one-line tooltip. **Click** (or **tap** on
+  a phone) to open a card that says what the element means, its value and bar date, and the study's description, with a
+  shortcut to the study's settings. `Esc`, the ×, or clicking empty chart closes it.
+- Charts open with the **newest bar at the right edge**. Changing the symbol or timeframe keeps your zoom; by default it jumps
+  back to the newest bar (Settings can keep your position instead). When you scroll back in history, a **»** button at the
+  bottom right returns to the newest bar.
+
 ### Multiple charts, link groups and layouts
 - **Grid** (top bar): 1, 2, 3, 4, 6 or 8 charts. New panes copy the active chart's studies at other timeframes.
 - **Link groups:** click the small dot in a chart's top-right corner to cycle colours. Charts with the same colour share their
@@ -516,6 +524,8 @@ it in replay, automate the watching with alerts, journal every live instance, an
   also carries a text label.
 - **Time zone:** the exchange's, UTC, or your local time.
 - **Legend values**, **signal heat strip**, and **hollow provisional counts** (keep this on).
+- **Explain chart elements on hover / tap**, and whether a symbol or timeframe change **jumps to the newest bar** or **keeps
+  your position** relative to it.
 - **Live updates:** streaming for crypto, polling for other markets while they're open.
 - **Default adjustment** for new charts, the **magnet** strength, and **confirm destructive actions**.
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Charts
+- Chart elements explain themselves: hover a count, marker, level, line, cloud, wave label or the heat strip for a tooltip;
+  click or tap for a card with what it means, its value and date, the study description and a settings shortcut. The engine's
+  marker tooltips (TDST value, cancel reason, risk level) appear here for the first time. Toggle in Settings.
+- Charts open with the newest bar at the right edge. A symbol or timeframe change keeps the zoom and either jumps to the
+  newest bar (default) or keeps the position relative to it (Settings). A » button returns to the newest bar after scrolling
+  back.
+
+### Fixes
+- After a symbol switch, or when cached bars were replaced by fresh ones, the chart kept the old bar positions and could open
+  in the middle of history or on empty space.
+
 ## 0.2.0 — 2026-10-27
 
 ### Phones

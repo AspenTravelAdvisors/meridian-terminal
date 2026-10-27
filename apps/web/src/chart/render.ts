@@ -21,8 +21,9 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts';
 import type { ChartType, ScaleMode, StudyInstanceCfg } from '../state/types';
-import type { CloudData, GeoSegment, HeatStripPrimitive, LabelColumn, LevelRun, LevelsPrimitive, MarkerItem, PivotPath, TextMarkersPrimitive } from './primitives';
+import type { ChartHit, CloudData, GeoSegment, HeatStripPrimitive, LabelColumn, LevelRun, LevelsPrimitive, MarkerItem, PivotPath, TextMarkersPrimitive } from './primitives';
 import type { TimeMap } from './timeMap';
+import { RIGHT_MARGIN } from './viewport';
 
 export interface ChartTheme {
   bg: string;
@@ -46,7 +47,7 @@ export function chartOptions(t: ChartTheme): DeepPartial<ChartOptions> {
     grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } },
     crosshair: { mode: CrosshairMode.Normal, vertLine: { color: t.crosshair, labelBackgroundColor: t.border }, horzLine: { color: t.crosshair, labelBackgroundColor: t.border } },
     rightPriceScale: { borderColor: t.border, scaleMargins: { top: 0.08, bottom: 0.08 } },
-    timeScale: { borderColor: t.border, timeVisible: true, secondsVisible: false, rightOffset: 8, barSpacing: 7, minBarSpacing: 0.5 },
+    timeScale: { borderColor: t.border, timeVisible: true, secondsVisible: false, rightOffset: RIGHT_MARGIN, barSpacing: 7, minBarSpacing: 0.5 },
     localization: { locale: navigator.language },
     kineticScroll: { mouse: false, touch: true },
   };
@@ -157,7 +158,7 @@ export class StudyRenderer {
     const runs: LevelRun[] = [];
     const segments: GeoSegment[] = [];
     const paths: PivotPath[] = [];
-    const timeMarks: { i: number; label: string; color: string }[] = [];
+    const timeMarks: LevelsPrimitive['timeMarks'] = [];
     const profiles: LevelsPrimitive['profiles'] = [];
     const clouds: CloudData[] = [];
     const columns: LabelColumn[] = [];
@@ -228,7 +229,7 @@ export class StudyRenderer {
             for (let i = 0; i <= v.length; i++) {
               const same = i < v.length && start >= 0 && v[i] === v[start];
               if (same) continue;
-              if (start >= 0 && Number.isFinite(v[start])) runs.push({ i1: start, i2: i - 1, price: v[start], color, dash: lo.style ?? 'solid', width: st.width ?? lo.width ?? 1, label: lo.label });
+              if (start >= 0 && Number.isFinite(v[start])) runs.push({ i1: start, i2: i - 1, price: v[start], color, dash: lo.style ?? 'solid', width: st.width ?? lo.width ?? 1, label: lo.label, src: c.uid, out: o.id });
               start = i < v.length && Number.isFinite(v[i]) ? i : -1;
             }
             continue;
@@ -277,9 +278,9 @@ export class StudyRenderer {
         } else if (o.kind === 'cloud') {
           const a = r.lines[o.a];
           const b = r.lines[o.b];
-          if (a && b) clouds.push({ a, b, offset: o.offset ?? 0, up: withAlpha(col(o.upColor), 0.16), down: withAlpha(col(o.downColor), 0.16) });
+          if (a && b) clouds.push({ src: c.uid, out: o.id, a, b, offset: o.offset ?? 0, up: withAlpha(col(o.upColor), 0.16), down: withAlpha(col(o.downColor), 0.16) });
         } else if (o.kind === 'labels') {
-          columns.push({ values: r.lines[o.id], row: o.row, posColor: col(o.posColor), negColor: col(o.negColor), mutedAbove: o.mutedAbove, provisionalFrom: inp.provisionalFrom });
+          columns.push({ src: c.uid, out: o.id, values: r.lines[o.id], row: o.row, posColor: col(o.posColor), negColor: col(o.negColor), mutedAbove: o.mutedAbove, provisionalFrom: inp.provisionalFrom });
         }
       }
       // horizontal reference lines on the study's first series
@@ -288,12 +289,12 @@ export class StudyRenderer {
         for (const o of outs) if (o.kind === 'hline') e.priceLines.push(firstSeries.createPriceLine({ price: o.value, color: col(o.color), lineWidth: 1, lineStyle: lineStyleOf(o.style), axisLabelVisible: false, title: '' }));
       // markers
       for (const m of r.markers)
-        if (m.i < n) marks.push({ i: m.i, text: m.text, pos: m.pos, color: col(m.color), row: m.row ?? 0, size: m.size ?? 1, style: m.style ?? 'solid', provisional: m.provisional, price: m.price });
+        if (m.i < n) marks.push({ i: m.i, text: m.text, pos: m.pos, color: col(m.color), row: m.row ?? 0, size: m.size ?? 1, style: m.style ?? 'solid', provisional: m.provisional, price: m.price, src: c.uid, tip: m.tooltip });
       // geometry
       const g = r.geometry;
-      for (const s of g.segments ?? []) segments.push({ ...s, color: col(s.color) });
-      if (g.pivots?.length) paths.push({ points: g.pivots, color: col(g.polylineColor ?? 'accent') });
-      for (const t of g.timeMarks ?? []) timeMarks.push({ ...t, color: col('muted') });
+      for (const s of g.segments ?? []) segments.push({ ...s, color: col(s.color), src: c.uid });
+      if (g.pivots?.length) paths.push({ points: g.pivots, color: col(g.polylineColor ?? 'accent'), src: c.uid });
+      for (const t of g.timeMarks ?? []) timeMarks.push({ ...t, color: col('muted'), src: c.uid });
       for (const p of g.profiles ?? []) profiles.push({ ...p, color: col('info'), upColor: withAlpha(col('bull'), 0.5) });
       // heat strip
       for (const s of r.signals) {
@@ -318,6 +319,32 @@ export class StudyRenderer {
   /** Series of a study (for legend values / crosshair). */
   seriesOf(uid: string) {
     return this.entries.get(uid);
+  }
+
+  /**
+   * The study line or histogram under pane-local `y` on pane `pane`, from the values LWC reports at the pointer's bar.
+   * Lines hit within a few pixels; histogram columns hit anywhere between zero and their value.
+   */
+  seriesHitAt(pane: number, i: number, y: number, valueAt: (s: ISeriesApi<SeriesType>) => number | undefined): ChartHit | null {
+    let best: { hit: ChartHit; d: number } | null = null;
+    for (const [uid, e] of this.entries) {
+      if (e.pane !== pane) continue;
+      for (const [out, s] of e.series) {
+        const v = valueAt(s);
+        if (v === undefined || !Number.isFinite(v)) continue;
+        const yv = s.priceToCoordinate(v);
+        if (yv === null) continue;
+        const color = String((s.options() as { color?: string }).color ?? '');
+        if (s.seriesType() === 'Histogram') {
+          const y0 = s.priceToCoordinate(0) ?? yv;
+          if (y >= Math.min(y0, yv) - 2 && y <= Math.max(y0, yv) + 2 && (!best || best.d > 6)) best = { hit: { kind: 'histogram', src: uid, out, i, value: v, color }, d: 6 };
+          continue;
+        }
+        const d = Math.abs(y - yv);
+        if (d <= 6 && (!best || d < best.d)) best = { hit: { kind: 'line', src: uid, out, i, value: v, color }, d };
+      }
+    }
+    return best?.hit ?? null;
   }
 }
 

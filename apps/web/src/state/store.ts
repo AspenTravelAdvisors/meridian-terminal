@@ -182,6 +182,8 @@ export const useSettings = create<SettingsState>()(
       showHeatStrip: true,
       showLegendValues: true,
       hollowProvisional: true,
+      chartTips: true,
+      viewOnChange: 'latest',
       confirmBeforeDelete: true,
       set: (patch) => set(patch),
     }),
