@@ -103,7 +103,10 @@ describe('runner bulk path', () => {
     const aux = auxFor(def, cfg, bars);
     const bulk = new Engine([{ def, cfg }], 60_000);
     const step = new Engine([{ def, cfg }], 60_000);
-    if (aux) for (const [k, v] of Object.entries(aux)) (bulk.store.setAux(k, v), step.store.setAux(k, v));
+    for (const [k, v] of Object.entries(aux ?? {})) {
+      bulk.store.setAux(k, v);
+      step.store.setAux(k, v);
+    }
     bulk.load(bars);
     for (const b of bars) step.update(b);
     const [a, b] = [bulk.results()[0], step.results()[0]];
