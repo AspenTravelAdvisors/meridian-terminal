@@ -89,6 +89,8 @@ interface Side {
   pendBreach: number[]; // levels awaiting next-open confirmation
   /** completed setup whose countdown waits for intersection (INDICATORS §1.5) */
   pendIx: SetupInfo | null;
+  /** last bar of the pending setup's run (bar 9, then any extension bars 10, 11, …) */
+  pendIxEnd: number;
   lastCd13: number;
   lastSetup9: number;
 }
@@ -107,6 +109,7 @@ const newSide = (): Side => ({
   cdRisk: NaN,
   pendBreach: [],
   pendIx: null,
+  pendIxEnd: -1,
   lastCd13: -1,
   lastSetup9: -1,
 });
@@ -230,7 +233,10 @@ export function sequentialStep(
     if (side.pendIx && (done || (cfg.cancelOnOppositeSetup && steps[1 - k].completed))) side.pendIx = null;
     if (done) {
       if (!side.cd.active) {
-        if (cfg.requireIntersection && !done.intersect) side.pendIx = done;
+        if (cfg.requireIntersection && !done.intersect) {
+          side.pendIx = done;
+          side.pendIxEnd = i;
+        }
         else startCountdown(side.cd, done, i);
       } else if (shouldRecycle(cfg, side.cd, done)) {
         startCountdown(side.cd, done, i);
@@ -239,8 +245,10 @@ export function sequentialStep(
       }
     } else if (side.pendIx) {
       const ix = side.pendIx;
+      // Extension bars of the same setup run also count as setup bars to intersect with (reference chart, VERIFY_LOG note 6).
+      if (side.su.count > 0 && side.su.i1 === ix.i1) side.pendIxEnd = i;
       const inScope = cfg.intersectionScope === 'anyLaterBar' || (side.su.count > cfg.setupLength && side.su.i1 === ix.i1);
-      const hit = inScope && intersectsSetup(x, s, ix.i1, ix.i9, i);
+      const hit = inScope && intersectsSetup(x, s, ix.i1, side.pendIxEnd, i);
       if (w.inspecting) w.inspect(`${name} intersection pending: high reaches a setup low ≥ 3 bars earlier`, hit);
       if (hit) {
         side.pendIx = null;

@@ -169,8 +169,9 @@ export function describeSetup(cfg: SetupCfg, x: SeriesCtx, s: Sg, i1: number, i9
 }
 
 /**
- * Intersection test in mirrored space: bar j's high reaches the low of any setup bar (i1…i9) at least three bars
- * before j. Loops over at most `setupLength` bars.
+ * Intersection test in mirrored space: bar j's high reaches the low of any setup bar (i1…iEnd) at least three bars
+ * before j. `iEnd` is bar 9 at completion and the end of the setup run (extension bars) while a countdown waits.
+ * Loops over at most one setup run.
  */
 export function intersectsSetup(x: SeriesCtx, s: Sg, i1: number, i9: number, j: number): boolean {
   const last = Math.min(i9, j - 3);
