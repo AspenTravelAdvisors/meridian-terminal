@@ -35,12 +35,15 @@ static app plus one Node function.
 
 **Workflow panels** (dockable, resizable and persisted)
 - Watchlists, symbol details, data window, DeMark-style status across D/W/M with historical signal statistics.
-- Alerts on signals, price, study values or drawings. Alerts can fire on close or intrabar and deliver in-app, by browser
-  notification, by webhook or by email.
+- Alerts on signals, price, study values, drawings or your own scripts. Alerts can fire on close or intrabar and deliver
+  in-app, by Web Push to your devices, by webhook or by email.
+- **Accounts (passkeys) and sync:** sign in with Face ID / Touch ID / Windows Hello (no passwords; passkeys sync through
+  iCloud Keychain on Apple devices). Everything you set up follows you across devices, and a server scheduler checks
+  alerts and pushes them with Meridian closed. See `docs/ACCOUNTS.md`.
 - Screener, multi-timeframe exhaustion matrix and a signal tester. The tester runs event studies against a seeded
   random-entry baseline, plus a strategy mode with TD risk-level stops, fees and slippage.
 - **Meridian Script:** a small vectorized DSL for your own studies. Scripts run in a locked-down worker with a time
-  budget and an automatic look-ahead check.
+  budget and an automatic look-ahead check, and work in alerts, the screener and the tester too.
 - **Portfolio:** tax lots (FIFO, LIFO, HIFO, specific-lot), realized and unrealized P&L, TWR and XIRR, drawdown, VaR,
   correlation, income, allocation and position sizing. CSV import presets cover Schwab, Fidelity, IBKR, Robinhood and Meridian.
 - **Journal:** notes pinned to bars, with optional chart snapshots stored in IndexedDB.
@@ -67,7 +70,7 @@ Open `/?symbol=SIM:DEMO` for an offline, deterministic demo series. Deep links t
 |---|---|
 | `pnpm test` | unit + property (no look-ahead) + golden tests |
 | `pnpm test:golden` | golden fixtures only (`fixtures/`) |
-| `pnpm bench` | engine budget: 20 studies × 50k bars |
+| `pnpm bench` | engine budget: 20 studies × 50k bars (bundled engine, fresh Node process) |
 | `pnpm typecheck` / `pnpm lint` | strict TypeScript / ESLint (includes an engine determinism rule) |
 | `pnpm e2e` | Playwright smoke suite against the production build |
 | `pnpm build && pnpm serve` | self-host: static app + API from one Node process, same CSP as Vercel |
@@ -91,6 +94,13 @@ Import the repository in Vercel (framework preset "Other"), then set any environ
 | `ALPACA_KEY_ID`, `ALPACA_SECRET` | optional US equities provider |
 | `ALLOWED_ORIGINS` | comma-separated CORS allow-list for the API |
 | `RESEND_API_KEY`, `ALERT_EMAIL_FROM`, `ALERT_EMAIL_TO` | email delivery for alerts; only to the addresses listed in `ALERT_EMAIL_TO` |
+| `DATABASE_URL` | Postgres for accounts, sync and background alerts. Set automatically by Vercel's Neon integration (Storage → Create Database → Neon). |
+| `CRON_SECRET` | protects `/api/cron/alerts`; Vercel Cron sends it automatically. Also the only way past the site password gate for the scheduler: without it, background alerts can't run in production |
+| `ALERT_CRON_SCHEDULE` | scheduler frequency at build time; default once a day (the Hobby limit), `* * * * *` on Pro |
+| `SIGNUP_CODE` | invite code for accounts after the first (without it only the owner's account can be created) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push keys; generated and stored in the database when unset |
+
+Account setup, background alerts and iPhone push are walked through in `docs/ACCOUNTS.md`.
 
 Secrets are read only on the server and never logged.
 
@@ -113,10 +123,13 @@ support `split`, `all` and `none` adjustment.
 - ⚠ VERIFY rules are implemented exactly as `docs/INDICATORS.md` states them and are pinned by tests. They still need checking
   against reference charts before anyone relies on them. One known inconsistency is listed in `docs/VERIFY_LOG.md`.
 - The performance target is documented with measured numbers in `docs/PERFORMANCE.md`.
+- Background alerts run as often as something calls `/api/cron/alerts`. On Vercel Hobby that's once a day unless an external
+  scheduler is added (`docs/ACCOUNTS.md`).
 
 ## Docs
 
 - `docs/WALKTHROUGH.md`: user guide: every feature, plus strategic playbooks
+- `docs/ACCOUNTS.md`: accounts, sync, background alerts and push: setup and how they work
 - `docs/SPEC.md`: product spec
 - `docs/INDICATORS.md`: study rules
 - `docs/VERIFY_LOG.md`: uncertain rules and the tests that pin them

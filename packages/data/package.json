@@ -1,6 +1,6 @@
 {
   "name": "@meridian/data",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Market data provider adapters, bar normalization, sessions, resampling and corporate actions.",

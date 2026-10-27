@@ -1,6 +1,6 @@
 {
   "name": "@meridian/engine",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Pure-TS indicator and signal engine. Zero DOM dependencies; runs in Web Workers and Node.",

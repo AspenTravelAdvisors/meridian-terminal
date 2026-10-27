@@ -104,6 +104,18 @@ describe('site password gate', () => {
     expect(await gate(get('/api/x'), {}, { required: false, now: NOW })).toBeNull();
   });
 
+  it('lets the alert scheduler through only with the cron secret', async () => {
+    const env = { ...ENV, CRON_SECRET: 'cron-secret-123' };
+    const cron = (init: RequestInit = {}, q = '') => new Request(`https://app.test/api/cron/alerts${q}`, init);
+    expect(await gate(cron({ headers: { authorization: 'Bearer cron-secret-123' } }), env, opts)).toBeNull();
+    expect(await gate(cron({}, '?key=cron-secret-123'), env, opts)).toBeNull();
+    expect((await gate(cron({ headers: { authorization: 'Bearer wrong' } }), env, opts))!.status).toBe(401);
+    // the secret opens only the scheduler, not the rest of the API
+    expect((await gate(new Request('https://app.test/api/quotes', { headers: { authorization: 'Bearer cron-secret-123' } }), env, opts))!.status).toBe(401);
+    // no CRON_SECRET configured: the scheduler stays behind the password
+    expect((await gate(cron({ headers: { authorization: 'Bearer ' } }), ENV, opts))!.status).toBe(401);
+  });
+
   it('adds the given security headers to its own responses', async () => {
     const res = (await gate(get(LOGIN_PATH), ENV, { ...opts, headers: { 'X-Content-Type-Options': 'nosniff' } }))!;
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');

@@ -462,6 +462,8 @@ interface UiState {
   settingsOpen: boolean;
   shortcutsOpen: boolean;
   paletteOpen: boolean;
+  /** pane id whose Renko/Range box-size dialog is open */
+  boxSizePane: string | null;
   replay: Record<string, { active: boolean; index: number; playing: boolean; speed: number; selecting: boolean }>;
   toasts: Toast[];
   focusBar: { paneId: string; t: number } | null;
@@ -483,6 +485,7 @@ export const useUi = create<UiState>()((set, get) => ({
   settingsOpen: false,
   shortcutsOpen: false,
   paletteOpen: false,
+  boxSizePane: null,
   replay: {},
   toasts: [],
   focusBar: null,
@@ -495,3 +498,18 @@ export const useUi = create<UiState>()((set, get) => ({
   },
   dismiss: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
 }));
+
+/** Persisted stores that sync to the signed-in account, by persist key (must match SYNC_KEYS in apps/server). */
+export const SYNCED_STORES = {
+  'meridian.workspace': useWorkspace,
+  'meridian.layouts': useLayouts,
+  'meridian.settings': useSettings,
+  'meridian.drawings': useDrawings,
+  'meridian.watchlists': useWatchlists,
+  'meridian.recents': useRecents,
+  'meridian.alerts': useAlerts,
+  'meridian.portfolio': usePortfolio,
+  'meridian.journal': useJournal,
+  'meridian.scripts': useScripts,
+  'meridian.studyDefaults': useStudyDefaults,
+} as const;

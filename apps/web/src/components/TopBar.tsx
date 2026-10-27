@@ -19,10 +19,13 @@ import {
   Settings,
   Sun,
   Undo2,
+  UserRound,
 } from 'lucide-react';
 import { snapshotters } from '../chart/bus';
 import { canvasToBlob, download } from '../lib/download';
+import { useAccount } from '../state/account';
 import { activePane, useDrawings, useLayouts, useSettings, useUi, useWorkspace } from '../state/store';
+import { fmtPrice } from '../lib/format';
 import { CHART_TYPES, GRID_LAYOUTS } from '../state/types';
 import { openPanel, PANEL_DEFS } from './panels';
 import { Menu, MenuItem, MenuLabel, MenuSep, Tooltip } from './ui';
@@ -48,6 +51,22 @@ export async function snapshot(scope: 'pane' | 'grid') {
     canvases.forEach((c, k) => g.drawImage(c, (k % cols) * w, Math.floor(k / cols) * h));
   }
   download(`meridian-${activePane().symbol.replace(/[^A-Za-z0-9]/g, '_')}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.png`, await canvasToBlob(out));
+}
+
+function AccountButton() {
+  const status = useAccount((s) => s.status);
+  const user = useAccount((s) => s.info?.user);
+  const sync = useAccount((s) => s.sync);
+  if (status === 'unavailable' || status === 'unknown') return null;
+  const tip = user ? `${user.username} · ${sync === 'error' ? 'sync problem' : sync === 'offline' ? 'offline' : 'synced'}` : 'Sign in to sync and get alerts with Meridian closed';
+  return (
+    <Tooltip content={tip}>
+      <button className="icon-btn relative" aria-label={user ? `Account: ${user.username}` : 'Sign in'} onClick={() => openPanel('account')}>
+        <UserRound className="size-4" />
+        {user && <span className={`absolute right-1 top-1 size-1.5 rounded-full ${sync === 'error' ? 'bg-danger' : sync === 'offline' ? 'bg-warn' : 'bg-ok'}`} aria-hidden />}
+      </button>
+    </Tooltip>
+  );
 }
 
 export function TopBar() {
@@ -107,6 +126,11 @@ export function TopBar() {
             {c.label}
           </MenuItem>
         ))}
+        {(pane.chartType === 'renko' || pane.chartType === 'range') && (
+          <MenuItem onSelect={() => ui.set({ boxSizePane: pane.id })} hint={pane.boxSize ? fmtPrice(pane.boxSize) : `auto · ATR ${pane.boxAtr ?? 14}`}>
+            Box size…
+          </MenuItem>
+        )}
         <MenuSep />
         <MenuLabel>Price scale</MenuLabel>
         {(['normal', 'log', 'percent', 'indexed'] as const).map((m) => (
@@ -229,6 +253,7 @@ export function TopBar() {
             {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </button>
         </Tooltip>
+        <AccountButton />
         <Tooltip content="Settings">
           <button className="icon-btn" aria-label="Settings" onClick={() => ui.set({ settingsOpen: true })}>
             <Settings className="size-4" />

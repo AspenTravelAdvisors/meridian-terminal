@@ -18,6 +18,8 @@ const ATTEMPTS_PER_MINUTE = 10;
 
 export interface GateEnv {
   SITE_PASSWORD?: string;
+  /** lets /api/cron/* through when the request carries it (Vercel Cron: `Authorization: Bearer …`; others: `?key=`) */
+  CRON_SECRET?: string;
 }
 
 export interface GateOptions {
@@ -47,7 +49,7 @@ async function mac(password: string, data: string): Promise<string> {
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-/** Constant-time string comparison (both inputs are fixed-length MACs). */
+/** Constant-time string comparison (leaks only whether the lengths differ). */
 function same(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let d = 0;
@@ -144,6 +146,12 @@ export async function gate(req: Request, env: GateEnv, opts: GateOptions): Promi
       Location: next,
       'Set-Cookie': `${SESSION_COOKIE}=${value}; Path=/; HttpOnly${secure}; SameSite=Lax; Max-Age=${SESSION_MS / 1000}`,
     });
+  }
+
+  // The alert scheduler has no session: it proves itself with CRON_SECRET, which opens /api/cron/* and nothing else.
+  if (url.pathname.startsWith('/api/cron/') && env.CRON_SECRET) {
+    const secret = env.CRON_SECRET;
+    if (same(req.headers.get('authorization') ?? '', `Bearer ${secret}`) || same(url.searchParams.get('key') ?? '', secret)) return null;
   }
 
   if (await validSession(req.headers.get('cookie'), password, now)) return null;

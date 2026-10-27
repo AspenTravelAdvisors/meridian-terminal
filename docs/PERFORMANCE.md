@@ -2,42 +2,54 @@
 
 **Target (CLAUDE.md rule 5):** 20 studies on 50,000 bars in under 150 ms in the worker, with an O(1) amortized `update(bar)`.
 
-`pnpm bench` runs `packages/engine/test/perf.bench.test.ts`. It covers the 10 heaviest DeMark-style studies, Ichimoku and 9
-standard studies over a 50,000-bar random walk. It warms up to steady state, takes 5 timed runs and fails above
-`MERIDIAN_PERF_BUDGET_MS` (default 300 ms, which leaves headroom for shared CI machines).
+`pnpm bench` (`scripts/bench-engine.mjs`) runs the 10 heaviest DeMark-style studies, Ichimoku and 9 standard studies over a
+50,000-bar random walk. The engine is bundled and minified with esbuild, as the shipped worker chunk is, and runs in a fresh
+Node process. The bench warms up, times 9 runs, prints best and median, and fails when the median exceeds
+`MERIDIAN_PERF_BUDGET_MS` (default 200 ms, which leaves headroom for shared CI machines; use 150 on a quiet desktop).
 
-## Measurements
+## Measurement correction (0.3.0)
 
-| Environment | Best | Median | Notes |
+The 0.1.0/0.2.0 numbers (160–175 ms and 230–260 ms) came from a Vitest benchmark. Vitest's module transform routes every
+cross-module call through an accessor, which made the engine look about 1.6× slower than the code that actually ships. The
+bench now measures the bundled engine instead.
+
+## Measurements (bundled engine, build containers)
+
+| Engine | Best | Median | Notes |
 |---|---|---|---|
-| Build container A (first session) | ~160 ms | ~170 ms | after the optimizations below |
-| Build container B (4 vCPU, after a worker restart) | 232–248 ms | 251–259 ms | same code; slower host |
+| 0.2.0 engine | 134–146 ms | 168–216 ms | 4-vCPU shared container, same session as the row below |
+| 0.3.0 engine | 122–141 ms | 143–202 ms | the same container, runs interleaved with the row above |
+| 0.3.0 engine, CPU time | 158–164 ms | — | vs 185–189 ms for 0.2.0 in an earlier same-minute comparison: about 15% less CPU work, mostly less garbage collection |
 
-**The 150 ms target is not yet met** on either container, though both were shared sandboxes rather than a desktop CPU. In
-the browser the engine runs off the main thread, so a full reload of a 1,500-bar chart (the default history) takes
-about 3 ms (the status bar shows `engine … ms`).
+**Status:** the best runs are under 150 ms. Medians straddle the target because these shared containers vary by ±30% from
+run to run. A desktop browser worker should measure clearly under it; run `MERIDIAN_PERF_BUDGET_MS=150 pnpm bench` on a
+desktop machine to confirm. A normal chart (1,500 bars) recomputes in about 3 ms (the status bar shows `engine … ms`).
 
-## Where the time goes (container B)
+## Where the time goes
 
-- **Sequential (~19% of per-study time) and Ichimoku (~13%)** are the heaviest studies (single-study timings). Sequential runs setup, countdown, TDST, risk levels
-  and recycling on both sides every bar.
-- **Signal events (~8% of CPU samples).** On a random walk the 20 studies emit about 160k rule events per run. Range Projection
-  breaks alone account for 25k of them.
-- **GC (~10% of CPU samples)** comes mostly from output columns and event objects.
+- **Study code** is about 80% of the run. The largest costs are Sequential (setup, countdown, TDST, risk and recycling on
+  both sides every bar), TD Lines, Ichimoku (six rolling extremes per bar) and Propulsion.
+- **Events:** about 144k signals and 46k markers per run (Range Projection alone emits 36k).
+- **GC** fell from about 15% to about 11% of CPU samples.
 
-## Optimizations already made
+## Optimizations
 
-- History and output columns are pre-sized in `load()` (`reserve`), so they never regrow per bar.
-- Marker objects are stamped in place. Signal events have one stable object shape.
-- `load()` runs each study in its own loop, which keeps the hot code monomorphic and the cache warm.
-- Per-bar allocations are removed from the runner: provisional buffers reset only after a provisional bar, and intrabar
-  scratch resets only for intrabar studies.
-- Sequential and Combo reuse step buffers and avoid closures in their hot paths. Dense count labels are stored as
-  columns rather than one marker object per bar.
-- Price-flip events are off by default (`emitFlips`).
+0.3.0:
+- Signals and markers are stored **columnar** (typed arrays plus interned strings) during a run and turned back into
+  objects once, when results are read. Young-generation GCs no longer copy a growing list of 190k objects.
+- `Engine.load()` commits each study in one loop (`commitRange`), without the per-bar provisional bookkeeping that only
+  live updates need. Output columns are allocated once at their exact size.
+- `computeStudies` hands its column buffers over instead of copying them (the engine is discarded right after).
+- Ring buffers and rolling extremes wrap with a compare instead of an integer modulo.
+- A test checks that bulk `load()` equals bar-by-bar `update()` for every study and every field.
 
-## Next steps
+Earlier:
+- History is pre-sized in `load()` (`reserve`). Marker objects have one stable shape.
+- Each study runs in its own loop during `load()`, which keeps the hot code monomorphic and the cache warm.
+- Sequential and Combo reuse step buffers. Dense count labels are stored as columns. Price-flip events are off by default.
 
-1. Pool `SignalEvent` objects or store events columnar (index, id code, price) and materialize them lazily.
-2. Fuse Sequential's buy and sell passes into one mirrored loop over a shared scratch struct.
-3. Re-measure on representative hardware (a desktop browser worker) before deciding how far to push the above.
+## Next steps, if a quiet desktop still misses the target
+
+1. Fuse Sequential's buy and sell passes into one mirrored loop.
+2. Cache TD Point confirmation (shared by Lines, Points and Propulsion) instead of recomputing it in each study.
+3. Emit Range Projection breaks as transitions only (a behaviour change, so it would need Brian's sign-off).

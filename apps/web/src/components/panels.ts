@@ -18,6 +18,7 @@ export const PANEL_DEFS: { id: string; title: string; area: PanelArea }[] = [
   { id: 'script', title: 'Script Editor', area: 'bottom' },
   { id: 'alertlog', title: 'Alert Log', area: 'bottom' },
   { id: 'guide', title: 'Guide', area: 'right-bottom' },
+  { id: 'account', title: 'Account', area: 'right-bottom' },
 ];
 
 let api: DockviewApi | null = null;

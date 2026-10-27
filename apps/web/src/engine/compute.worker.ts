@@ -1,6 +1,9 @@
 /// <reference lib="webworker" />
 import {
+  type AlertContext,
+  type AlertSpec,
   type Bar,
+  evaluateAlert,
   type MatrixWeights,
   type StrategyConfig,
   type TestEvent,
@@ -23,7 +26,8 @@ export type ComputeOp =
   | { op: 'strategy'; bars: Bar[]; config: StrategyConfig }
   | { op: 'evaluate'; bars: Bar[]; studies: { key: string; id: string; cfg?: Record<string, unknown> }[] }
   | { op: 'lines'; bars: Bar[]; study: string; cfg?: Record<string, unknown>; outputs: string[] }
-  | { op: 'statuses'; bars: Bar[]; studies: { key: string; id: string; cfg?: Record<string, unknown> }[] };
+  | { op: 'statuses'; bars: Bar[]; studies: { key: string; id: string; cfg?: Record<string, unknown> }[] }
+  | { op: 'alert'; alert: AlertSpec; bars: Bar[]; ctx: AlertContext };
 
 function run(m: ComputeOp): unknown {
   switch (m.op) {
@@ -51,6 +55,8 @@ function run(m: ComputeOp): unknown {
       const r = computeStudy(def, resolveConfig(def, m.cfg ?? {}), m.bars);
       return Object.fromEntries(m.outputs.map((o) => [o, Array.from(r.lines[o] ?? [])]));
     }
+    case 'alert':
+      return evaluateAlert(m.alert, m.bars, m.ctx);
     case 'statuses': {
       const reqs = m.studies.flatMap((s) => {
         const def = getStudy(s.id);

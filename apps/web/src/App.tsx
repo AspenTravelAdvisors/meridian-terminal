@@ -1,12 +1,13 @@
 import { INTERVALS, type Interval, SYMBOL_RE } from '@meridian/data';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense, lazy, useEffect } from 'react';
-import { CommandPalette, SettingsDialog, ShortcutsDialog, Toasts, useHotkeys } from './components/AppChrome';
+import { BoxSizeDialog, CommandPalette, SettingsDialog, ShortcutsDialog, Toasts, useHotkeys } from './components/AppChrome';
 import { StudiesDialog, StudySettingsDialog } from './components/StudiesDialog';
 import { SymbolSearch } from './components/SymbolSearch';
 import { TooltipProvider } from './components/ui';
 import { useIsMobile } from './lib/useMedia';
 import { useAlertManager } from './panels/Alerts';
+import { useAccount } from './state/account';
 import { useSettings, useWorkspace } from './state/store';
 
 // Each shell is its own chunk: phones never download the dock library, desktops never download the mobile shell.
@@ -45,6 +46,9 @@ applyDeepLink();
 
 function Shell() {
   useThemeApplier();
+  useEffect(() => {
+    void useAccount.getState().refresh();
+  }, []);
   useHotkeys();
   useAlertManager();
   const mobile = useIsMobile();
@@ -58,6 +62,7 @@ function Shell() {
       <StudiesDialog />
       <StudySettingsDialog />
       <SettingsDialog />
+      <BoxSizeDialog />
       <ShortcutsDialog />
       <CommandPalette />
       <Toasts />

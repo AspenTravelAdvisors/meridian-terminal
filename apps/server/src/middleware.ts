@@ -10,7 +10,7 @@ declare const __GATE_REQUIRED__: boolean;
 declare const __GATE_HEADERS__: Record<string, string>;
 
 export default async function middleware(req: Request): Promise<Response> {
-  const res = await gate(req, { SITE_PASSWORD: process.env.SITE_PASSWORD }, { required: __GATE_REQUIRED__, headers: __GATE_HEADERS__ });
+  const res = await gate(req, { SITE_PASSWORD: process.env.SITE_PASSWORD, CRON_SECRET: process.env.CRON_SECRET }, { required: __GATE_REQUIRED__, headers: __GATE_HEADERS__ });
   // `x-middleware-next` lets the request continue to the static files / API function.
   return res ?? new Response(null, { headers: { 'x-middleware-next': '1' } });
 }

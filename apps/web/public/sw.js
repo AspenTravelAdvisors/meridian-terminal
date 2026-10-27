@@ -54,7 +54,26 @@ self.addEventListener('fetch', (e) => {
     );
   }
 });
+// Web Push from the alert scheduler: arrives with every Meridian tab closed.
+self.addEventListener('push', (e) => {
+  let d = {};
+  try {
+    d = e.data ? e.data.json() : {};
+  } catch {
+    d = { body: e.data ? e.data.text() : '' };
+  }
+  e.waitUntil(
+    self.registration.showNotification(d.title || 'Meridian alert', { body: d.body || '', tag: d.tag, renotify: !!d.tag, icon: '/icon-192.png', badge: '/icon-192.png', data: { url: d.url || '/' } }),
+  );
+});
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  e.waitUntil(self.clients.matchAll({ type: 'window' }).then((cs) => (cs[0] ? cs[0].focus() : self.clients.openWindow('/'))));
+  const url = new URL((e.notification.data && e.notification.data.url) || '/', self.location.origin).href;
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+      const c = cs.find((x) => new URL(x.url).origin === self.location.origin);
+      if (!c) return self.clients.openWindow(url);
+      return c.focus().then((w) => (url !== self.location.origin + '/' && w && 'navigate' in w ? w.navigate(url) : w));
+    }),
+  );
 });

@@ -7,11 +7,10 @@ export default defineConfig({
         test: {
           name: 'unit',
           include: ['packages/*/test/**/*.test.ts', 'apps/server/test/**/*.test.ts', 'apps/web/test/**/*.test.ts'],
-          exclude: ['**/*.golden.test.ts', '**/*.bench.test.ts'],
+          exclude: ['**/*.golden.test.ts'],
         },
       },
       { test: { name: 'golden', include: ['packages/*/test/**/*.golden.test.ts'] } },
-      { test: { name: 'bench', include: ['packages/*/test/**/*.bench.test.ts'], testTimeout: 60_000 } },
     ],
     coverage: { provider: 'v8', include: ['packages/engine/src/**'], reporter: ['text-summary', 'html'] },
   },

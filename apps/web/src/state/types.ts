@@ -1,4 +1,5 @@
 import type { AdjustMode, Interval } from '@meridian/data';
+import type { AlertSpec } from '@meridian/engine';
 import type { LinkGroup, PaletteName } from '@meridian/ui';
 
 export type ChartType = 'candles' | 'hollow' | 'bars' | 'line' | 'area' | 'baseline' | 'heikin' | 'renko' | 'range';
@@ -56,7 +57,10 @@ export interface PaneConfig {
   scaleMode: ScaleMode;
   adjust: AdjustMode;
   compare: string[];
-  boxSize?: number; // renko / range
+  /** Renko brick / range-bar size in price units; unset or 0 = auto (ATR-based) */
+  boxSize?: number;
+  /** ATR length used to size boxes in auto mode (default 14) */
+  boxAtr?: number;
   showVolumeProfile?: boolean;
 }
 
@@ -121,28 +125,10 @@ export interface Settings {
   confirmBeforeDelete: boolean;
 }
 
-export type AlertCondition =
-  | { kind: 'signal'; study: string; signal: string }
-  | { kind: 'price'; op: 'crosses_above' | 'crosses_below' | 'above' | 'below'; value: number }
-  | { kind: 'study'; study: string; output: string; op: 'crosses_above' | 'crosses_below'; value: number }
-  | { kind: 'drawing'; drawingId: string; op: 'crosses_above' | 'crosses_below' };
-
-export interface Alert {
-  id: string;
-  name: string;
-  symbol: string;
+/** Alert conditions and specs are shared with the server scheduler (packages/engine/src/signals/alerts.ts). */
+export type { AlertCondition } from '@meridian/engine';
+export interface Alert extends AlertSpec {
   interval: Interval;
-  condition: AlertCondition;
-  studyCfg?: Record<string, unknown>;
-  mode: 'once' | 'every_bar';
-  timing: 'close' | 'intrabar';
-  expires?: number;
-  channels: { app: boolean; browser: boolean; webhook?: string; email?: string };
-  enabled: boolean;
-  createdAt: number;
-  lastFiredBar?: number;
-  lastFiredAt?: number;
-  lastError?: string;
 }
 
 export interface AlertLogEntry {

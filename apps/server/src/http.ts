@@ -11,6 +11,21 @@ export interface ServerEnv {
   ALERT_EMAIL_FROM?: string;
   /** comma-separated addresses alert emails may go to; email is off when unset */
   ALERT_EMAIL_TO?: string;
+  /** Postgres for accounts, sync and server-side alerts (Vercel's Neon integration sets one of these) */
+  DATABASE_URL?: string;
+  POSTGRES_URL?: string;
+  /** local PGlite data directory when no DATABASE_URL is set (default .meridian-data/pg) */
+  MERIDIAN_DATA_DIR?: string;
+  /** set by Vercel at runtime */
+  VERCEL?: string;
+  /** invite code required to create an account; when unset only the first account can be created */
+  SIGNUP_CODE?: string;
+  /** shared secret for /api/cron/alerts (Vercel Cron sends it as a Bearer token) */
+  CRON_SECRET?: string;
+  /** Web Push keys; generated and stored in the database when unset */
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  VAPID_SUBJECT?: string;
 }
 
 export class HttpError extends Error {
@@ -70,6 +85,15 @@ export function corsHeaders(req: Request, env: ServerEnv): Record<string, string
   if (origin === self || allowed.includes(origin) || allowed.includes('*'))
     return { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', Vary: 'Origin' };
   return {};
+}
+
+/**
+ * Cookie-authenticated writes must come from this site. SameSite=Lax already keeps the session cookie off
+ * cross-site POSTs; this rejects them outright when the browser reports an Origin.
+ */
+export function assertSameOrigin(req: Request): void {
+  const origin = req.headers.get('origin');
+  if (origin && origin !== new URL(req.url).origin) throw new HttpError(403, 'cross-origin request refused');
 }
 
 /** Best-effort per-instance rate limiter (serverless instances are short-lived; this only blunts bursts). */

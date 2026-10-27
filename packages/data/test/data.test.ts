@@ -19,6 +19,7 @@ import {
   simBars,
   toCoinbaseProduct,
   zonedToEpoch,
+  yahoo,
 } from '../src';
 
 const mockFetch = (routes: Record<string, unknown | ((url: string) => unknown)>): typeof fetch =>
@@ -56,6 +57,33 @@ describe('symbols', () => {
     expect(parseSymbol('BTCUSDT')).toMatchObject({ provider: 'binance', canonical: 'BINANCE:BTCUSDT' });
     expect(parseSymbol('SIM:DEMO')).toMatchObject({ provider: 'sim', ticker: 'DEMO' });
     expect(toCoinbaseProduct('ETHUSDT')).toBe('ETH-USD');
+  });
+
+  it('labels non-US listings with their own venue, hours and currency', async () => {
+    const quotes = [
+      { symbol: 'SAP.DE', shortname: 'SAP SE', exchange: 'GER', exchDisp: 'XETRA', quoteType: 'EQUITY' },
+      { symbol: 'RY.TO', shortname: 'Royal Bank of Canada', exchange: 'TOR', exchDisp: 'Toronto', quoteType: 'EQUITY' },
+      { symbol: 'VOD.L', shortname: 'Vodafone', exchange: 'LSE', exchDisp: 'London', quoteType: 'EQUITY' },
+      { symbol: 'AAPL', shortname: 'Apple', exchange: 'NMS', exchDisp: 'NASDAQ', quoteType: 'EQUITY' },
+    ];
+    const fetcher = (async () => new Response(JSON.stringify({ quotes }), { status: 200 })) as unknown as typeof fetch;
+    const r = await yahoo.searchSymbols!('x', fetcher);
+    expect(r.map((x) => [x.symbol, x.calendar, x.currency, x.timezone])).toEqual([
+      ['SAP.DE', 'XETRA', 'EUR', 'Europe/Berlin'],
+      ['RY.TO', 'TSX', 'CAD', 'America/Toronto'],
+      ['VOD.L', 'LSE', 'GBp', 'Europe/London'],
+      ['AAPL', 'NYSE', 'USD', 'America/New_York'],
+    ]);
+  });
+
+  it('uses the venue session for open hours and bar finalization', () => {
+    // 2026-10-27 is a Tuesday. 08:30 UTC = 09:30 Berlin (open) but 04:30 New York (closed).
+    const t = Date.UTC(2026, 9, 27, 8, 30);
+    expect(isOpen('XETRA', t)).toBe(true);
+    expect(isOpen('NYSE', t)).toBe(false);
+    // a XETRA daily bar is complete at 17:30 Berlin = 16:30 UTC, not at the 16:00 New York close
+    expect(barCloseTime('XETRA', '1D', Date.UTC(2026, 9, 27, 7, 0), 86_400_000)).toBe(Date.UTC(2026, 9, 27, 16, 30));
+    expect(barCloseTime('TSX', '1D', Date.UTC(2026, 9, 27, 13, 30), 86_400_000)).toBe(Date.UTC(2026, 9, 27, 20, 0));
   });
 });
 

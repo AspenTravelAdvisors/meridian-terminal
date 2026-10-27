@@ -26,4 +26,5 @@ export * from './studies/std/structure';
 export * from './signals/tester';
 export * from './signals/matrix';
 export * from './signals/scan';
+export * from './signals/alerts';
 export * from './script/dsl';

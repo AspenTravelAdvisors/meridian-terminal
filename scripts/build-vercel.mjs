@@ -41,6 +41,8 @@ await build({
   sourcemap: 'linked',
   minify: true,
   legalComments: 'none',
+  // embedded Postgres is only for local dev / self-hosting; on Vercel the database is DATABASE_URL (Neon)
+  external: ['@electric-sql/pglite', 'drizzle-orm/pglite'],
   logLevel: 'warning',
 });
 writeFileSync(join(fn, 'package.json'), JSON.stringify({ type: 'commonjs' }));
@@ -69,11 +71,16 @@ writeFileSync(join(mw, '.vc-config.json'), JSON.stringify({ runtime: 'edge', ent
 
 
 
+// Background alerts. Vercel Hobby allows one cron run per day (more frequent schedules fail the deployment), so the
+// default is daily; on Pro set ALERT_CRON_SCHEDULE="* * * * *" or point any external scheduler at /api/cron/alerts.
+const alertCron = process.env.ALERT_CRON_SCHEDULE || '7 21 * * *';
+
 writeFileSync(
   join(out, 'config.json'),
   JSON.stringify(
     {
       version: 3,
+      crons: alertCron === 'off' ? [] : [{ path: '/api/cron/alerts', schedule: alertCron }],
       routes: [
         { src: '/(.*)', headers: security, continue: true },
         { src: '/(.*)', middlewarePath: '_middleware', continue: true },

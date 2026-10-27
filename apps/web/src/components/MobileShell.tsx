@@ -31,10 +31,12 @@ import {
   Sun,
   Table2,
   Undo2,
+  UserRound,
 } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { ChartPane } from '../chart/ChartPane';
 import { useDrawings, useSettings, useUi, useWorkspace } from '../state/store';
+import { fmtPrice } from '../lib/format';
 import { CHART_TYPES, GRID_LAYOUTS } from '../state/types';
 import { ReplayBar } from './ChartGrid';
 import { DrawingToolbar } from './DrawingToolbar';
@@ -55,6 +57,7 @@ const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
 
 /** Everything that is not a bottom tab, as tiles on the More screen. */
 const MORE: { id: string; icon: ReactNode; blurb: string }[] = [
+  { id: 'account', icon: <UserRound className="size-5" />, blurb: 'Sign in, sync your devices, push alerts' },
   { id: 'guide', icon: <BookOpen className="size-5" />, blurb: 'How every tool works and how to combine them' },
   { id: 'analyst', icon: <Bot className="size-5" />, blurb: 'Plain-English briefing from the engine output' },
   { id: 'portfolio', icon: <Briefcase className="size-5" />, blurb: 'Holdings, P&L, returns, risk, import' },
@@ -218,6 +221,11 @@ function MobileTopBar({ draw, setDraw, onChart }: { draw: boolean; setDraw(v: bo
             {c.label}
           </MenuItem>
         ))}
+        {(pane.chartType === 'renko' || pane.chartType === 'range') && (
+          <MenuItem onSelect={() => ui.set({ boxSizePane: pane.id })} hint={pane.boxSize ? fmtPrice(pane.boxSize) : `auto · ATR ${pane.boxAtr ?? 14}`}>
+            Box size…
+          </MenuItem>
+        )}
         <MenuSep />
         <MenuLabel>Price scale</MenuLabel>
         {(['normal', 'log', 'percent', 'indexed'] as const).map((m) => (

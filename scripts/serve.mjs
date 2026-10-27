@@ -9,8 +9,9 @@ import { security } from './headers.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'apps/web/dist');
-const bundle = join(root, 'node_modules/.cache/meridian-server.mjs');
-await build({ entryPoints: [join(root, 'apps/server/src/node.ts')], bundle: true, platform: 'node', format: 'esm', outfile: bundle, logLevel: 'warning', banner: { js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);" } });
+// bundled next to apps/server's own node_modules so the external embedded-Postgres package resolves at runtime
+const bundle = join(root, 'apps/server/node_modules/.cache/meridian-server.mjs');
+await build({ entryPoints: [join(root, 'apps/server/src/node.ts')], bundle: true, platform: 'node', format: 'esm', outfile: bundle, logLevel: 'warning', external: ['@electric-sql/pglite', 'drizzle-orm/pglite'], banner: { js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);" } });
 const { default: api } = await import(pathToFileURL(bundle).href);
 const gateBundle = join(root, 'node_modules/.cache/meridian-gate.mjs');
 await build({ entryPoints: [join(root, 'apps/server/src/gate.ts')], bundle: true, platform: 'node', format: 'esm', outfile: gateBundle, logLevel: 'warning' });
@@ -30,7 +31,7 @@ async function gated(req, res) {
     for await (const c of req) chunks.push(c);
     body = Buffer.concat(chunks);
   }
-  const r = await gate(new Request(url, { method: req.method, headers, body }), { SITE_PASSWORD: process.env.SITE_PASSWORD }, { required: false, headers: localSecurity });
+  const r = await gate(new Request(url, { method: req.method, headers, body }), { SITE_PASSWORD: process.env.SITE_PASSWORD, CRON_SECRET: process.env.CRON_SECRET }, { required: false, headers: localSecurity });
   if (!r) return false;
   res.writeHead(r.status, Object.fromEntries(r.headers));
   res.end(Buffer.from(await r.arrayBuffer()));

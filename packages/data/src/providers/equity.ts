@@ -1,5 +1,5 @@
 import { tzOffsetMs } from '@meridian/engine';
-import { calendarFor, timezoneFor } from '../symbols';
+import { calendarFor, currencyFor, listingFor, timezoneFor } from '../symbols';
 import { barCloseTime } from '../sessions';
 import { resample } from '../transform';
 import type { Bar, Interval, MarketDataProvider, SymbolInfo } from '../types';
@@ -8,8 +8,8 @@ import { ProviderError, getJson, getText } from './http';
 
 const DAY = 86_400_000;
 const equityInfo = (ticker: string, provider: SymbolInfo['provider'], exchange = ''): SymbolInfo => {
-  const calendar = calendarFor('stock', exchange);
-  return { symbol: ticker, name: ticker, exchange, type: 'stock', currency: 'USD', calendar, timezone: timezoneFor(calendar), provider };
+  const calendar = calendarFor('stock', exchange, ticker);
+  return { symbol: ticker, name: ticker, exchange: exchange || (listingFor(ticker)?.exchange ?? ''), type: 'stock', currency: currencyFor('stock', ticker, calendar), calendar, timezone: timezoneFor(calendar), provider };
 };
 
 // ── Stooq (daily/weekly/monthly CSV; last-resort fallback for US listings) ──
@@ -33,14 +33,15 @@ export const stooq: MarketDataProvider = {
         const t = Date.UTC(y, m - 1, d, 14, 30);
         return { t, o: +r[1], h: +r[2], l: +r[3], c: +r[4], v: +(r[5] ?? 0) || 0 };
       });
-    if (interval === '3M') bars = resample(bars, '3M', 'NYSE', now);
+    const info = equityInfo(ticker, 'stooq');
+    if (interval === '3M') bars = resample(bars, '3M', info.calendar, now);
     if (opts.to) bars = bars.filter((b) => b.t < opts.to!);
     const limit = opts.limit ?? 1500;
     const hasMore = bars.length > limit;
     bars = bars.slice(-limit);
     const last = bars[bars.length - 1];
-    if (last && barCloseTime('NYSE', interval, last.t, INTERVAL_MS[interval]) > now) last.final = false;
-    return { provider: 'stooq', info: equityInfo(ticker, 'stooq'), bars, events: { splits: [], dividends: [] }, simulated: false, hasMore };
+    if (last && barCloseTime(info.calendar, interval, last.t, INTERVAL_MS[interval]) > now) last.final = false;
+    return { provider: 'stooq', info, bars, events: { splits: [], dividends: [] }, simulated: false, hasMore };
   },
 };
 
@@ -125,11 +126,12 @@ export function twelveData(apiKey: string): MarketDataProvider {
       );
       if (j.status !== 'ok') throw new ProviderError('twelvedata', j.message ?? 'error', 404);
       const tz = j.meta?.exchange_timezone ?? 'America/New_York';
+      const base = equityInfo(ticker, 'twelvedata', j.meta?.exchange);
       let bars: Bar[] = (j.values ?? []).map((v) => ({ t: zonedToEpoch(v.datetime, tz), o: +v.open, h: +v.high, l: +v.low, c: +v.close, v: +(v.volume ?? 0) || 0 }));
-      if (re) bars = resample(bars, re, 'NYSE', now);
+      if (re) bars = resample(bars, re, base.calendar, now);
       const last = bars[bars.length - 1];
-      if (last && barCloseTime('NYSE', interval, last.t, INTERVAL_MS[interval]) > now) last.final = false;
-      const info = { ...equityInfo(ticker, 'twelvedata', j.meta?.exchange), currency: j.meta?.currency ?? 'USD', timezone: tz };
+      if (last && barCloseTime(base.calendar, interval, last.t, INTERVAL_MS[interval]) > now) last.final = false;
+      const info = { ...base, currency: j.meta?.currency ?? base.currency, timezone: tz };
       return { provider: 'twelvedata', info, bars, events: { splits: [], dividends: [] }, simulated: false, hasMore: bars.length >= limit };
     },
   };

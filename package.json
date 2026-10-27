@@ -1,7 +1,7 @@
 {
   "name": "meridian-terminal",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Meridian Terminal — charting workstation and portfolio tracker with test-verified DeMark-style studies.",
   "packageManager": "pnpm@10.28.0",
   "engines": {
@@ -16,7 +16,7 @@
     "test:watch": "vitest",
     "test:golden": "vitest run --project golden",
     "test:coverage": "vitest run --coverage",
-    "bench": "vitest run --project bench",
+    "bench": "node scripts/bench-engine.mjs",
     "lint": "eslint .",
     "typecheck": "turbo run typecheck",
     "e2e": "playwright test",
