@@ -40,7 +40,7 @@ export function ruleBasedBriefing(r: AnalystRequest): string {
   const lines: string[] = [];
   if (c.simulated) lines.push('> **Simulated data** — this series is generated, not market data.\n');
   lines.push(`### ${r.kind === 'portfolio' ? 'Portfolio brief' : `${r.symbol ?? 'Chart'} · ${r.interval ?? ''}`} (rule-based)`);
-  lines.push('_No `ANTHROPIC_API_KEY` is configured, so this summary is assembled mechanically from the engine output._\n');
+  lines.push('> No `ANTHROPIC_API_KEY` is configured on the server, so this summary is assembled mechanically from the engine output.\n');
   const chips = (c.chips as { text: string; dir: string }[] | undefined) ?? [];
   if (chips.length) lines.push(`**Current state:** ${chips.map((x) => `${x.text} (${x.dir})`).join(', ')}.`);
   const sigs = (c.recentSignals as { id: string; barsAgo: number; dir: string; price?: number }[] | undefined) ?? [];

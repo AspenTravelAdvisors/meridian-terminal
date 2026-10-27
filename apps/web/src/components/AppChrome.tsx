@@ -313,7 +313,7 @@ export function useHotkeys() {
       const rp = ui.replay[pane.id];
       if (rp?.active && e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault();
-        ui.set({ replay: { ...ui.replay, [pane.id]: { ...rp, playing: false, index: Math.max(10, rp.index + (e.key === 'ArrowRight' ? 1 : -1)) } } });
+        ui.set({ replay: { ...ui.replay, [pane.id]: { ...rp, playing: false, index: Math.min((ui.runtime[pane.id]?.totalBars ?? Infinity) - 1, Math.max(10, rp.index + (e.key === 'ArrowRight' ? 1 : -1))) } } });
         return;
       }
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {

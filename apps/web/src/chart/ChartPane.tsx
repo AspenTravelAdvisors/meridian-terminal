@@ -121,6 +121,7 @@ export const ChartPane = memo(function ChartPane({ pane, active, solo }: { pane:
   useEffect(() => {
     setRuntime(pane.id, {
       bars: effective,
+      totalBars: analysis.length,
       info: data.info,
       results,
       status: data.status,
@@ -132,7 +133,7 @@ export const ChartPane = memo(function ChartPane({ pane, active, solo }: { pane:
       lastUpdate: data.lastUpdate,
       computeMs,
     });
-  }, [pane.id, effective, data.info, results, data.status, data.error, data.provider, data.simulated, data.fallbacks, data.live, data.lastUpdate, computeMs, setRuntime]);
+  }, [pane.id, effective, analysis.length, data.info, results, data.status, data.error, data.provider, data.simulated, data.fallbacks, data.live, data.lastUpdate, computeMs, setRuntime]);
 
   return (
     <ChartSurface
@@ -493,12 +494,12 @@ function ChartSurface(p: SurfaceProps) {
       <div ref={box} className="absolute inset-0" data-testid={`chart-${pane.id}`} />
       <Legend surface={p} i={i} paneTops={paneTops} />
       {p.status === 'loading' && !display.length && (
-        <div className="pointer-events-none absolute inset-0 grid place-items-center text-dim">
+        <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center text-dim">
           <span className="flex items-center gap-2 text-sm"><Loader2 className="size-4 animate-spin" /> Loading {pane.symbol}…</span>
         </div>
       )}
       {p.status === 'error' && !display.length && <ErrorState pane={pane} error={p.error} onRetry={p.onRetry} />}
-      {p.loadingMore && <div className="absolute left-2 bottom-8 rounded bg-raised px-2 py-0.5 text-[11px] text-dim">loading history…</div>}
+      {p.loadingMore && <div className="absolute left-2 bottom-8 z-20 rounded bg-raised px-2 py-0.5 text-[11px] text-dim">loading history…</div>}
       {editText && (
         <TextEditor
           initial={editText.text ?? ''}
@@ -572,7 +573,7 @@ function LinkDot({ pane }: { pane: PaneConfig }) {
 function ErrorState({ pane, error, onRetry }: { pane: PaneConfig; error?: string; onRetry(): void }) {
   const isSim = parseSymbol(pane.symbol).provider === 'sim';
   return (
-    <div className="absolute inset-0 grid place-items-center p-6">
+    <div className="absolute inset-0 z-20 grid place-items-center p-6">
       <div className="max-w-md rounded-lg border border-border bg-panel p-4 text-sm shadow-lg">
         <div className="mb-1 flex items-center gap-2 font-semibold text-warn"><AlertTriangle className="size-4" /> Couldn’t load {pane.symbol}</div>
         <p className="mb-3 text-dim break-words">{error ?? 'Unknown error'}</p>
@@ -694,8 +695,8 @@ function Legend({ surface: p, i, paneTops }: { surface: SurfaceProps; i: number;
         )}
       </div>
       {p.cfgs.map((c, k) =>
-        placement[k] > 0 ? (
-          <div key={c.uid} className="pointer-events-none absolute left-2 z-10 text-[11px] leading-[17px]" style={{ top: (paneTops[placement[k]] ?? 0) + 3 }}>
+        placement[k] > 0 && paneTops[placement[k]] !== undefined ? (
+          <div key={c.uid} className="pointer-events-none absolute left-2 z-10 text-[11px] leading-[17px]" style={{ top: paneTops[placement[k]] + 3 }}>
             {row(c)}
           </div>
         ) : null,

@@ -44,6 +44,7 @@ function ReplayBar() {
   const activeId = useWorkspace((s) => s.activePaneId);
   const rp = useUi((s) => s.replay[activeId]);
   const len = useUi((s) => s.runtime[activeId]?.bars.length ?? 0);
+  const total = useUi((s) => s.runtime[activeId]?.totalBars ?? 0);
   const set = (patch: Partial<NonNullable<typeof rp>>) => {
     const cur = useUi.getState().replay[activeId] ?? { active: false, index: 0, playing: false, speed: 2, selecting: false };
     useUi.getState().set({ replay: { ...useUi.getState().replay, [activeId]: { ...cur, ...patch } } });
@@ -53,8 +54,10 @@ function ReplayBar() {
     const t = setInterval(() => {
       const cur = useUi.getState().replay[activeId];
       if (!cur) return;
-      // replay slices the full series, so the upper bound is the runtime length of the un-sliced data
-      set({ index: cur.index + 1 });
+      // stop at the live edge instead of running past the end of the series
+      const last = (useUi.getState().runtime[activeId]?.totalBars ?? Infinity) - 1;
+      if (cur.index >= last) set({ index: last, playing: false });
+      else set({ index: cur.index + 1 });
     }, 1000 / rp.speed);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,7 +76,7 @@ function ReplayBar() {
           <button className="icon-btn" title={rp.playing ? 'Pause' : 'Play'} aria-label={rp.playing ? 'Pause' : 'Play'} onClick={() => set({ playing: !rp.playing })}>
             {rp.playing ? <Pause className="size-4" /> : <Play className="size-4" />}
           </button>
-          <button className="icon-btn" title="Step forward (Shift+→)" aria-label="Step forward" onClick={() => set({ index: rp.index + 1, playing: false })}>
+          <button className="icon-btn" title="Step forward (Shift+→)" aria-label="Step forward" onClick={() => set({ index: total ? Math.min(total - 1, rp.index + 1) : rp.index + 1, playing: false })}>
             <SkipForward className="size-4" />
           </button>
           <FastForward className="size-3.5 text-dim" />
@@ -82,7 +85,7 @@ function ReplayBar() {
               {s}×
             </button>
           ))}
-          <span className="text-dim tabular-nums">bar {rp.index + 1}{len ? ` · ${len} shown` : ''}</span>
+          <span className="text-dim tabular-nums">bar {rp.index + 1}{total ? ` / ${total}` : ''}{len ? ` · ${len} shown` : ''}</span>
           <span className="text-faint">Studies recompute bar-by-bar with no look-ahead.</span>
         </>
       )}

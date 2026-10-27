@@ -427,6 +427,8 @@ export const useScripts = create<ScriptsState>()(
 // ── Runtime (not persisted): live chart state shared with panels ──────────
 export interface PaneRuntime {
   bars: Bar[];
+  /** full series length (bars is the replay-truncated view while a replay is active) */
+  totalBars?: number;
   info: SymbolInfo | null;
   results: StudyResult[];
   status: 'idle' | 'loading' | 'ready' | 'error';

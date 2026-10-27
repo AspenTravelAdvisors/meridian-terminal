@@ -1,3 +1,4 @@
+import { INTERVALS, type Interval, SYMBOL_RE } from '@meridian/data';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DockviewReact, type DockviewReadyEvent, type IDockviewPanelProps, themeDark } from 'dockview-react';
 import { type ComponentType, type FunctionComponent, useEffect } from 'react';
@@ -69,6 +70,19 @@ function useThemeApplier() {
     return () => mq.removeEventListener('change', apply);
   }, [theme]);
 }
+
+/** Deep links: `?symbol=BINANCE:BTCUSDT&interval=4h` opens the active chart on that market (then cleans the URL). */
+function applyDeepLink() {
+  const q = new URLSearchParams(location.search);
+  const symbol = q.get('symbol');
+  const interval = q.get('interval');
+  if (!symbol && !interval) return;
+  const ws = useWorkspace.getState();
+  if (symbol && SYMBOL_RE.test(symbol)) ws.setSymbol(ws.activePaneId, symbol.toUpperCase());
+  if (interval && (INTERVALS as readonly string[]).includes(interval)) ws.setInterval(ws.activePaneId, interval as Interval);
+  history.replaceState(null, '', location.pathname);
+}
+applyDeepLink();
 
 function onReady(e: DockviewReadyEvent) {
   setDockApi(e.api);

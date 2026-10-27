@@ -3,7 +3,7 @@ import { Fragment, type ReactNode } from 'react';
 /** Minimal, safe Markdown renderer for analyst briefings (no HTML passthrough). */
 function inline(text: string, key: string): ReactNode[] {
   const out: ReactNode[] = [];
-  const re = /(\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)\s]+\))/g;
+  const re = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|(?<![\w])_[^_\s][^_]*_(?![\w])|\[[^\]]+\]\(https?:\/\/[^)\s]+\))/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let k = 0;

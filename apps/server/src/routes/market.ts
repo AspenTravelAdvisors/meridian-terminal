@@ -6,7 +6,7 @@ const barsQuery = z.object({
   symbol: z.string().regex(SYMBOL_RE, 'invalid symbol'),
   interval: z.enum(INTERVALS).default('1D'),
   to: z.coerce.number().int().positive().optional(),
-  limit: z.coerce.number().int().min(10).max(5000).default(1500),
+  limit: z.coerce.number().int().min(1).max(5000).default(1500),
   adjust: z.enum(['split', 'all', 'none']).default('split'),
 });
 

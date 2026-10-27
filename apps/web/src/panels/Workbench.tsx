@@ -15,6 +15,28 @@ import { fetchMatrix, useActive, useQuotes } from './hooks';
 // ── Script editor ──────────────────────────────────────────────────────────
 const MonacoEditor = lazy(() => import('@monaco-editor/react').then((m) => ({ default: m.default })));
 
+/** Monaco loads from a CDN; probe once and fall back to the plain editor when it is unreachable (offline, strict proxies). */
+let monacoProbe: Promise<boolean> | null = null;
+const probeMonaco = () =>
+  (monacoProbe ??= fetch('https://cdn.jsdelivr.net/', { mode: 'no-cors', cache: 'no-store' })
+    // reachability check first: the loader leaves an unhandled rejection behind when its script fails to load
+    .then(() => import('@monaco-editor/react'))
+    .then((m) => Promise.race([m.loader.init().then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 10_000))]))
+    .catch(() => false));
+
+function useMonacoAvailable(enabled: boolean) {
+  const [ok, setOk] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let live = true;
+    void probeMonaco().then((v) => live && setOk(v));
+    return () => {
+      live = false;
+    };
+  }, [enabled]);
+  return ok;
+}
+
 const TEMPLATES: { name: string; code: string }[] = [
   {
     name: 'MA crossover',
@@ -84,10 +106,12 @@ export function ScriptEditorPanel() {
   const [busy, setBusy] = useState(false);
   const [plain, setPlain] = useState(false);
   const dark = useIsDark();
+  const monacoOk = useMonacoAvailable(!plain);
   const dirty = !active || active.code !== code || active.name !== name || JSON.stringify(active.inputs) !== JSON.stringify(inputs);
 
   useEffect(() => {
-    if (!active) return;
+    // load a different saved script into the editor (a save of the current buffer keeps the last run's results)
+    if (!active || active.code === code) return;
     setName(active.name);
     setCode(active.code);
     setInputs(active.inputs ?? {});
@@ -146,7 +170,7 @@ export function ScriptEditorPanel() {
           }}><Trash2 className="size-3.5" /></button>
         )}
         <label className="ml-auto flex items-center gap-1 text-[11px] text-dim">
-          <input type="checkbox" checked={plain} onChange={(e) => setPlain(e.target.checked)} /> Plain editor
+          <input type="checkbox" checked={plain || monacoOk === false} disabled={monacoOk === false} onChange={(e) => setPlain(e.target.checked)} /> {monacoOk === false ? 'Plain editor (Monaco unavailable)' : 'Plain editor'}
         </label>
       </div>
       <div className="flex min-h-0 flex-1">
@@ -159,7 +183,7 @@ export function ScriptEditorPanel() {
             }
           }}
         >
-          {plain ? (
+          {plain || !monacoOk ? (
             <PlainEditor code={code} onChange={setCode} />
           ) : (
             <Suspense fallback={<PlainEditor code={code} onChange={setCode} />}>

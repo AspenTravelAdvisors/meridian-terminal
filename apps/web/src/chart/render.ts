@@ -235,7 +235,7 @@ export class StudyRenderer {
           if (o.hiddenByDefault && st.visible !== true) continue;
           const color = st.color ?? col(o.color);
           const { s } = ensure(c.uid, o.id, pane, () => {
-            if (o.kind === 'histogram' || isVol) {
+            if (o.kind === 'histogram') {
               const hs = this.chart.addSeries(HistogramSeries, { color, priceLineVisible: false, lastValueVisible: false, priceScaleId: isVol ? 'vol' : undefined, priceFormat: isVol ? { type: 'volume' } : undefined }, pane);
               if (isVol) hs.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
               return hs;
