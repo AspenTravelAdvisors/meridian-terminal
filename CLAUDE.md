@@ -21,16 +21,17 @@ DeMarker I & II, and more) alongside Ichimoku and a full standard indicator libr
 | Tests | Vitest, fast-check (property tests), Playwright (E2E) |
 | Desktop (Phase 10, optional) | Tauri wrapper |
 
-## Vercel deployment notes (2026-10-27)
-The first build targets Vercel, which has no long-running server. Three stack rows are therefore adapted, not replaced. Details
-are in `docs/ARCHITECTURE.md` § "Vercel adaptation":
+## Vercel deployment (approved by Brian, 2026-10-27)
+The deployment target is Vercel, which has no long-running server. Brian approved these three adaptations of the stack table on
+2026-10-27; they are the stack now. Details are in `docs/ARCHITECTURE.md` § "Vercel adaptation":
 - **API:** web-standard `Request → Response` handlers + Zod (`apps/server`) in one Node function instead of Fastify. The same
   code runs under `pnpm serve` and the Vite dev server.
-- **DB:** browser storage (localStorage / IndexedDB) and CDN caching instead of SQLite/Drizzle. A Postgres-compatible schema is
-  still open.
+- **DB:** browser storage (localStorage / IndexedDB) and CDN caching for bars and offline use. Signed-in users also sync to
+  Postgres (Drizzle schema in `apps/server/src/db`): Neon on Vercel, PGlite for local dev, tests and `pnpm serve`.
 - **Live bars:** direct browser WebSocket (crypto) and polling instead of a server fan-out.
 
-Ask Brian before treating these as permanent.
+Background work (alert evaluation while every tab is closed) runs in `/api/cron/alerts`, triggered by Vercel Cron or any
+external scheduler. Ask Brian before changing any of this.
 
 ## Repo layout
 ```
