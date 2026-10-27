@@ -98,6 +98,7 @@ export class StudyInstance {
   private rows: InspectRow[] | NoopRows = new NoopRows();
   /** highest index already written (a provisional slot may be re-evaluated and must be reset first) */
   private written = -1;
+  private readonly usesIntra: boolean;
   inspectAt = -1;
   error: string | null = null;
 
@@ -110,6 +111,7 @@ export class StudyInstance {
     this.lineIds = this.outputs.filter((o) => o.kind === 'line' || o.kind === 'histogram' || o.kind === 'data' || o.kind === 'labels').map((o) => o.id);
     this.lines = this.lineIds.map(() => new Float64Array(this.cap).fill(NaN));
     this.state = def.init(cfg);
+    this.usesIntra = !!def.intrabar;
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
     const studyId = def.id;
@@ -166,20 +168,20 @@ export class StudyInstance {
   commit(ctx: SeriesCtx, i: number): void {
     if (this.error) return;
     this.prepare(i, false);
-    this.provMarkers = [];
-    this.provSignals = [];
-    this.provState = null;
-    this.isProv = false;
+    // provisional leftovers exist only after a provisional() call — skip two allocations per bar otherwise
+    if (this.isProv) {
+      this.provMarkers = [];
+      this.provSignals = [];
+      this.provState = null;
+      this.isProv = false;
+    }
     try {
       this.def.update(this.cfg, this.state, ctx, this.writer, this.intra);
     } catch (e) {
       this.error = e instanceof Error ? e.message : String(e);
     }
-    // reset intrabar scratch only if a study used it (avoids an allocation per bar per study)
-    for (const _ in this.intra) {
-      this.intra = {};
-      break;
-    }
+    // intrabar scratch belongs to the bar that just closed; only intrabar studies write it
+    if (this.usesIntra) this.intra = {};
   }
 
   provisional(ctx: SeriesCtx, i: number): void {

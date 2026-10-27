@@ -21,6 +21,17 @@ DeMarker I & II, and more) alongside Ichimoku and a full standard indicator libr
 | Tests | Vitest, fast-check (property tests), Playwright (E2E) |
 | Desktop (Phase 10, optional) | Tauri wrapper |
 
+## Vercel deployment notes (2026-10-27)
+The first build targets Vercel, which has no long-running server. Three stack rows are therefore adapted, not replaced. Details
+are in `docs/ARCHITECTURE.md` § "Vercel adaptation":
+- **API:** web-standard `Request → Response` handlers + Zod (`apps/server`) in one Node function instead of Fastify. The same
+  code runs under `pnpm serve` and the Vite dev server.
+- **DB:** browser storage (localStorage / IndexedDB) and CDN caching instead of SQLite/Drizzle. A Postgres-compatible schema is
+  still open.
+- **Live bars:** direct browser WebSocket (crypto) and polling instead of a server fan-out.
+
+Ask Brian before treating these as permanent.
+
 ## Repo layout
 ```
 apps/web            React UI
