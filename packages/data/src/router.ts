@@ -90,7 +90,10 @@ export async function searchSymbols(q: string, fetcher: typeof fetch): Promise<S
   }
   const seen = new Set<string>();
   const out: SymbolInfo[] = [];
-  for (const s of [...local, ...remote]) if (!seen.has(s.symbol)) (seen.add(s.symbol), out.push(s));
+  for (const s of [...local, ...remote]) if (!seen.has(s.symbol)) {
+      seen.add(s.symbol);
+      out.push(s);
+    }
   const pair = /^[A-Z0-9]{2,10}(USDT|USDC)$/i.test(q.trim()) ? `BINANCE:${q.trim().toUpperCase()}` : null;
   if (pair && !seen.has(pair)) out.unshift({ ...CURATED.find((c) => c.provider === 'binance')!, symbol: pair, name: `${q.toUpperCase()} (Binance)` });
   return out.slice(0, 25);

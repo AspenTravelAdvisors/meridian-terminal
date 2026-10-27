@@ -1,0 +1,150 @@
+@import 'tailwindcss';
+@import '@meridian/ui/tokens.css';
+@import 'dockview-react/dist/styles/dockview.css';
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-raised: var(--raised);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-dim: var(--text-dim);
+  --color-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+* {
+  box-sizing: border-box;
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-raised px-2.5 text-[12px] text-text transition-colors hover:border-border-strong hover:bg-panel-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-transparent bg-accent text-[#04111d] hover:bg-accent/85;
+  }
+  .btn-ghost {
+    @apply inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] text-dim transition-colors hover:bg-raised hover:text-text;
+  }
+  .btn-ghost[data-active='true'] {
+    @apply bg-raised text-accent;
+  }
+  .icon-btn {
+    @apply inline-grid size-6 place-items-center rounded text-dim transition-colors hover:bg-raised hover:text-text;
+  }
+  .icon-btn[data-active='true'] {
+    @apply bg-raised text-accent;
+  }
+  .input {
+    @apply h-7 rounded-md border border-border bg-panel-2 px-2 text-[12px] text-text placeholder:text-faint focus:border-accent focus:outline-none;
+  }
+  textarea.input {
+    @apply h-auto py-1.5;
+  }
+  select.input {
+    @apply pr-6;
+  }
+  .label {
+    @apply text-[11px] font-medium text-dim;
+  }
+  .panel-body {
+    @apply h-full overflow-auto bg-panel text-[12px];
+  }
+  .section-title {
+    @apply px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-faint;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded px-1.5 py-[1px] text-[10px] font-semibold whitespace-nowrap;
+  }
+  .table {
+    @apply w-full border-collapse text-[12px];
+  }
+  .table th {
+    @apply sticky top-0 z-[1] border-b border-border bg-panel px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-faint;
+  }
+  .table td {
+    @apply border-b border-border/60 px-2 py-1 tabular-nums;
+  }
+  .table tr:hover td {
+    @apply bg-raised/60;
+  }
+  .kbd {
+    @apply rounded border border-border-strong bg-raised px-1 py-[1px] font-mono text-[10px] text-dim;
+  }
+  .legend-row button {
+    pointer-events: auto;
+  }
+}
+
+/* dockview → Meridian tokens */
+.dockview-theme-meridian {
+  --dv-background-color: var(--bg);
+  --dv-paneview-header-border-color: var(--border);
+  --dv-tabs-and-actions-container-background-color: var(--panel);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--panel-2);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--panel);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--panel-2);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--panel);
+  --dv-tab-divider-color: var(--border);
+  --dv-activegroup-visiblepanel-tab-color: var(--text);
+  --dv-activegroup-hiddenpanel-tab-color: var(--text-dim);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--text-dim);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--text-faint);
+  --dv-separator-border: var(--border);
+  --dv-group-view-background-color: var(--panel);
+  --dv-drag-over-background-color: rgba(56, 189, 248, 0.12);
+  --dv-drag-over-border-color: var(--accent);
+  --dv-tabs-container-scrollbar-color: var(--border-strong);
+  --dv-icon-hover-background-color: var(--raised);
+  --dv-floating-box-shadow: var(--shadow);
+  --dv-tabs-and-actions-container-height: 30px;
+  --dv-tabs-and-actions-container-font-size: 12px;
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.toast {
+  animation: toast-in 160ms ease-out;
+}

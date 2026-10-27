@@ -10,6 +10,7 @@ import { build } from 'esbuild';
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { security } from './headers.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, '.vercel/output');
@@ -47,29 +48,7 @@ writeFileSync(
   JSON.stringify({ runtime: 'nodejs22.x', handler: 'index.js', launcherType: 'Nodejs', shouldAddHelpers: false, supportsResponseStreaming: true, maxDuration: 60 }, null, 2),
 );
 
-const csp = [
-  "default-src 'self'",
-  // 'unsafe-eval': Meridian Script runs user studies via new Function inside a sandboxed worker;
-  // jsdelivr hosts the lazily-loaded Monaco editor.
-  "script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net",
-  "worker-src 'self' blob:",
-  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
-  "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
-  "img-src 'self' data: blob:",
-  // live crypto streams connect directly from the browser
-  "connect-src 'self' https://cdn.jsdelivr.net wss://data-stream.binance.vision wss://stream.binance.com:9443",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join('; ');
 
-const security = {
-  'Content-Security-Policy': csp,
-  'X-Content-Type-Options': 'nosniff',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains',
-};
 
 writeFileSync(
   join(out, 'config.json'),

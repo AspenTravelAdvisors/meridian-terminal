@@ -12,7 +12,7 @@
     "build": "turbo run build",
     "build:vercel": "turbo run build --filter=@meridian/web && node scripts/build-vercel.mjs",
     "serve": "node scripts/serve.mjs",
-    "test": "vitest run",
+    "test": "vitest run --project unit --project golden",
     "test:watch": "vitest",
     "test:golden": "vitest run --project golden",
     "test:coverage": "vitest run --coverage",

@@ -89,6 +89,9 @@ importers:
       dockview:
         specifier: ^8.6.2
         version: 8.6.2
+      dockview-react:
+        specifier: 8.6.2
+        version: 8.6.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       idb-keyval:
         specifier: ^6.3.0
         version: 6.3.0
@@ -1673,6 +1676,12 @@ packages:
 
   dockview-core@8.6.2:
     resolution: {integrity: sha512-GeGv58jEzVm91pa7movZFhQVOOQkWWTEJu2kjae5cjXGJ763hv+leKDWWdIeF+Ox9+2CZGZq00CDLizDtc8H8A==}
+
+  dockview-react@8.6.2:
+    resolution: {integrity: sha512-zDnsnHBIPgfesCzTlKffPwMDROTb2GwvV16FSEKKnGV42ioPHitiurQAHiTzNRRRE5UBC1I6/4tFBmdUuuwydw==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   dockview@8.6.2:
     resolution: {integrity: sha512-nv9wVNDO8/k8slAOPruFJLMMSVL32T2c3Z63NHbxw3QkHjHOkXrxf99+3Rorya+D1XCxFiD+im2c5Chg9A2N8g==}
@@ -3955,6 +3964,12 @@ snapshots:
   detect-node-es@1.1.0: {}
 
   dockview-core@8.6.2: {}
+
+  dockview-react@8.6.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
+    dependencies:
+      dockview: 8.6.2
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
 
   dockview@8.6.2:
     dependencies:

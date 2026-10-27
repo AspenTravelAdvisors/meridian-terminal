@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { sinkWriter } from '../core/mtf';
 import { bool, defineStudy, int, num } from '../core/params';
-import { emaInit, emaPush, rmaInit } from '../core/rolling';
+import { type emaInit, emaPush, rmaInit } from '../core/rolling';
 import type { SeriesCtx, StudyStatus, Writer } from '../core/types';
 import { combo, comboSchema, newComboState } from './demark/combo';
 import { demarker1, demarker1Schema } from './demark/oscillators';

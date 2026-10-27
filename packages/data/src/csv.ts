@@ -2,7 +2,7 @@ import type { Bar } from './types';
 
 /** RFC-4180-ish CSV parser (quotes, escaped quotes, CRLF) with delimiter auto-detection. */
 export function parseCsv(text: string, delimiter?: string): string[][] {
-  const src = text.replace(/^﻿/, '');
+  const src = text.replace(/^\uFEFF/, '');
   const firstLine = src.split(/\r?\n/, 1)[0] ?? '';
   const d = delimiter ?? ([',', ';', '\t', '|'] as const).reduce((best, c) => (firstLine.split(c).length > firstLine.split(best).length ? c : best), ',' as string);
   const rows: string[][] = [];
