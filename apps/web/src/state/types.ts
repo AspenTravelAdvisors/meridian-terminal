@@ -56,7 +56,10 @@ export interface PaneConfig {
   scaleMode: ScaleMode;
   adjust: AdjustMode;
   compare: string[];
-  boxSize?: number; // renko / range
+  /** Renko brick / range-bar size in price units; unset or 0 = auto (ATR-based) */
+  boxSize?: number;
+  /** ATR length used to size boxes in auto mode (default 14) */
+  boxAtr?: number;
   showVolumeProfile?: boolean;
 }
 

@@ -460,6 +460,8 @@ interface UiState {
   settingsOpen: boolean;
   shortcutsOpen: boolean;
   paletteOpen: boolean;
+  /** pane id whose Renko/Range box-size dialog is open */
+  boxSizePane: string | null;
   replay: Record<string, { active: boolean; index: number; playing: boolean; speed: number; selecting: boolean }>;
   toasts: Toast[];
   focusBar: { paneId: string; t: number } | null;
@@ -481,6 +483,7 @@ export const useUi = create<UiState>()((set, get) => ({
   settingsOpen: false,
   shortcutsOpen: false,
   paletteOpen: false,
+  boxSizePane: null,
   replay: {},
   toasts: [],
   focusBar: null,

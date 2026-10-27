@@ -1,9 +1,10 @@
-import { INTERVALS, type Interval } from '@meridian/data';
+import { INTERVALS, type Interval, autoBox } from '@meridian/data';
 import { STUDIES } from '@meridian/engine';
 import { AlertCircle, CheckCircle2, Info, TriangleAlert, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { chartActions } from '../chart/bus';
 import { health } from '../lib/api';
+import { fmtPrice } from '../lib/format';
 import { activePane, useDrawings, useSettings, useUi, useWorkspace } from '../state/store';
 import { CHART_TYPES, GRID_LAYOUTS, type DrawingType } from '../state/types';
 import { PANEL_DEFS, openPanel } from './panels';
@@ -69,6 +70,66 @@ export function SettingsDialog() {
           </button>
         </section>
       </div>
+    </Modal>
+  );
+}
+
+/** Renko brick / range-bar size: auto (ATR of the loaded history) or a fixed price amount. */
+export function BoxSizeDialog() {
+  const paneId = useUi((s) => s.boxSizePane);
+  const pane = useWorkspace((s) => s.panes.find((p) => p.id === paneId));
+  const bars = useUi((s) => (paneId ? s.runtime[paneId]?.bars : undefined));
+  const [mode, setMode] = useState<'auto' | 'fixed'>('auto');
+  const [atr, setAtr] = useState('14');
+  const [size, setSize] = useState('');
+  useEffect(() => {
+    if (!pane) return;
+    setMode(pane.boxSize ? 'fixed' : 'auto');
+    setAtr(String(pane.boxAtr ?? 14));
+    setSize(pane.boxSize ? String(pane.boxSize) : '');
+  }, [pane?.id, paneId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const close = () => useUi.getState().set({ boxSizePane: null });
+  const atrN = Math.max(2, Math.min(500, Math.round(Number(atr) || 14)));
+  const autoValue = bars && bars.length > 1 ? autoBox(bars, atrN) : NaN;
+  const fixed = Number(size);
+  const valid = mode === 'auto' || (Number.isFinite(fixed) && fixed > 0);
+  const apply = () => {
+    if (!pane || !valid) return;
+    useWorkspace.getState().updatePane(pane.id, mode === 'auto' ? { boxSize: undefined, boxAtr: atrN } : { boxSize: fixed, boxAtr: atrN });
+    close();
+  };
+  const kind = pane?.chartType === 'range' ? 'Range bar size' : 'Renko box size';
+  return (
+    <Modal
+      open={!!pane}
+      onOpenChange={(o) => !o && close()}
+      title={kind}
+      width={380}
+      footer={
+        <>
+          <button className="btn" onClick={close}>Cancel</button>
+          <button className="btn btn-primary" onClick={apply} disabled={!valid}>Apply</button>
+        </>
+      }
+    >
+      <form className="flex flex-col gap-3 p-4" onSubmit={(e) => (e.preventDefault(), apply())}>
+        <fieldset className="flex gap-3">
+          <legend className="sr-only">Sizing method</legend>
+          {(['auto', 'fixed'] as const).map((m) => (
+            <label key={m} className="flex items-center gap-1.5">
+              <input type="radio" name="box-mode" checked={mode === m} onChange={() => setMode(m)} />
+              {m === 'auto' ? 'Auto (ATR)' : 'Fixed size'}
+            </label>
+          ))}
+        </fieldset>
+        <Field label="ATR length" hint={Number.isFinite(autoValue) ? `Auto size on this chart: ${fmtPrice(autoValue)}` : 'Average true range of the loaded history, rounded to a tidy step.'}>
+          <input className="input" type="number" min={2} max={500} step={1} value={atr} onChange={(e) => setAtr(e.target.value)} disabled={mode !== 'auto'} aria-label="ATR length" />
+        </Field>
+        <Field label="Box size (price units)" hint={pane?.chartType === 'range' ? 'A new bar starts when the high–low range reaches this amount.' : 'A brick prints when the close moves one box; reversals need two boxes.'}>
+          <input className="input" type="number" min={0} step="any" value={size} placeholder={Number.isFinite(autoValue) ? fmtPrice(autoValue) : ''} onChange={(e) => (setSize(e.target.value), setMode('fixed'))} aria-label="Box size" />
+        </Field>
+        <button type="submit" hidden />
+      </form>
     </Modal>
   );
 }

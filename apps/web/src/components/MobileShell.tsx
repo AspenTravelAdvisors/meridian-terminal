@@ -35,6 +35,7 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { ChartPane } from '../chart/ChartPane';
 import { useDrawings, useSettings, useUi, useWorkspace } from '../state/store';
+import { fmtPrice } from '../lib/format';
 import { CHART_TYPES, GRID_LAYOUTS } from '../state/types';
 import { ReplayBar } from './ChartGrid';
 import { DrawingToolbar } from './DrawingToolbar';
@@ -218,6 +219,11 @@ function MobileTopBar({ draw, setDraw, onChart }: { draw: boolean; setDraw(v: bo
             {c.label}
           </MenuItem>
         ))}
+        {(pane.chartType === 'renko' || pane.chartType === 'range') && (
+          <MenuItem onSelect={() => ui.set({ boxSizePane: pane.id })} hint={pane.boxSize ? fmtPrice(pane.boxSize) : `auto · ATR ${pane.boxAtr ?? 14}`}>
+            Box size…
+          </MenuItem>
+        )}
         <MenuSep />
         <MenuLabel>Price scale</MenuLabel>
         {(['normal', 'log', 'percent', 'indexed'] as const).map((m) => (

@@ -1,7 +1,7 @@
 import { INTERVALS, type Interval, SYMBOL_RE } from '@meridian/data';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense, lazy, useEffect } from 'react';
-import { CommandPalette, SettingsDialog, ShortcutsDialog, Toasts, useHotkeys } from './components/AppChrome';
+import { BoxSizeDialog, CommandPalette, SettingsDialog, ShortcutsDialog, Toasts, useHotkeys } from './components/AppChrome';
 import { StudiesDialog, StudySettingsDialog } from './components/StudiesDialog';
 import { SymbolSearch } from './components/SymbolSearch';
 import { TooltipProvider } from './components/ui';
@@ -58,6 +58,7 @@ function Shell() {
       <StudiesDialog />
       <StudySettingsDialog />
       <SettingsDialog />
+      <BoxSizeDialog />
       <ShortcutsDialog />
       <CommandPalette />
       <Toasts />

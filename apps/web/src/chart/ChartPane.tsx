@@ -1,4 +1,4 @@
-import { INTERVAL_MS, type Interval, heikinAshi, parseSymbol, rangeBars, renko } from '@meridian/data';
+import { INTERVAL_MS, type Interval, autoBox, heikinAshi, parseSymbol, rangeBars, renko } from '@meridian/data';
 import { type Bar, type InspectRow, type StudyResult, getStudy, volumeProfileBars } from '@meridian/engine';
 import { LINK_COLORS, type LinkGroup, palette } from '@meridian/ui';
 import type { IChartApi, ISeriesApi, Logical, MouseEventParams, SeriesType, Time } from 'lightweight-charts';
@@ -36,10 +36,13 @@ export const ChartPane = memo(function ChartPane({ pane, active, solo }: { pane:
 
   // analysis bars: Renko/Range bricks replace time bars; everything else analyses real bars
   const analysis = useMemo(() => {
-    if (pane.chartType === 'renko') return renko(data.bars.filter((b) => b.final !== false), pane.boxSize || undefined);
-    if (pane.chartType === 'range') return rangeBars(data.bars, pane.boxSize || undefined);
+    if (pane.chartType === 'renko') {
+      const closed = data.bars.filter((b) => b.final !== false);
+      return renko(closed, pane.boxSize || autoBox(closed, pane.boxAtr ?? 14));
+    }
+    if (pane.chartType === 'range') return rangeBars(data.bars, pane.boxSize || autoBox(data.bars, pane.boxAtr ?? 14));
     return data.bars;
-  }, [data.bars, pane.chartType, pane.boxSize]);
+  }, [data.bars, pane.chartType, pane.boxSize, pane.boxAtr]);
   const effective = useMemo(() => (replay?.active ? analysis.slice(0, Math.max(1, replay.index + 1)) : analysis), [analysis, replay?.active, replay?.index]);
   const display = useMemo(() => (pane.chartType === 'heikin' ? heikinAshi(effective) : effective), [effective, pane.chartType]);
   const tm = useMemo(

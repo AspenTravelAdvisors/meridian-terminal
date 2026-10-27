@@ -23,6 +23,7 @@ import {
 import { snapshotters } from '../chart/bus';
 import { canvasToBlob, download } from '../lib/download';
 import { activePane, useDrawings, useLayouts, useSettings, useUi, useWorkspace } from '../state/store';
+import { fmtPrice } from '../lib/format';
 import { CHART_TYPES, GRID_LAYOUTS } from '../state/types';
 import { openPanel, PANEL_DEFS } from './panels';
 import { Menu, MenuItem, MenuLabel, MenuSep, Tooltip } from './ui';
@@ -107,6 +108,11 @@ export function TopBar() {
             {c.label}
           </MenuItem>
         ))}
+        {(pane.chartType === 'renko' || pane.chartType === 'range') && (
+          <MenuItem onSelect={() => ui.set({ boxSizePane: pane.id })} hint={pane.boxSize ? fmtPrice(pane.boxSize) : `auto · ATR ${pane.boxAtr ?? 14}`}>
+            Box size…
+          </MenuItem>
+        )}
         <MenuSep />
         <MenuLabel>Price scale</MenuLabel>
         {(['normal', 'log', 'percent', 'indexed'] as const).map((m) => (
