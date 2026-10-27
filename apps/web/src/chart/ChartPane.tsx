@@ -3,20 +3,23 @@ import { type Bar, type InspectRow, type StudyResult, getStudy, volumeProfileBar
 import { LINK_COLORS, type LinkGroup, palette } from '@meridian/ui';
 import type { IChartApi, ISeriesApi, Logical, MouseEventParams, SeriesType, Time } from 'lightweight-charts';
 import { createChart } from 'lightweight-charts';
-import { AlertTriangle, Eye, EyeOff, Loader2, Radio, Settings2, X } from 'lucide-react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ChevronsRight, Eye, EyeOff, Loader2, Radio, Settings2, X } from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBars } from '../data/useBars';
 import { EngineClient } from '../engine/engineClient';
 import { runScriptSandboxed } from '../engine/script';
-import { fmtPrice, fmtVol } from '../lib/format';
+import { fmtPrice, fmtTime, fmtVol } from '../lib/format';
 import { useDrawings, useJournal, useScripts, useSettings, useUi, useWorkspace } from '../state/store';
 import type { Drawing, PaneConfig, StudyInstanceCfg, TfBucket } from '../state/types';
 import { useAux } from './aux';
 import { chartActions, crosshairBus, rangeBus, snapshotters } from './bus';
 import { DrawingController, DrawingsPrimitive } from './drawings';
-import { HeatStripPrimitive, LevelsPrimitive, type MarkerItem, TextMarkersPrimitive } from './primitives';
+import { ExplainCard } from './ExplainCard';
+import { explain } from './explain';
+import { type ChartHit, HeatStripPrimitive, LevelsPrimitive, type MarkerItem, TextMarkersPrimitive } from './primitives';
 import { StudyRenderer, chartOptions, createMainSeries, mainData, readTheme, setScaleMode } from './render';
 import { TimeMap, displayTz } from './timeMap';
+import { type View, anchoredRange, following, viewOf } from './viewport';
 
 export const tfBucket = (iv: Interval): TfBucket => {
   const ms = INTERVAL_MS[iv];
@@ -25,6 +28,11 @@ export const tfBucket = (iv: Interval): TfBucket => {
 
 /** Inspector rows for the active pane (Rule Inspector panel). */
 export const inspectors = new Map<string, (i: number) => Promise<InspectRow[]>>();
+
+/** Last view per pane, relative to the newest bar; outlives chart-type remounts so the zoom carries over. */
+const views = new Map<string, View>();
+/** Mouse with hover (not touch): explanations follow the pointer; touch gets them on tap only. */
+const canHover = () => typeof matchMedia === 'function' && matchMedia('(hover: hover) and (pointer: fine)').matches;
 
 type ScriptPlots = { uid: string; overlay: boolean; name: string; plots: { title: string; color: string; values: number[]; style: string }[]; hlines: { value: number; title: string; color: string }[]; signals: { i: number; id: string; dir: string; text: string }[]; error?: string };
 
@@ -203,6 +211,10 @@ function ChartSurface(p: SurfaceProps) {
   const [hoverI, setHoverI] = useState<number | null>(null);
   const [paneTops, setPaneTops] = useState<number[]>([0]);
   const [editText, setEditText] = useState<Drawing | null>(null);
+  const [tip, setTip] = useState<{ hit: ChartHit; x: number; y: number; pinned: boolean } | null>(null);
+  const tipRef = useRef(tip);
+  tipRef.current = tip;
+  const [behind, setBehind] = useState(false);
 
   const settings = useSettings();
   const themeName = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
@@ -259,15 +271,35 @@ function ChartSurface(p: SurfaceProps) {
       onEditText: (d) => setEditText(d.id ? d : (useDrawings.getState().bySymbol[latest.current.pane.symbol] ?? []).slice(-1)[0] ?? null),
     });
 
+    // chart element under the pointer (markers, counts, levels, geometry, study lines) for the explainer
+    const hitFrom = (param: MouseEventParams<Time>) => {
+      const ev = param.sourceEvent;
+      if (!ev || param.paneIndex === undefined || param.logical === undefined) return null;
+      const paneEl = chart.panes()[param.paneIndex]?.getHTMLElement();
+      if (!paneEl) return null;
+      const pr = paneEl.getBoundingClientRect();
+      const x = ev.clientX - pr.left;
+      const y = ev.clientY - pr.top;
+      if (x < 0 || x > chart.timeScale().width()) return null;
+      let hit: ChartHit | null = param.paneIndex === 0 ? (markers.explainAt(x, y) ?? levels.explainAt(x, y) ?? heat.explainAt(x, y)) : null;
+      hit ??= renderer.current?.seriesHitAt(param.paneIndex, Math.round(param.logical), y, (s) => (param.seriesData.get(s) as { value?: number } | undefined)?.value) ?? null;
+      if (!hit) return null;
+      const br = el.getBoundingClientRect();
+      return { hit, x: ev.clientX - br.left, y: ev.clientY - br.top };
+    };
+    const tipsOn = () => useSettings.getState().chartTips && !ui.getState().tool;
+
     // crosshair → runtime + sync bus
     let raf = 0;
     const onMove = (param: MouseEventParams<Time>) => {
       const l = param.logical;
       const i = l === undefined ? null : Math.max(0, Math.min(latest.current.display.length - 1, Math.round(l)));
+      const hover = param.sourceEvent && tipsOn() && canHover() && !tipRef.current?.pinned ? hitFrom(param) : null;
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         setHoverI(i);
         if (ws.getState().activePaneId === latest.current.pane.id) ui.getState().setRuntime(latest.current.pane.id, { crosshairI: i });
+        if (!tipRef.current?.pinned) setTip(hover ? { ...hover, pinned: false } : null);
       });
       if (!param.sourceEvent) return; // programmatic (synced) moves don't re-broadcast
       const s = useSettings.getState();
@@ -283,6 +315,10 @@ function ChartSurface(p: SurfaceProps) {
       if (rp?.selecting && param.logical !== undefined) {
         const i = Math.max(10, Math.round(param.logical));
         ui.getState().set({ replay: { ...ui.getState().replay, [latest.current.pane.id]: { ...rp, selecting: false, active: true, index: i, playing: false } } });
+      } else if (tipsOn()) {
+        // click / tap pins an explanation; clicking empty chart closes it
+        const h = hitFrom(param);
+        setTip(h ? { ...h, pinned: true } : null);
       }
       ws.getState().setActive(latest.current.pane.id);
     };
@@ -293,6 +329,13 @@ function ChartSurface(p: SurfaceProps) {
     let vpTimer: ReturnType<typeof setTimeout> | null = null;
     const onRange = (r: { from: number; to: number } | null) => {
       if (!r) return;
+      const n = latest.current.display.length;
+      if (n) {
+        const v = viewOf(r, n);
+        views.set(latest.current.pane.id, v);
+        setBehind(!following(v));
+      }
+      if (tipRef.current && !tipRef.current.pinned) setTip(null);
       if (r.from < 25) latest.current.onNeedMore?.();
       if (!applyingRange && useSettings.getState().syncTime && ws.getState().activePaneId === latest.current.pane.id) {
         const tmx = latest.current.tm;
@@ -413,7 +456,8 @@ function ChartSurface(p: SurfaceProps) {
   }, [pane.scaleMode, pane.compare.length]);
 
   // main series data (incremental update for live ticks)
-  const lastData = useRef<{ firstT: number; len: number; type: string }>({ firstT: NaN, len: 0, type: '' });
+  const lastData = useRef<{ firstT: number; len: number; type: string; key: string }>({ firstT: NaN, len: 0, type: '', key: '' });
+  const seriesKey = `${pane.symbol}|${pane.interval}|${pane.adjust}`;
   useEffect(() => {
     const s = seriesRef.current;
     const chart = chartRef.current;
@@ -421,27 +465,40 @@ function ChartSurface(p: SurfaceProps) {
     const d = mainData(display, tm, pane.chartType, pal);
     const prev = lastData.current;
     const firstT = display[0]?.t ?? NaN;
-    if (prev.firstT === firstT && prev.type === pane.chartType && (d.length === prev.len || d.length === prev.len + 1) && d.length > 0) {
+    if (prev.key === seriesKey && prev.firstT === firstT && prev.type === pane.chartType && (d.length === prev.len || d.length === prev.len + 1) && d.length > 0) {
       if (d.length === prev.len + 1 && d.length >= 2) s.update(d[d.length - 2] as never);
       s.update(d[d.length - 1] as never);
     } else {
-      const shift = Number.isFinite(prev.firstT) && firstT < prev.firstT ? tm.toLogical(prev.firstT) : 0;
-      const range = chart.timeScale().getVisibleLogicalRange();
+      const ts = chart.timeScale();
+      const range = ts.getVisibleLogicalRange();
+      const prior = views.get(pane.id) ?? null;
       s.setData(d as never);
-      if (shift > 0 && range) chart.timeScale().setVisibleLogicalRange({ from: range.from + shift, to: range.to + shift });
-      else if (!Number.isFinite(prev.firstT) || prev.len === 0) {
-        const n = d.length;
-        chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 160), to: n + 6 });
+      if (d.length) {
+        if (prev.key === seriesKey && prev.len > 0 && range) {
+          // same series reloaded or backfilled: follow the newest bar if we were, else keep the same bars on screen
+          if (prior && following(prior)) ts.setVisibleLogicalRange(anchoredRange(d.length, prior, 'keep'));
+          else {
+            const shift = tm.toLogical(prev.firstT);
+            if (shift) ts.setVisibleLogicalRange({ from: range.from + shift, to: range.to + shift });
+          }
+        } else ts.setVisibleLogicalRange(anchoredRange(d.length, prior, prev.len > 0 || prev.key ? settings.viewOnChange : 'latest'));
       }
     }
-    lastData.current = { firstT, len: d.length, type: pane.chartType };
+    lastData.current = { firstT, len: d.length, type: pane.chartType, key: seriesKey };
     if (prims.current) {
       prims.current.drawings.tm = tm;
       prims.current.drawings.fmt = (v) => fmtPrice(v);
       prims.current.drawings.update();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [display, tm, pane.chartType, settings.palette]);
+  }, [display, tm, pane.chartType, settings.palette, seriesKey]);
+  useEffect(() => setTip(null), [seriesKey]);
+  useEffect(() => {
+    if (!prims.current) return;
+    const on = settings.chartTips && !tool;
+    for (const pr of [prims.current.markers, prims.current.levels, prims.current.heat]) pr.explain = on;
+    if (!on) setTip(null);
+  }, [settings.chartTips, tool]);
 
   // studies → series + primitives
   useEffect(() => {
@@ -455,9 +512,9 @@ function ChartSurface(p: SurfaceProps) {
     for (const note of notes)
       if (note.symbol === pane.symbol && note.barT) {
         const i = Math.round(tm.toLogical(note.barT));
-        if (i >= 0 && i < n) extra.push({ i, text: '✎', pos: 'above', color: pal.warn, row: 7, size: 2, style: 'solid' });
+        if (i >= 0 && i < n) extra.push({ i, text: '✎', pos: 'above', color: pal.warn, row: 7, size: 2, style: 'solid', src: 'journal', tip: note.body ? `${note.title} — ${note.body}` : note.title });
       }
-    for (const sp of p.scriptPlots) for (const s of sp.signals) if (s.i < n) extra.push({ i: s.i, text: s.text, pos: s.dir === 'bear' ? 'above' : 'below', color: s.dir === 'bull' ? pal.bull : s.dir === 'bear' ? pal.bear : pal.info, row: 6, size: 1, style: 'solid' });
+    for (const sp of p.scriptPlots) for (const s of sp.signals) if (s.i < n) extra.push({ i: s.i, text: s.text, pos: s.dir === 'bear' ? 'above' : 'below', color: s.dir === 'bull' ? pal.bull : s.dir === 'bear' ? pal.bear : pal.info, row: 6, size: 1, style: 'solid', src: sp.uid, tip: s.id });
     r.render({ results: map, cfgs: p.cfgs, tm, pal, bars: display, provisionalFrom, hollowProvisional: settings.hollowProvisional, extraMarkers: extra, scriptPlots: p.scriptPlots });
     if (prims.current) prims.current.heat.enabled = settings.showHeatStrip;
     requestAnimationFrame(() => {
@@ -498,10 +555,40 @@ function ChartSurface(p: SurfaceProps) {
   useCompare(chartRef, pane, tm, display);
 
   const i = hoverI ?? display.length - 1;
+  const closeTip = useCallback(() => setTip(null), []);
+  const explained = useMemo(
+    () => (tip ? explain(tip.hit, { cfgs: p.cfgs, results: new Map(p.results.map((r) => [r.id, r])), scriptPlots: p.scriptPlots }) : null),
+    [tip, p.cfgs, p.results, p.scriptPlots],
+  );
+  const tipTime = tip && tip.hit.i >= 0 && tm.length ? fmtTime(tm.realAt(tip.hit.i), tfBucket(pane.interval) === 'minutes' || tfBucket(pane.interval) === 'hours', tm.tz) : undefined;
+  const tipCfg = explained?.uid ? p.cfgs.find((c) => c.uid === explained.uid) : undefined;
   return (
     <div className="relative h-full w-full" onPointerDown={() => useWorkspace.getState().setActive(pane.id)}>
       <div ref={box} className="absolute inset-0" data-testid={`chart-${pane.id}`} />
       <Legend surface={p} i={i} paneTops={paneTops} />
+      {tip && explained && (
+        <ExplainCard
+          e={explained}
+          x={tip.x}
+          y={tip.y}
+          w={box.current?.clientWidth ?? 0}
+          h={box.current?.clientHeight ?? 0}
+          time={tipTime}
+          pinned={tip.pinned}
+          onClose={closeTip}
+          onSettings={tipCfg && tipCfg.id !== 'script' ? () => (setTip(null), ui.getState().set({ studySettings: { paneId: pane.id, uid: tipCfg.uid } })) : undefined}
+        />
+      )}
+      {behind && display.length > 0 && (
+        <button
+          className="absolute bottom-8 right-[72px] z-20 grid size-7 place-items-center rounded-full border border-border bg-panel text-dim shadow hover:text-text"
+          title="Scroll to the newest bar"
+          aria-label="Scroll to the newest bar"
+          onClick={() => chartRef.current?.timeScale().setVisibleLogicalRange(anchoredRange(display.length, views.get(pane.id) ?? null, 'latest'))}
+        >
+          <ChevronsRight className="size-4" />
+        </button>
+      )}
       {p.status === 'loading' && !display.length && (
         <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center text-dim">
           <span className="flex items-center gap-2 text-sm"><Loader2 className="size-4 animate-spin" /> Loading {pane.symbol}…</span>

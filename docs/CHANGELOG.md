@@ -39,13 +39,44 @@ feature. The full feature list is in `README.md` § Features and the user guide 
 ### Decisions recorded
 - Brian approved the three Vercel stack adaptations (CLAUDE.md, `docs/ARCHITECTURE.md`).
 
+### DeMark-style rules reconciled with Symbolik (from the verification work)
+
+Rules were checked against Symbolik's DeMARK help pages (public Sequential article and the subscriber "Indicator Descriptions"
+article) and changed to match. Details, previous behaviour and what is still open are in `docs/VERIFY_LOG.md`. Old behaviour
+is available as a config option where noted. Studies already on a saved chart keep the input values they were saved with
+(renamed or removed inputs take the new defaults); use **Reset inputs** in the Studies dialog, or re-add the study, to get the
+new defaults everywhere.
+
+- **Sequential / Combo:** TDST cancellation now needs the whole bar beyond the level; recycling at 100–200% of the prior
+  setup size or when a later setup reaches 22 bars; strict perfection. Sequential gains elective **Intersection** (postpones
+  the countdown start) and **8 vs 5** deferral; both show the 13 chip for the **12-bar** reaction window.
+- **D-Wave:** built on N-bar highs/lows (at or above the previous N bars); a `+` marks where a wave was first recognised.
+- **DeMarker II:** plain low/high components. **Anti-Differential:** down, down, up, down with the up-bar low check, now on,
+  with a follow-through signal. **Reverse Differential** is off by default (unresolved).
+- **TD MA I** breakout confirmation signals; **TD MA II** is now short/long moving averages on the price chart.
+- **Range Projection** uses true high/low and adds buffer levels for outside opens; **REBO** 23.6% / 61.8% with base, range
+  type and averaging; **TD Open** reverses to the prior close; **Trend Factor** auto pivot follows 5.56% swings; Points and
+  Lines go up to level 21.
+
+### Chart explanations and navigation
+- Chart elements explain themselves: hover a count, marker, level, line, cloud, wave label or the heat strip for a tooltip;
+  click or tap for a card with what it means, its value and date, the study description and a settings shortcut. The engine's
+  marker tooltips (TDST value, cancel reason, risk level) appear here for the first time. Toggle in Settings.
+- Charts open with the newest bar at the right edge. A symbol or timeframe change keeps the zoom and either jumps to the
+  newest bar (default) or keeps the position relative to it (Settings). A » button returns to the newest bar after scrolling
+  back.
+
+### Fixes
+- After a symbol switch, or when cached bars were replaced by fresh ones, the chart kept the old bar positions and could open
+  in the middle of history or on empty space.
+
 ### Known gaps
 - On Vercel Hobby, Vercel Cron runs the scheduler once a day. Minute-by-minute background alerts need Vercel Pro
   (`ALERT_CRON_SCHEDULE="* * * * *"`) or a free external scheduler hitting `/api/cron/alerts` (`docs/ACCOUNTS.md`).
 - Real iPhones/Safari, live push delivery, e-mail (needs a Resend key) and Alpaca/Twelve Data (need keys) are untested
   from the build sandbox. Passkeys are tested end to end with Chromium's virtual authenticator.
 - Journal screenshots don't sync. They stay on the device that took them.
-- ⚠ VERIFY rules: being checked separately (`docs/VERIFY_LOG.md`).
+- ⚠ VERIFY rules: reconciled with Symbolik's documentation above; what is still open is in `docs/VERIFY_LOG.md`.
 
 ## 0.2.0 — 2026-10-27
 

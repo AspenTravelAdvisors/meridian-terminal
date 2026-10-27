@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { bool, choice } from '../../core/params';
+import { bool, choice, int } from '../../core/params';
 import type { SeriesCtx, StudyDef, StudyStatus, Writer } from '../../core/types';
 import {
   type Countdown,
@@ -16,6 +16,8 @@ import {
   mO,
   newCountdown,
   newSetupSide,
+  intersectsSetup,
+  longSetupRecycle,
   newSetupStep,
   setupShape,
   setupStep,
@@ -43,7 +45,30 @@ export const sequentialSchema = z.object({
     group: 'Countdown',
     verify: 'INDICATORS §1.5 — some sources compare the close instead of the low.',
   }),
+  cd8Qualifier: bool(false, {
+    title: 'Bar-8 qualifier (8 vs 5)',
+    group: 'Countdown',
+    description: 'Elective: countdown bar 8 needs its low ≤ the close of countdown bar 5 (sell: high ≥), else "+" and the count waits.',
+    verify: 'INDICATORS §1.5',
+  }),
   ...countdownMgmtShape,
+  requireIntersection: bool(false, {
+    title: 'Intersection',
+    group: 'Countdown',
+    description: 'Elective: postpone the countdown start until a bar’s high reaches the low of a setup bar three or more bars earlier (sell: mirror).',
+    verify: 'INDICATORS §1.5',
+  }),
+  intersectionScope: choice(['anyLaterBar', 'setupBarsOnly'] as const, 'anyLaterBar', {
+    title: 'Intersection: bars that may confirm',
+    group: 'Countdown',
+    description: 'anyLaterBar: any bar after setup bar 9 · setupBarsOnly: only bars that extend the same setup (10, 11, …).',
+    verify: 'INDICATORS §1.5',
+  }),
+  reactionBars: int(12, 1, 50, {
+    title: 'Reaction window after 13 (bars)',
+    group: 'Countdown',
+    description: '12-bar rule: a reversal should follow a 13 within this many bars; the status chip stays up for the window.',
+  }),
   riskCloseBeyond: bool(true, { title: 'Risk breach: close beyond level', group: 'Risk' }),
   riskPriorCloseNotBeyond: bool(true, { title: 'Risk breach: prior close not beyond', group: 'Risk' }),
   riskNextOpenBeyond: bool(false, { title: 'Risk breach: next open beyond', group: 'Risk' }),
@@ -62,6 +87,10 @@ interface Side {
   /** countdown risk level (mirrored) */
   cdRisk: number;
   pendBreach: number[]; // levels awaiting next-open confirmation
+  /** completed setup whose countdown waits for intersection (INDICATORS §1.5) */
+  pendIx: SetupInfo | null;
+  /** last bar of the pending setup's run (bar 9, then any extension bars 10, 11, …) */
+  pendIxEnd: number;
   lastCd13: number;
   lastSetup9: number;
 }
@@ -79,6 +108,8 @@ const newSide = (): Side => ({
   risk: NaN,
   cdRisk: NaN,
   pendBreach: [],
+  pendIx: null,
+  pendIxEnd: -1,
   lastCd13: -1,
   lastSetup9: -1,
 });
@@ -179,7 +210,7 @@ export function sequentialStep(
       side.risk = done.risk;
       if (w.inspecting) {
         w.inspect(`${name} setup perfected`, done.perfected);
-        w.inspect(`${name} setup intersection (⚠ VERIFY)`, done.intersect);
+        w.inspect(`${name} setup intersection: bar 8 or 9 high reaches a setup low ≥ 3 bars earlier`, done.intersect);
       }
     }
 
@@ -198,18 +229,35 @@ export function sequentialStep(
     }
 
     // ── Countdown start / recycle (INDICATORS §1.5, §1.7) ─────────────────
+    // A pending (not yet intersected) countdown is dropped by an opposite setup and replaced by a newer setup.
+    if (side.pendIx && (done || (cfg.cancelOnOppositeSetup && steps[1 - k].completed))) side.pendIx = null;
     if (done) {
-      const blocked = cfg.cancelOnIntersectionFailure && !done.intersect;
       if (!side.cd.active) {
-        if (!blocked) startCountdown(side.cd, done, i);
+        if (cfg.requireIntersection && !done.intersect) {
+          side.pendIx = done;
+          side.pendIxEnd = i;
+        }
+        else startCountdown(side.cd, done, i);
       } else if (shouldRecycle(cfg, side.cd, done)) {
         startCountdown(side.cd, done, i);
         w.signal(`${P}_${name}_CD_RECYCLE`, 'neutral', x.c[i]);
         if (emit.markers && cfg.showCountdown) w.marker({ i, text: 'R', pos, color: 'warn', row: emit.row + 1, size: 1, tooltip: 'Countdown recycled' });
       }
-    } else if (step.reached18 && cfg.recycleOn18 && side.cd.active && side.last) {
+    } else if (side.pendIx) {
+      const ix = side.pendIx;
+      // Extension bars of the same setup run also count as setup bars to intersect with (reference chart, VERIFY_LOG note 6).
+      if (side.su.count > 0 && side.su.i1 === ix.i1) side.pendIxEnd = i;
+      const inScope = cfg.intersectionScope === 'anyLaterBar' || (side.su.count > cfg.setupLength && side.su.i1 === ix.i1);
+      const hit = inScope && intersectsSetup(x, s, ix.i1, side.pendIxEnd, i);
+      if (w.inspecting) w.inspect(`${name} intersection pending: high reaches a setup low ≥ 3 bars earlier`, hit);
+      if (hit) {
+        side.pendIx = null;
+        startCountdown(side.cd, ix, i);
+      }
+    } else if (longSetupRecycle(cfg, side.cd, side.su, side.last)) {
       startCountdown(side.cd, side.last, i);
-      w.signal(`${P}_${name}_CD_RECYCLE`, 'neutral', x.c[i], 'setup reached 18');
+      w.signal(`${P}_${name}_CD_RECYCLE`, 'neutral', x.c[i], `setup reached ${cfg.recycleSetupCount}`);
+      if (emit.markers && cfg.showCountdown) w.marker({ i, text: 'R', pos, color: 'warn', row: emit.row + 1, size: 1, tooltip: `Countdown recycled: setup reached ${cfg.recycleSetupCount}` });
     }
 
     // ── Countdown counting ───────────────────────────────────────────────
@@ -225,8 +273,15 @@ export function sequentialStep(
         );
       if (ok) {
         const N = cfg.countdownLength;
-        if (cd.count < N - 1) {
+        // Elective 8-vs-5 deferral (INDICATORS §1.5): the would-be 8 must reach the close of countdown bar 5.
+        const defer8 = cfg.cd8Qualifier && cd.count === 7 && N > 8 && !(mL(x, s, i) <= cd.cd5);
+        if (cfg.cd8Qualifier && cd.count === 7 && N > 8 && w.inspecting) w.inspect(`${name} bar-8 qualifier (low vs CD5 close)`, !defer8, `CD5 close ${f(s * cd.cd5)}`);
+        if (defer8) {
+          if (emit.markers && cfg.showCountdown)
+            w.marker({ i, text: '+', pos, color: s > 0 ? 'bullAlt' : 'bearAlt', row: emit.row + 1, size: 1, tooltip: 'Bar 8 deferred: 8-vs-5 qualifier failed' });
+        } else if (cd.count < N - 1) {
           cd.count++;
+          if (cd.count === 5) cd.cd5 = mC(x, s, i);
           if (cd.count === 8) cd.cd8 = mC(x, s, i);
           if (emit.markers && cfg.showCountdown) w.line(LBL_CD, -s * cd.count);
         } else {
@@ -307,7 +362,7 @@ export function sequentialStatus(cfg: SequentialCfg, st: SequentialState, x: Ser
     const dir = s > 0 ? 'bull' : 'bear';
     if (side.su.count > 0) chips.push({ text: `${SIDE_UP(s)}-Setup ${side.su.count}`, dir, strength: Math.min(1, side.su.count / cfg.setupLength) });
     if (side.cd.active) chips.push({ text: `${SIDE_UP(s)}-CD ${side.cd.count}`, dir, strength: side.cd.count / cfg.countdownLength });
-    if (side.lastCd13 >= 0 && last - side.lastCd13 <= 5) chips.push({ text: `${SIDE_UP(s)}-CD ${cfg.countdownLength} ✓`, dir, strength: 1 });
+    if (side.lastCd13 >= 0 && last - side.lastCd13 <= cfg.reactionBars) chips.push({ text: `${SIDE_UP(s)}-CD ${cfg.countdownLength} ✓`, dir, strength: 1 });
   });
   const c = x.c[last];
   const [b, s] = st.sides;
@@ -349,14 +404,18 @@ export const sequential: StudyDef<SequentialCfg, SequentialState> = {
     Aggressive: { countdownMode: 'aggressive' },
     'TDST bar-1 only': { tdstMode: 'bar1TrueExtreme' },
     'Close-based 13 qualifier': { cd13Qualifier: 'close_vs_cd8_close' },
+    'Intersection + 8 vs 5': { requireIntersection: true, cd8Qualifier: true },
     'Minimal (9s & 13s)': { showSetupExtension: false, showRisk: false },
   },
   verify: [
     { key: 'tdstMode', note: 'INDICATORS §1.4' },
     { key: 'cd13Qualifier', note: 'INDICATORS §1.5' },
     { key: 'recycleFactor', note: 'INDICATORS §1.7' },
-    { key: 'cancelOnTdstBreak', note: 'INDICATORS §1.6' },
-    { key: 'cancelOnIntersectionFailure', note: 'INDICATORS §1.6(c)' },
+    { key: 'tdstCancelTest', note: 'INDICATORS §1.6' },
+    { key: 'recycleSetupCount', note: 'INDICATORS §1.7' },
+    { key: 'requireIntersection', note: 'INDICATORS §1.5' },
+    { key: 'intersectionScope', note: 'INDICATORS §1.5' },
+    { key: 'cd8Qualifier', note: 'INDICATORS §1.5' },
   ],
   outputs: () => [
     { kind: 'line', id: 'tdst_res', title: 'TDST resistance', color: 'bear', render: 'level', width: 1, style: 'solid', label: 'TDST' },

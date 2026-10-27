@@ -154,6 +154,8 @@ export interface Pivot {
   price: number;
   label: string;
   locked: boolean;
+  /** where this pivot was first recognised, when it has since shifted right (drawn as "+") */
+  first?: { i: number; price: number };
 }
 
 export interface Segment {

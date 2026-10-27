@@ -19,5 +19,6 @@ fixtures/<study-id>/<SYMBOL>_<interval>.json   optional study config (missing ke
 |---|---|
 | `HAND-*` | Hand-traced by us; the trace is written out in the test comments (`packages/engine/test/*.test.ts`) and agrees with the independent oracle in `sequential.test.ts`. **Not** vendor data. |
 | `<SYMBOL>_<interval>.csv` (to add) | Exports from a platform with licensed DeMark studies, or counts hand-checked against Brian's reference copy. |
+| `REF-*` (**local only, git-ignored**) | Public OHLC (Yahoo, Coinbase) with counts and levels read off Brian's vendor reference screenshots. Only the visible values are filled in; open VERIFY_LOG items are left blank. See `docs/VERIFY_LOG.md` note 4. |
 
 Do not commit vendor data whose licence forbids redistribution — keep such files local (they are picked up the same way).

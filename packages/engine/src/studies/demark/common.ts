@@ -52,21 +52,22 @@ export const setupShape = {
 export const countdownMgmtShape = {
   cancelOnOppositeSetup: bool(true, { title: 'Cancel on opposite setup', group: 'Cancellation', verify: 'INDICATORS §1.6(a)' }),
   cancelOnTdstBreak: bool(true, { title: 'Cancel on TDST break', group: 'Cancellation', verify: 'INDICATORS §1.6(b)' }),
-  tdstCancelTest: choice(['close', 'trueExtreme'] as const, 'close', {
+  tdstCancelTest: choice(['trueExtreme', 'close'] as const, 'trueExtreme', {
     title: 'TDST cancel test',
     group: 'Cancellation',
-    description: 'close: close beyond the level · trueExtreme: whole bar (true low / true high) beyond it.',
+    description: 'trueExtreme: whole bar beyond the level (buy: true low above TDST resistance) · close: close beyond it.',
     verify: 'INDICATORS §1.6(b)',
   }),
-  cancelOnIntersectionFailure: bool(false, {
-    title: 'Cancel on intersection failure',
-    group: 'Cancellation',
-    description: 'Setup bar 8 or 9 must overlap setup bars 1–3, otherwise no countdown.',
-    verify: 'INDICATORS §1.6(c) — exact rule unconfirmed; default off.',
-  }),
   recycleMode: choice(['size', 'never', 'always'] as const, 'size', { title: 'Recycle mode', group: 'Recycling', verify: 'INDICATORS §1.7' }),
-  recycleFactor: num(1.618, 1, 5, { title: 'Recycle factor', group: 'Recycling', step: 0.001, verify: 'INDICATORS §1.7' }),
-  recycleOn18: bool(false, { title: 'Recycle when setup reaches 18', group: 'Recycling', verify: 'INDICATORS §1.7 optional toggle' }),
+  recycleFactor: num(2, 1, 5, {
+    title: 'Recycle factor',
+    group: 'Recycling',
+    step: 0.001,
+    description: 'Recycle when the new setup is 100% to factor × 100% the size of the prior one.',
+    verify: 'INDICATORS §1.7',
+  }),
+  recycleOnLongSetup: bool(true, { title: 'Recycle when a later setup runs long', group: 'Recycling', verify: 'INDICATORS §1.7' }),
+  recycleSetupCount: int(22, 10, 60, { title: 'Long-setup recycle count', group: 'Recycling', verify: 'INDICATORS §1.7' }),
 };
 
 export const setupSchemaPart = z.object(setupShape);
@@ -103,8 +104,6 @@ export interface SetupStep {
   /** the bar condition held this bar */
   cond: boolean;
   completed: SetupInfo | null;
-  /** count reached exactly 18 this bar (for the optional recycle rule) */
-  reached18: boolean;
 }
 
 /** Price flip in mirrored space (bearish flip for the buy side). INDICATORS §1.1 */
@@ -116,7 +115,7 @@ export function isFlip(x: SeriesCtx, s: Sg, i: number, lb: number): boolean {
 /** Setup bar condition in mirrored space: close below the close `lb` bars earlier. INDICATORS §1.2 */
 export const setupCond = (x: SeriesCtx, s: Sg, i: number, lb: number): boolean => i >= lb && mC(x, s, i) < mC(x, s, i - lb);
 
-export const newSetupStep = (): SetupStep => ({ flip: false, cond: false, completed: null, reached18: false });
+export const newSetupStep = (): SetupStep => ({ flip: false, cond: false, completed: null });
 
 /** Advance one side's setup count. Writes into `out` (reused across bars to avoid per-bar allocation). */
 export function setupStep(cfg: SetupCfg, su: SetupSide, x: SeriesCtx, s: Sg, i: number, out: SetupStep = newSetupStep()): SetupStep {
@@ -124,7 +123,6 @@ export function setupStep(cfg: SetupCfg, su: SetupSide, x: SeriesCtx, s: Sg, i: 
   const cond = setupCond(x, s, i, lb);
   const flip = cond && isFlip(x, s, i, lb);
   let completed: SetupInfo | null = null;
-  let reached18 = false;
   if (cond) {
     if (su.count > 0) su.count++;
     else if (flip) {
@@ -133,11 +131,9 @@ export function setupStep(cfg: SetupCfg, su: SetupSide, x: SeriesCtx, s: Sg, i: 
     }
   } else su.count = 0;
   if (su.count === cfg.setupLength) completed = describeSetup(cfg, x, s, su.i1, i);
-  if (su.count === 2 * cfg.setupLength) reached18 = true;
   out.flip = flip;
   out.cond = cond;
   out.completed = completed;
-  out.reached18 = reached18;
   return out;
 }
 
@@ -163,15 +159,25 @@ export function describeSetup(cfg: SetupCfg, x: SeriesCtx, s: Sg, i1: number, i9
   let thr = NaN;
   if (n >= 4) {
     thr = Math.min(mL(x, s, b(n - 3)), mL(x, s, b(n - 2)));
-    perfected = mL(x, s, b(n - 1)) <= thr || mL(x, s, b(n)) <= thr;
+    perfected = mL(x, s, b(n - 1)) < thr || mL(x, s, b(n)) < thr;
   }
-  // Intersection (⚠ VERIFY): high of bar n-1 or n reaches the low of bar 3 or earlier.
-  let minEarly = Infinity;
-  for (let k = 1; k <= Math.min(3, n); k++) minEarly = Math.min(minEarly, mL(x, s, b(k)));
-  const intersect = n < 4 || Math.max(mH(x, s, b(n - 1)), mH(x, s, b(n))) >= minEarly;
+  // Intersection (INDICATORS §1.5): the high of bar n-1 or n reaches the low of a setup bar three or more bars earlier.
+  const intersect = n < 4 || intersectsSetup(x, s, i1, i9, b(n - 1)) || intersectsSetup(x, s, i1, i9, i9);
   const info: SetupInfo = { i1, i9, size: maxTH - minTL, tdst, risk: minTL - tr, perfected, intersect };
   (info as SetupInfo & { perfThr?: number }).perfThr = thr;
   return info;
+}
+
+/**
+ * Intersection test in mirrored space: bar j's high reaches the low of any setup bar (i1…iEnd) at least three bars
+ * before j. `iEnd` is bar 9 at completion and the end of the setup run (extension bars) while a countdown waits.
+ * Loops over at most one setup run.
+ */
+export function intersectsSetup(x: SeriesCtx, s: Sg, i1: number, i9: number, j: number): boolean {
+  const last = Math.min(i9, j - 3);
+  const h = mH(x, s, j);
+  for (let k = i1; k <= last; k++) if (h >= mL(x, s, k)) return true;
+  return false;
 }
 
 // ── Countdown bookkeeping shared by Sequential and Combo ──────────────────
@@ -181,9 +187,11 @@ export interface Countdown {
   count: number;
   startI: number;
   /** setup that started (or last recycled) this countdown */
+  setupI1: number;
   tdst: number;
   size: number;
-  /** close of countdown bar 8 (mirrored) */
+  /** close of countdown bars 5 and 8 (mirrored) */
+  cd5: number;
   cd8: number;
   /** close of the previous countdown bar (mirrored) — Combo rule 4 */
   lastClose: number;
@@ -196,8 +204,10 @@ export const newCountdown = (): Countdown => ({
   active: false,
   count: 0,
   startI: -1,
+  setupI1: -1,
   tdst: NaN,
   size: NaN,
+  cd5: NaN,
   cd8: NaN,
   lastClose: NaN,
   minTL: Infinity,
@@ -208,8 +218,10 @@ export function startCountdown(cd: Countdown, setup: SetupInfo, startI: number):
   cd.active = true;
   cd.count = 0;
   cd.startI = startI;
+  cd.setupI1 = setup.i1;
   cd.tdst = setup.tdst;
   cd.size = setup.size;
+  cd.cd5 = NaN;
   cd.cd8 = NaN;
   cd.lastClose = NaN;
   cd.minTL = Infinity;
@@ -227,6 +239,14 @@ export function shouldRecycle(cfg: CdMgmtCfg, cd: Countdown, setup: SetupInfo): 
     case 'size':
       return setup.size >= cd.size && setup.size <= cfg.recycleFactor * cd.size;
   }
+}
+
+/**
+ * Long-setup recycle (INDICATORS §1.7): a LATER same-direction setup — not the one that started the countdown — has
+ * just reached `recycleSetupCount` while the countdown is still running.
+ */
+export function longSetupRecycle(cfg: CdMgmtCfg, cd: Countdown, su: SetupSide, last: SetupInfo | null): last is SetupInfo {
+  return cfg.recycleOnLongSetup && cfg.recycleMode !== 'never' && cd.active && last !== null && su.count === cfg.recycleSetupCount && last.i1 === su.i1 && last.i1 !== cd.setupI1;
 }
 
 /** TDST-break cancellation test (INDICATORS §1.6(b)) in mirrored space: price moved ABOVE the setup's TDST. */

@@ -5,7 +5,7 @@ import { type Sg, mC, mH, mL, mO, mTL } from './common';
 import { confirmedPointAt } from './points';
 
 export const tdLinesSchema = z.object({
-  level: int(1, 1, 5, { title: 'Point level', description: 'TD Point level used for the anchors (1–5).' }),
+  level: int(1, 1, 21, { title: 'Point level', description: 'TD Point level used for the anchors (1–21).' }),
   useQ1: bool(true, { title: 'Q1: prior close below the close two bars before', group: 'Qualifiers', verify: 'INDICATORS §6.2' }),
   useQ2: bool(true, { title: 'Q2: opens beyond the line and trades a tick beyond', group: 'Qualifiers', verify: 'INDICATORS §6.2' }),
   useQ3: bool(true, { title: 'Q3: prior bar pressure projected beyond the line', group: 'Qualifiers', verify: 'INDICATORS §6.2' }),

@@ -118,6 +118,10 @@ export interface Settings {
   showLegendValues: boolean;
   /** draw provisional (forming-bar) counts hollow — SPEC §8.1 */
   hollowProvisional: boolean;
+  /** explain chart elements (counts, levels, lines) on hover and click/tap */
+  chartTips: boolean;
+  /** after a symbol or interval change: snap the newest bar to the right edge, or keep the previous distance from it */
+  viewOnChange: 'latest' | 'keep';
   confirmBeforeDelete: boolean;
 }
 

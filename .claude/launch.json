@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "pnpm@10.28.0", "--filter", "@meridian/web", "dev"],
+      "port": 5173
+    }
+  ]
+}

@@ -90,6 +90,14 @@ Meridian: never act on a provisional 9 or 13 as if it were complete.
 - **Compare (+):** overlay up to five other symbols.
 - **Visible-range volume profile:** volume by price for whatever is on screen.
 
+### Reading what's on the chart
+- **Hover** any count, marker, level, line, cloud, wave label or the heat strip for a one-line tooltip. **Click** (or **tap** on
+  a phone) to open a card that says what the element means, its value and bar date, and the study's description, with a
+  shortcut to the study's settings. `Esc`, the ×, or clicking empty chart closes it.
+- Charts open with the **newest bar at the right edge**. Changing the symbol or timeframe keeps your zoom; by default it jumps
+  back to the newest bar (Settings can keep your position instead). When you scroll back in history, a **»** button at the
+  bottom right returns to the newest bar.
+
 ### Multiple charts, link groups and layouts
 - **Grid** (top bar): 1, 2, 3, 4, 6 or 8 charts. New panes copy the active chart's studies at other timeframes.
 - **Link groups:** click the small dot in a chart's top-right corner to cycle colours. Charts with the same colour share their
@@ -140,11 +148,17 @@ a buy setup says buyers have retaken the whole setup range. Breaks fire `TDST RE
 
 **Countdown (1–13).** After a 9, Meridian starts counting bars, not necessarily consecutive, that close at or below the low
 two bars earlier. The **13th** count also has to undercut the close of countdown bar 8. If it doesn't, you see a **`+`** and
-the 13 is deferred until a later bar qualifies. **`Seq BUY CD 13`** marks a longer-duration exhaustion than a setup 9.
+the 13 is deferred until a later bar qualifies. **`Seq BUY CD 13`** marks a longer-duration exhaustion than a setup 9. A
+reaction is expected within about **12 bars** of the 13 (the status chip stays up for that window); if none comes, the trend
+is likely to continue. Two elective inputs tighten the count: **8 vs 5** (bar 8 must also reach the close of bar 5, else `+`)
+and **Intersection** (the countdown waits until a bar's high gets back to the low of a setup bar three or more bars earlier,
+so a runaway setup doesn't start counting straight away).
 
-**Cancellation and recycling.** A countdown in progress is cancelled when an opposite setup completes, or when price closes
-back through the setup's TDST level. Both are switchable. If a new, similar-sized setup appears mid-countdown, the countdown
-can **recycle** (restart) from it. These rules exist so a count doesn't run on after the trend underneath has changed.
+**Cancellation and recycling.** A countdown in progress is cancelled when an opposite setup completes, or when a whole bar
+clears the setup's TDST level (for a buy countdown: the true low is above TDST resistance). Both are switchable, and a
+close-only TDST test is available. A countdown **recycles** (restarts, shown as `R`) when a later same-direction setup is
+100–200% the size of the one that started it, or when a later setup runs on to 22 bars. These rules exist so a count doesn't
+run on after the trend underneath has changed.
 
 **Risk levels.** For each completed setup and countdown, Meridian draws a dashed **risk level** at the extreme bar's true low
 minus its true range (mirrored for sells). It is a natural "the idea was wrong" line. `SEQ RISK BREACH` fires if price
@@ -156,13 +170,15 @@ TDST mode, and the countdown-13 qualifier.
 ### Combo
 Same setup as Sequential, but the countdown begins on **setup bar 1**, and each counted bar must meet stricter tests: a close
 at or below the low two bars back, a lower low and a lower close than the prior bar, and a close below the previous counted
-bar's close. **Version 2** relaxes the rules from count 11 on. Combo often finishes at a different time than Sequential. When
-both show 13 near the same place, the two methods agree.
+bar's close. **Version 2** relaxes the rules from count 11 on. Cancellation, recycling and the 12-bar window work as in Sequential
+(Intersection and 8 vs 5 are Sequential-only). Combo often finishes at a different time than Sequential. When both show 13
+near the same place, the two methods agree.
 
 ### D-Wave
-A mechanical, Elliott-style wave labeller built from N-bar high and low *closes* (default ladder 21/13/8). It labels waves 0–5
-and A–C, shifts waves when price forces it (for example, wave 2 moves right if wave 4 undercuts it), and locks wave C when
-price closes below wave A's low close. Use it to see **where in a larger advance or decline** you are. A setup 9 during wave 5
+A mechanical, Elliott-style wave labeller built from N-bar highs and lows (default ladder 21/13/8; wave 1 is a high at or
+above the previous 13 highs). It labels waves 0–5 and A–C, shifts waves when price forces it (for example, wave 2 moves right
+if wave 4 undercuts it), and locks wave C when price trades below wave A's low. A **`+`** marks where a wave was first
+recognised before it shifted right. A close-based preset is available. Use it to see **where in a larger advance or decline** you are. A setup 9 during wave 5
 reads very differently from one during wave 3. The optional Fibonacci guides show the "ideal" retracement and extension zones.
 
 ### Propulsion ⚠
@@ -171,18 +187,22 @@ From a swing low → swing high, momentum *M* is a fraction of the range (defaul
 trigger suggests the trend is resuming. Lowest-confidence study in the set. Verify it before you trust it.
 
 ### Range Projection and REBO
-**Range Projection** uses the previous bar's shape to project the current bar's likely **high and low**. **Tolerance levels**
-sit a fraction of the prior true range above and below today's open. If price reaches the projected high *before* the
+**Range Projection** uses the previous bar's open, true high, true low and close to project the current bar's likely **high
+and low**. **Tolerance levels** sit a fraction of the prior true range above and below today's open when it opens inside the
+projection; when it opens outside, **buffer levels** take their place, and clearing the buffer in the direction of the open
+(`RP BUFFER UP/DOWN`) suggests the bar resolves outside the projection. If price reaches the projected high *before* the
 downside tolerance, that's read as "expect a close above the projection" (and mirrored). Because "which came first" depends on
 the order of ticks inside the bar, this study is honest about history: past bars use a fixed convention, and only live bars
 use real tick order.
 
-**REBO** (range expansion breakout) draws levels at 38.2%, 61.8% and 100% of the prior true range from the open, biased by
-the prior bar's direction. Use these as intraday reference levels.
+**REBO** (range expansion breakout) draws levels at 23.6%, 61.8% and 100% of the prior range from the open (or the prior
+close), biased by the prior bar's direction. 23.6% is a low-risk entry area and 61.8% a likely exhaustion area, though price
+often runs past it. The range can be true or chart range, averaged over several bars. Use these as intraday reference levels.
 
 ### DeMarker I and II
 Oscillators (0–100) of how much recent bars pushed to new highs vs. new lows (I) or of buying vs. selling pressure built from
-prior-close and true-range components (II ⚠). Zones default to 60/40. **Duration matters:** a short visit to an extreme that
+the bar's high and close against the prior close and its own low (II: buying = high − prior close plus close − low; selling =
+prior close − low plus high − close). Zones default to 60/40. **Duration matters:** a short visit to an extreme that
 ends is a classic reversal cue (`DEM1 OS EXIT`). A long stay (more than 13 bars by default) is flagged as a *trend*, and
 reversal signals are suppressed. The **qualified** variants require the exit bar to also beat the prior bars' closes.
 
@@ -198,25 +218,30 @@ Volume-weighted buying vs. selling pressure (0–100) with DeMarker-style zones.
 Two-bar patterns that compare buying pressure (close − true low) and selling pressure (true high − close) against the closes.
 **Differential** shows pressure diverging from two lower (or higher) closes, which hints at exhaustion. **Reverse
 Differential** is meant to show continuation. ⚠ As written in Meridian's spec, Reverse Differential Up uses the same
-conditions as Differential Down, so the two always fire together. This is logged for verification; don't rely on Reverse
-Differential yet. **Anti-Differential** is off until its sequence is verified.
+conditions as Differential Down, so it is **off by default** until its exact rule is confirmed. **Anti-Differential** marks a
+low that forms without two straight down closes: down, down, up, then down, where the up bar dipped below the bar before it.
+`ANTIDIFF UP CONFIRM` fires if the next bar trades above the signal bar's high or closes above its close (mirror for highs).
 
 ### Open-based patterns
 **TD Open, Trap, Clop, Clopwin, Camouflage.** Each compares today's open with yesterday's range or open/close, then waits for
-price to trade through a reference level. They trigger *during* the bar (provisional) and finalize at the close. They are
-short-term entry-timing tools.
+price to trade through a reference level (TD Open: an open beyond yesterday's range that reverses back to yesterday's
+close). They trigger *during* the bar (provisional) and finalize at the close. They are short-term entry-timing tools.
 
 ### Points, Lines and Trend Factor
 - **TD Points** are swing highs and lows of a chosen level (a high with *n* lower highs on each side). They confirm *n* bars
   later, so a point is provisional until then.
 - **TD Lines** connect the two most recent descending point highs (supply) or ascending point lows (demand). A **qualified
   breakout** must pass at least one of three tests; the projection target is printed on the chart.
-- **Trend Factor** draws levels every 5.56% from a pivot (11.1% and 22.2% are emphasised). These are quick reference grids for
-  targets and stops.
+- **Trend Factor** draws levels every 5.56% from a pivot (11.1% and 22.2% are emphasised). The automatic pivot is the latest
+  swing high once price has rallied 5.56% from the prior low (or the swing low after a 5.56% decline). It uses the bar's high
+  if that bar closed up, otherwise its close (mirrored for lows). These are quick reference grids for targets and stops.
+- Point levels go up to 21 for both Points and Lines.
 
 ### Moving Averages I and II ⚠
 **MA I** appears only after a strong thrust (a low above the highest high of the prior 12 bars) and stays for a few bars. Its
-presence says momentum is unusually strong. **MA II** is a fast vs. slow rate-of-change regime filter.
+presence says momentum is unusually strong. A close through the opposite MA I line counts as a breakout only once the next
+bar opens beyond that close and then trades beyond its own open (`TDMA1 UP/DN BREAKOUT`). **MA II** plots a short (3) and long
+(34) moving average on the price chart: bullish while the short is above the long, with an optional percent offset.
 
 ### Meridian composites
 - **Exhaustion Confluence:** one weighted score combining Sequential/Combo state, DeMarker zone duration, REI, TDST proximity
@@ -451,7 +476,7 @@ These are **frameworks for organising evidence**, not trading rules. Each ends w
    REI oversold followed by a POQ, or a Differential pattern on the low.
 4. **Invalidation.** The setup or countdown **risk level** is the line where the idea is wrong. Size with Portfolio → Position
    sizing using that stop.
-5. **What would cancel it:** a close back through TDST in the trend's direction, or a fresh same-direction setup that recycles
+5. **What would cancel it:** a bar that clears TDST in the trend's direction, or a fresh same-direction setup that recycles
    the countdown.
 *Test it:* Signal Tester → Sequential → *Seq BUY CD 13* across a universe. Compare the edge and MAE against *Seq BUY SETUP 9*
 alone.
@@ -544,6 +569,8 @@ Open the **person icon** in the top bar (phone: **More → Account**).
   also carries a text label.
 - **Time zone:** the exchange's, UTC, or your local time.
 - **Legend values**, **signal heat strip**, and **hollow provisional counts** (keep this on).
+- **Explain chart elements on hover / tap**, and whether a symbol or timeframe change **jumps to the newest bar** or **keeps
+  your position** relative to it.
 - **Live updates:** streaming for crypto, polling for other markets while they're open.
 - **Default adjustment** for new charts, the **magnet** strength, and **confirm destructive actions**.
 

@@ -90,11 +90,12 @@ describe('DeMark-style Sequential — hand-computed fixture', () => {
   });
 
   it('exposes every ⚠ VERIFY knob as an input', () => {
-    for (const k of ['tdstMode', 'cd13Qualifier', 'recycleFactor', 'recycleMode', 'cancelOnTdstBreak', 'cancelOnIntersectionFailure'])
+    for (const k of ['tdstMode', 'cd13Qualifier', 'recycleFactor', 'recycleMode', 'recycleSetupCount', 'tdstCancelTest', 'requireIntersection', 'intersectionScope', 'cd8Qualifier'])
       expect(k in DEF).toBe(true);
     expect(DEF.tdstMode).toBe('allSetupBars');
     expect(DEF.cd13Qualifier).toBe('low_vs_cd8_close');
-    expect(DEF.recycleFactor).toBe(1.618);
+    expect(DEF.recycleFactor).toBe(2);
+    expect(DEF.recycleSetupCount).toBe(22);
   });
 });
 
@@ -127,10 +128,10 @@ function oracle(bars: Bar[]) {
     }
     return { size: hi - lo, tdst: isBuy ? hi : lo };
   };
-  type Cd = { active: boolean; count: number; cd8: number; tdst: number; size: number };
+  type Cd = { active: boolean; count: number; cd8: number; tdst: number; size: number; from: number };
   const cds: Record<'b' | 's', Cd> = {
-    b: { active: false, count: 0, cd8: NaN, tdst: NaN, size: NaN },
-    s: { active: false, count: 0, cd8: NaN, tdst: NaN, size: NaN },
+    b: { active: false, count: 0, cd8: NaN, tdst: NaN, size: NaN, from: -1 },
+    s: { active: false, count: 0, cd8: NaN, tdst: NaN, size: NaN, from: -1 },
   };
   const thirteens: { i: number; side: 'b' | 's' }[] = [];
   for (let i = 0; i < n; i++) {
@@ -141,12 +142,19 @@ function oracle(bars: Bar[]) {
       const cd = cds[side];
       const done = isBuy ? bDone : sDone;
       const oppDone = isBuy ? sDone : bDone;
-      if (cd.active && (oppDone || (isBuy ? C[i] > cd.tdst : C[i] < cd.tdst))) cd.active = false;
+      // cancel: opposite setup, or the whole bar beyond TDST (buy: true low above TDST resistance)
+      if (cd.active && (oppDone || (isBuy ? TL(i) > cd.tdst : TH(i) < cd.tdst))) cd.active = false;
+      const count = isBuy ? buy[i] : sell[i];
       if (done) {
         const info = setupInfo(i, isBuy);
-        if (!cd.active || (info.size >= cd.size && info.size <= 1.618 * cd.size)) {
-          Object.assign(cd, { active: true, count: 0, cd8: NaN, tdst: info.tdst, size: info.size });
+        // recycle when the new setup is 100%–200% the size of the one that started the countdown
+        if (!cd.active || (info.size >= cd.size && info.size <= 2 * cd.size)) {
+          Object.assign(cd, { active: true, count: 0, cd8: NaN, tdst: info.tdst, size: info.size, from: i - 8 });
         }
+      } else if (cd.active && count === 22 && i - 21 !== cd.from) {
+        // recycle when a LATER same-direction setup reaches 22
+        const info = setupInfo(i - 13, isBuy);
+        Object.assign(cd, { active: true, count: 0, cd8: NaN, tdst: info.tdst, size: info.size, from: i - 21 });
       }
       if (cd.active && i >= 2 && (isBuy ? C[i] <= L[i - 2] : C[i] >= H[i - 2])) {
         if (cd.count < 12) {
