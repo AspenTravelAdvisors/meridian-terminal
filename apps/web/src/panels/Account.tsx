@@ -68,7 +68,6 @@ function SignedOut() {
   const [showRecover, setShowRecover] = useState(false);
   const [recUser, setRecUser] = useState('');
   const [recCode, setRecCode] = useState('');
-  const [recovery, setRecovery] = useState<string | null>(null);
   const supported = passkeysSupported();
   const signup = info?.signup;
   const go = (f: () => Promise<unknown>, what: string) => async () => {
@@ -82,7 +81,6 @@ function SignedOut() {
       setBusy(false);
     }
   };
-  if (recovery) return <div className="p-3"><RecoveryCard code={recovery} onDone={() => setRecovery(null)} /></div>;
   return (
     <>
       <Section title="Sign in" icon={<KeyRound className="size-4" />}>
@@ -102,7 +100,7 @@ function SignedOut() {
             className="flex flex-col gap-2"
             onSubmit={(e) => {
               e.preventDefault();
-              void go(async () => setRecovery((await signUp(username, code)).recoveryCode), 'Sign-up failed')();
+              void go(async () => useAccount.getState().set({ recoveryCode: (await signUp(username, code)).recoveryCode }), 'Sign-up failed')();
             }}
           >
             <Field label="Username" hint="3–32 letters, digits, dots, dashes or underscores.">
@@ -232,11 +230,11 @@ function BackgroundAlerts() {
 }
 
 function SignedIn() {
-  const { info, sync, lastSyncAt, syncError, refresh, set } = useAccount();
+  const { info, sync, lastSyncAt, syncError, refresh, set, recoveryCode: recovery } = useAccount();
+  const setRecovery = (code: string | null) => set({ recoveryCode: code ?? undefined });
   const user = info!.user!;
   const [busy, setBusy] = useState(false);
   const [passkeys, setPasskeys] = useState(info?.passkeys ?? []);
-  const [recovery, setRecovery] = useState<string | null>(null);
   useEffect(() => setPasskeys(info?.passkeys ?? []), [info?.passkeys]);
   const run = (f: () => Promise<unknown>, what: string) => async () => {
     setBusy(true);
@@ -250,6 +248,11 @@ function SignedIn() {
   };
   return (
     <>
+      {recovery && (
+        <div className="border-b border-border p-3">
+          <RecoveryCard code={recovery} onDone={() => setRecovery(null)} />
+        </div>
+      )}
       <Section title={`Signed in as ${user.username}`} icon={<Cloud className="size-4" />}>
         <p className="flex items-center gap-2 text-[11px]">
           <span className={sync === 'error' ? 'text-danger' : sync === 'offline' ? 'text-warn' : 'text-ok'}>●</span>
@@ -277,9 +280,7 @@ function SignedIn() {
         </button>
       </Section>
       <Section title="Recovery & sign-out" icon={<LogOut className="size-4" />}>
-        {recovery ? (
-          <RecoveryCard code={recovery} onDone={() => setRecovery(null)} />
-        ) : (
+        {!recovery && (
           <button className="btn self-start" disabled={busy} onClick={run(async () => setRecovery((await newRecoveryCode()).recoveryCode), 'Recovery code')}>Make a new recovery code</button>
         )}
         <div className="flex flex-wrap gap-2">

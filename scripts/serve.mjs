@@ -9,8 +9,9 @@ import { security } from './headers.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'apps/web/dist');
-const bundle = join(root, 'node_modules/.cache/meridian-server.mjs');
-await build({ entryPoints: [join(root, 'apps/server/src/node.ts')], bundle: true, platform: 'node', format: 'esm', outfile: bundle, logLevel: 'warning', banner: { js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);" } });
+// bundled next to apps/server's own node_modules so the external embedded-Postgres package resolves at runtime
+const bundle = join(root, 'apps/server/node_modules/.cache/meridian-server.mjs');
+await build({ entryPoints: [join(root, 'apps/server/src/node.ts')], bundle: true, platform: 'node', format: 'esm', outfile: bundle, logLevel: 'warning', external: ['@electric-sql/pglite', 'drizzle-orm/pglite'], banner: { js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);" } });
 const { default: api } = await import(pathToFileURL(bundle).href);
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.woff2': 'font/woff2' };
 const port = Number(process.env.PORT ?? 8787);

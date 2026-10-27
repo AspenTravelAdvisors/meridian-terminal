@@ -30,6 +30,8 @@ export interface AccountState {
   syncError?: string;
   /** server alert scheduler heartbeat (null = never ran) */
   scheduler: AlertActivity['scheduler'];
+  /** a just-issued recovery code, shown until the user confirms saving it */
+  recoveryCode?: string;
   refresh(): Promise<void>;
   set(p: Partial<AccountState>): void;
 }

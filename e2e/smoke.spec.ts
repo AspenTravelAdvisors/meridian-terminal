@@ -85,3 +85,21 @@ test('the walkthrough opens from the command palette', async ({ page }) => {
   await page.keyboard.press('Enter');
   await expect(page.locator('.guide').getByText('Strategic playbooks').first()).toBeVisible({ timeout: 10_000 });
 });
+
+test('Renko box size: auto by default, fixed size from the chart-type menu', async ({ page }) => {
+  const errs = errors(page);
+  await page.getByRole('button', { name: 'Chart type' }).click();
+  await page.getByRole('menuitem', { name: 'Renko' }).click();
+  await page.getByRole('button', { name: 'Chart type' }).click();
+  await expect(page.getByRole('menuitem', { name: /Box size/ })).toContainText('auto · ATR 14');
+  await page.getByRole('menuitem', { name: /Box size/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Renko box size' });
+  await expect(dialog.getByText(/Auto size on this chart:/)).toBeVisible();
+  await dialog.getByLabel('Box size').fill('2.5');
+  await dialog.getByRole('button', { name: 'Apply' }).click();
+  await page.getByRole('button', { name: 'Chart type' }).click();
+  await expect(page.getByRole('menuitem', { name: /Box size/ })).toContainText('2.500');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid^="chart-"] canvas').first()).toBeVisible();
+  expect(errs).toEqual([]);
+});

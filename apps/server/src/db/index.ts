@@ -52,11 +52,11 @@ async function connect(env: ServerEnv): Promise<Db | null> {
   return db;
 }
 
-/** Embedded Postgres; `dir` undefined = in-memory (tests). */
+/** Embedded Postgres; `dir` undefined or `memory://` = in-memory (tests, e2e). */
 export async function openPglite(dir?: string): Promise<Db> {
   const { PGlite } = await import('@electric-sql/pglite');
   const { drizzle } = await import('drizzle-orm/pglite');
-  if (dir) {
+  if (dir && !dir.startsWith('memory://')) {
     const { mkdirSync } = await import('node:fs');
     mkdirSync(dir, { recursive: true });
   }
