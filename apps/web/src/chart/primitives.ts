@@ -589,6 +589,11 @@ export class LevelsPrimitive extends BasePrimitive {
 }
 
 // ── Signal heat strip (SPEC §8) ─────────────────────────────────────────────
+/** Drawn strip height and the taller band at the bottom of the pane that accepts clicks/hovers (px). */
+const HEAT_H = 8;
+const HEAT_HIT = 16;
+const HEAT_MIN_W = 3;
+
 export class HeatStripPrimitive extends BasePrimitive {
   private cells = new Map<number, { bull: number; bear: number; neutral: number }>();
   colors = { bull: '#22c55e', bear: '#f43f5e', neutral: '#94a3b8' };
@@ -599,18 +604,24 @@ export class HeatStripPrimitive extends BasePrimitive {
     this.update();
   }
   override explainAt(x: number, y: number): ChartHit | null {
-    if (!this.enabled || y < this.size.h - 9) return null;
+    if (!this.enabled || y < this.size.h - HEAT_HIT) return null;
     const l = this.chart?.timeScale().coordinateToLogical(x as Coordinate);
     if (l === null || l === undefined) return null;
-    const i = Math.round(l);
-    const c = this.cells.get(i);
-    return c ? { kind: 'heat', i, color: c.bull >= c.bear ? this.colors.bull : this.colors.bear } : null;
+    // cells are drawn at least HEAT_MIN_W wide, so on tightly packed bars also accept the nearest neighbour
+    const reach = Math.round(HEAT_MIN_W / 2 / Math.max(1, this.barSpacing()));
+    const r = Math.round(l);
+    for (let d = 0; d <= reach; d++)
+      for (const i of d ? [r - d, r + d] : [r]) {
+        const c = this.cells.get(i);
+        if (c) return { kind: 'heat', i, color: c.bull >= c.bear ? this.colors.bull : this.colors.bear };
+      }
+    return null;
   }
   protected draw(ctx: Ctx, _w: number, h: number) {
     if (!this.enabled) return;
     const vr = this.visible();
     if (!vr) return;
-    const sp = Math.max(1, this.barSpacing() * 0.8);
+    const sp = Math.max(HEAT_MIN_W, this.barSpacing() * 0.8);
     for (let i = vr.from; i <= vr.to; i++) {
       const c = this.cells.get(i);
       if (!c) continue;
@@ -620,7 +631,7 @@ export class HeatStripPrimitive extends BasePrimitive {
       let y = h - 2;
       for (const k of ['bull', 'bear', 'neutral'] as const) {
         if (!c[k]) continue;
-        const hh = Math.max(1.5, (4 * c[k]) / tot);
+        const hh = Math.max(3, (HEAT_H * c[k]) / tot);
         ctx.fillStyle = this.colors[k];
         ctx.fillRect(x - sp / 2, y - hh, sp, hh);
         y -= hh;
