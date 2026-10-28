@@ -73,7 +73,8 @@ function stepSide(cfg: TdLinesCfg, sd: Side, x: SeriesCtx, s: Sg, i: number, w: 
         }
       sd.target = v + (lineAt(l, loI) - lo);
       w.signal(qualified ? `TDL_${name}_BREAK` : `TDL_${name}_BREAK_UNQUALIFIED`, s > 0 ? 'bull' : 'bear', x.c[i], qualified ? 'qualified' : 'unqualified');
-      w.marker({ i, text: qualified ? '⇡' : '↑', pos: s > 0 ? 'below' : 'above', color: s > 0 ? 'bull' : 'bear', row: 4, size: 2, tooltip: `${name.toLowerCase()} line break (${qualified ? 'qualified' : 'unqualified'})` });
+      // unqualified breaks are drawn small and faded so they give way to the qualified trigger and the counts
+      w.marker({ i, text: qualified ? '⇡' : '↑', pos: s > 0 ? 'below' : 'above', color: s > 0 ? 'bull' : 'bear', row: 4, size: qualified ? 2 : 1, style: qualified ? 'solid' : 'muted', tooltip: `${name.toLowerCase()} line break (${qualified ? 'qualified' : 'unqualified'})` });
       sd.broken = { a: l.a, b: l.b, at: i, slope: l.slope };
       sd.line = null;
     }

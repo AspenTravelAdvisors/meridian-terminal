@@ -292,7 +292,8 @@ export class StudyRenderer {
         if (m.i < n) marks.push({ i: m.i, text: m.text, pos: m.pos, color: col(m.color), row: m.row ?? 0, size: m.size ?? 1, style: m.style ?? 'solid', provisional: m.provisional, price: m.price, src: c.uid, tip: m.tooltip });
       // geometry
       const g = r.geometry;
-      for (const s of g.segments ?? []) segments.push({ ...s, color: col(s.color), src: c.uid });
+      // the engine names a segment's dash `style`; the primitive reads `dash`
+      for (const s of g.segments ?? []) segments.push({ ...s, dash: s.style, color: col(s.color), src: c.uid });
       if (g.pivots?.length) paths.push({ points: g.pivots, color: col(g.polylineColor ?? 'accent'), src: c.uid });
       for (const t of g.timeMarks ?? []) timeMarks.push({ ...t, color: col('muted'), src: c.uid });
       for (const p of g.profiles ?? []) profiles.push({ ...p, color: col('info'), upColor: withAlpha(col('bull'), 0.5) });

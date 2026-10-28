@@ -149,6 +149,21 @@ export interface LabelColumn {
   provisionalFrom: number; // indices ≥ this are provisional
 }
 
+/** A label waiting for layout: `slot` is its compact stacking position on its bar side. */
+interface Cand {
+  i: number;
+  pos: 'above' | 'below' | 'at';
+  row: number;
+  text: string;
+  color: string;
+  size: number;
+  style: MarkerItem['style'];
+  provisional: boolean;
+  price?: number;
+  slot?: number;
+  hit: () => ChartHit;
+}
+
 export class TextMarkersPrimitive extends BasePrimitive {
   private markers: MarkerItem[] = [];
   private byIndex = new Map<number, MarkerItem[]>();
@@ -183,49 +198,10 @@ export class TextMarkersPrimitive extends BasePrimitive {
     const to = Math.min(this.highs.length - 1, vr.to);
     ctx.textAlign = 'center';
     this.boxes = [];
-    const used = new Map<string, number>();
-    const place = (i: number, pos: string, row: number, text: string, color: string, size: number, style: string, provisional: boolean, price: number | undefined, hit: () => ChartHit) => {
-      const x = this.x(i);
-      if (x === null) return;
-      const anchor = price ?? (pos === 'above' ? this.highs[i] : this.lows[i]);
-      const ya = this.y(anchor);
-      if (ya === null) return;
-      const k = `${i}|${pos}|${row}`;
-      const dup = used.get(k) ?? 0;
-      used.set(k, dup + 1);
-      const fs = size === 3 ? 13 : size === 2 ? 12 : 10;
-      const step = 12;
-      const off = 8 + (row + dup) * step;
-      const y = pos === 'above' ? ya - off : pos === 'below' ? ya + off + fs * 0.7 : ya + fs * 0.35;
-      ctx.font = `${size >= 2 ? 700 : 500} ${fs}px ui-sans-serif, system-ui, sans-serif`;
-      const half = ctx.measureText(text).width / 2 + 3;
-      this.boxes.push({ x1: x - half, x2: x + half, y1: y - fs - 1, y2: y + 3, hit: hit() });
-      ctx.globalAlpha = style === 'muted' ? 0.55 : 1;
-      const hollow = style === 'hollow' || (provisional && this.hollowProvisional);
-      if (style === 'boxed') {
-        const tw = ctx.measureText(text).width + 6;
-        ctx.fillStyle = this.bg;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.2;
-        setDash(ctx, provisional ? 'dashed' : 'solid');
-        ctx.beginPath();
-        ctx.roundRect(x - tw / 2, y - fs + 1, tw, fs + 3, 3);
-        ctx.fill();
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = color;
-        ctx.fillText(text, x, y);
-      } else if (hollow) {
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = color;
-        ctx.strokeText(text, x, y);
-      } else {
-        ctx.fillStyle = color;
-        ctx.fillText(text, x, y);
-      }
-      ctx.globalAlpha = 1;
-    };
-    // dense columnar labels (setup / countdown numbers)
+    // Collect every label, then stack each bar side compactly in row order (empty rows leave no gap) and draw
+    // the most important first; small labels that would overlap one already drawn are dropped.
+    const cands: Cand[] = [];
+    const add = (c: Cand) => cands.push(c);
     for (const col of this.columns) {
       if (dense) continue;
       for (let i = from; i <= to; i++) {
@@ -235,7 +211,7 @@ export class TextMarkersPrimitive extends BasePrimitive {
         const a = Math.abs(v);
         const color = v > 0 ? col.posColor : col.negColor;
         const provisional = i >= col.provisionalFrom;
-        place(i, pos, col.row, String(a), color, 1, col.mutedAbove !== undefined && a > col.mutedAbove ? 'muted' : 'solid', provisional, undefined, () => ({ kind: 'count', src: col.src, out: col.out, i, value: v, text: String(a), color, provisional }));
+        add({ i, pos, row: col.row, text: String(a), color, size: 1, style: col.mutedAbove !== undefined && a > col.mutedAbove ? 'muted' : 'solid', provisional, hit: () => ({ kind: 'count', src: col.src, out: col.out, i, value: v, text: String(a), color, provisional }) });
       }
     }
     for (let i = from; i <= to; i++) {
@@ -243,8 +219,83 @@ export class TextMarkersPrimitive extends BasePrimitive {
       if (!ms) continue;
       for (const m of ms)
         if (!dense || m.size >= 2)
-          place(m.i, m.pos, m.row, m.text, m.color, m.size, m.style, !!m.provisional, m.price, () => ({ kind: m.src === 'journal' ? 'note' : 'marker', src: m.src, i: m.i, text: m.text, tip: m.tip, pos: m.pos, color: m.color, provisional: m.provisional }));
+          add({ i: m.i, pos: m.pos, row: m.row, text: m.text, color: m.color, size: m.size, style: m.style, provisional: !!m.provisional, price: m.price, hit: () => ({ kind: m.src === 'journal' ? 'note' : 'marker', src: m.src, i: m.i, text: m.text, tip: m.tip, pos: m.pos, color: m.color, provisional: m.provisional }) });
     }
+    const slots = new Map<string, Cand[]>();
+    for (const c of cands) {
+      if (c.price !== undefined) continue;
+      const k = `${c.i}|${c.pos}`;
+      const a = slots.get(k);
+      if (a) a.push(c);
+      else slots.set(k, [c]);
+    }
+    for (const a of slots.values()) {
+      a.sort((p, q) => p.row - q.row);
+      a.forEach((c, k) => (c.slot = k));
+    }
+    const prio = (c: Cand) => c.size * 10 + (c.style === 'boxed' ? 5 : 0) - (c.style === 'muted' ? 3 : 0);
+    const order = cands.map((c, k) => ({ c, k, p: prio(c) })).sort((a, b) => b.p - a.p || a.c.row - b.c.row || a.k - b.k);
+    const occ = new Map<number, { x1: number; x2: number; y1: number; y2: number }[]>();
+    const CELL = 24;
+    const clashes = (b: { x1: number; x2: number; y1: number; y2: number }) => {
+      for (let g = Math.floor(b.x1 / CELL); g <= Math.floor(b.x2 / CELL); g++)
+        for (const o of occ.get(g) ?? []) if (b.x1 < o.x2 && b.x2 > o.x1 && b.y1 < o.y2 && b.y2 > o.y1) return true;
+      return false;
+    };
+    const claim = (b: { x1: number; x2: number; y1: number; y2: number }) => {
+      for (let g = Math.floor(b.x1 / CELL); g <= Math.floor(b.x2 / CELL); g++) {
+        const a = occ.get(g);
+        if (a) a.push(b);
+        else occ.set(g, [b]);
+      }
+    };
+    for (const { c } of order) {
+      const x = this.x(c.i);
+      if (x === null) continue;
+      const anchor = c.price ?? (c.pos === 'above' ? this.highs[c.i] : this.lows[c.i]);
+      const ya = this.y(anchor);
+      if (ya === null) continue;
+      const fs = c.size === 3 ? 13 : c.size === 2 ? 12 : 10;
+      const off = 6 + (c.slot ?? 0) * 12;
+      const y = c.pos === 'above' ? ya - off : c.pos === 'below' ? ya + off + fs * 0.7 : ya + fs * 0.35;
+      ctx.font = `${c.size >= 2 ? 700 : 500} ${fs}px ui-sans-serif, system-ui, sans-serif`;
+      const tw = ctx.measureText(c.text).width;
+      // tight ink box for overlap tests, so single-digit counts on neighbouring bars still fit side by side
+      const ink = { x1: x - tw / 2, x2: x + tw / 2, y1: y - fs * 0.75, y2: y + 1 };
+      if (c.size < 2 && clashes(ink)) continue;
+      claim(ink);
+      this.drawLabel(ctx, x, y, fs, c);
+      const half = tw / 2 + 3;
+      this.boxes.push({ x1: x - half, x2: x + half, y1: y - fs - 1, y2: y + 3, hit: c.hit() });
+    }
+  }
+
+  private drawLabel(ctx: Ctx, x: number, y: number, fs: number, c: Cand) {
+    const { text, color, style, provisional } = c;
+    ctx.globalAlpha = style === 'muted' ? 0.55 : 1;
+    const hollow = style === 'hollow' || (provisional && this.hollowProvisional);
+    if (style === 'boxed') {
+      const tw = ctx.measureText(text).width + 6;
+      ctx.fillStyle = this.bg;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.2;
+      setDash(ctx, provisional ? 'dashed' : 'solid');
+      ctx.beginPath();
+      ctx.roundRect(x - tw / 2, y - fs + 1, tw, fs + 3, 3);
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+    } else if (hollow) {
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = color;
+      ctx.strokeText(text, x, y);
+    } else {
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+    }
+    ctx.globalAlpha = 1;
   }
 
   override explainAt(x: number, y: number): ChartHit | null {
@@ -370,14 +421,30 @@ export class LevelsPrimitive extends BasePrimitive {
     // session volume profiles
     for (const p of this.profiles) this.drawProfile(ctx, p, false, w);
     if (this.vrvp) this.drawProfile(ctx, this.vrvp, true, w);
-    // horizontal level runs
+    // horizontal level runs: expired runs are faded and unlabelled (hover still explains them); only the live
+    // levels, which also carry a price-scale tag, get a text label, and a label overlapping another is skipped
     ctx.font = '10px ui-sans-serif, system-ui, sans-serif';
+    const taken: { x1: number; x2: number; y1: number; y2: number }[] = [];
+    const label = (text: string, color: string, x: number, y: number, align: 'left' | 'right') => {
+      const tw = ctx.measureText(text).width;
+      const b = align === 'right' ? { x1: x - tw, x2: x, y1: y - 9, y2: y + 1 } : { x1: x, x2: x + tw, y1: y - 9, y2: y + 1 };
+      if (taken.some((o) => b.x1 < o.x2 && b.x2 > o.x1 && b.y1 < o.y2 && b.y2 > o.y1)) return;
+      taken.push(b);
+      ctx.setLineDash([]);
+      ctx.fillStyle = color;
+      ctx.textAlign = align;
+      ctx.fillText(text, x, y);
+    };
     for (const r of this.runs) {
       if (r.i2 < vr.from || r.i1 > vr.to) continue;
       const x1 = this.x(r.i1 - 0.5);
-      const x2 = this.x(r.i2 + 0.5);
+      let x2 = this.x(r.i2 + 0.5);
       const y = this.y(r.price);
       if (x1 === null || x2 === null || y === null) continue;
+      const live = r.i2 === this.last;
+      // live levels run on to the price scale, like a price line, with their label in the empty right margin
+      if (live) x2 = Math.max(x2, w);
+      ctx.globalAlpha = live ? 1 : 0.45;
       ctx.strokeStyle = r.color;
       ctx.lineWidth = r.width;
       setDash(ctx, r.dash);
@@ -385,12 +452,8 @@ export class LevelsPrimitive extends BasePrimitive {
       ctx.moveTo(x1, Math.round(y) + 0.5);
       ctx.lineTo(x2, Math.round(y) + 0.5);
       ctx.stroke();
-      if (r.label && x2 - x1 > 28) {
-        ctx.setLineDash([]);
-        ctx.fillStyle = r.color;
-        ctx.textAlign = 'right';
-        ctx.fillText(r.label, x2 - 2, y - 3);
-      }
+      ctx.globalAlpha = 1;
+      if (live && r.label && x2 - x1 > 28) label(r.label, r.color, w - 4, y - 3, 'right');
     }
     ctx.setLineDash([]);
     // free segments (TD Lines, Fibonacci guides, regression channel, RP next bar)
@@ -408,10 +471,12 @@ export class LevelsPrimitive extends BasePrimitive {
       ctx.lineTo(x2, y2);
       ctx.stroke();
       if (s.label) {
-        ctx.setLineDash([]);
-        ctx.fillStyle = s.color;
-        ctx.textAlign = 'left';
-        ctx.fillText(s.label, Math.min(x2, w - 60) + 3, y2 - 3);
+        if (x2 + 40 < w) label(s.label, s.color, x2 + 3, y2 - 3, 'left');
+        else {
+          // the line runs off the right edge: label it where it meets the price scale
+          const ye = y1 + ((w - x1) / (x2 - x1 || 1)) * (y2 - y1);
+          label(s.label, s.color, w - 4, ye - 4, 'right');
+        }
       }
     }
     ctx.setLineDash([]);
@@ -508,7 +573,7 @@ export class LevelsPrimitive extends BasePrimitive {
       const x1 = this.x(r.i1 - 0.5);
       const x2 = this.x(r.i2 + 0.5);
       const ry = this.y(r.price);
-      if (x1 === null || x2 === null || ry === null || x < x1 || x > x2) continue;
+      if (x1 === null || x2 === null || ry === null || x < x1 || (x > x2 && r.i2 !== this.last)) continue;
       const d = Math.abs(y - ry);
       if (d <= near) best = better(best, { hit: { kind: 'level', src: r.src, out: r.out, i: r.i1, text: r.label, value: r.price, color: r.color }, prio: 2, dist: d });
     }

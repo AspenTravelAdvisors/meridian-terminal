@@ -11,7 +11,17 @@
 - **MTF Matrix scored 13s wrongly.** Combo's "bars since 13" overwrote Sequential's, so a fresh Sequential 13 was missed
   whenever a Combo 13 was on record, and a Combo 13 was credited under the Sequential 13 weight. The `combo13` weight was never
   applied. Cells now keep both, and the panel re-weights with the engine's own `matrixScore`.
+- **Dotted and dashed guides drew solid.** Study segments carry their dash as `style`, but the chart read `dash`, so D-Wave's
+  Fibonacci guides and broken TD Lines were drawn as solid lines. They now draw dotted and dashed.
 - The signal heat strip is taller (8 px) with a 16 px click zone, and snaps to the nearest event on tightly packed bars.
+
+### Changed
+- **Less overlap on the chart.** Labels on each side of a bar now stack tightly, so empty rows leave no gaps. The most important
+  labels are drawn first: 9s, boxed 13s and qualified breaks. A small count or marker that would overlap one already drawn is
+  left out. Hover still explains whatever is drawn.
+- Expired TDST and risk levels are faded and have no text label. Live levels run to the price scale, and their label sits at the
+  right edge beside the price tag. A level or guide label that would overlap another is left out.
+- Unqualified TD Line breaks (`↑`) are drawn small and faded. Qualified breaks (`⇡`) are unchanged.
 
 ### Added
 - Unit tests with hand-computed fixtures for Exhaustion Confluence, Count Consensus and the MTF Matrix score.
