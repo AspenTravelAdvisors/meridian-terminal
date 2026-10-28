@@ -1,5 +1,5 @@
 import { INTERVALS, type Interval, UNIVERSES } from '@meridian/data';
-import { DEFAULT_MATRIX_WEIGHTS, type EventStudyResult, type MatrixWeights, STUDIES, type ScanRow, type StrategyConfig, type StrategyResult, getStudy, histogram, rowConfluence } from '@meridian/engine';
+import { DEFAULT_MATRIX_WEIGHTS, type EventStudyResult, type MatrixWeights, STUDIES, type ScanRow, type StrategyConfig, type StrategyResult, getStudy, histogram, matrixScore, rowConfluence } from '@meridian/engine';
 import { useMutation } from '@tanstack/react-query';
 import { AreaSeries, ColorType, createChart, LineSeries, type UTCTimestamp } from 'lightweight-charts';
 import { Play, RefreshCw } from 'lucide-react';
@@ -181,15 +181,7 @@ export function MatrixPanel() {
   const rescore = (c?: MatrixCellDto['cell']) => {
     if (!c) return null;
     // re-weight client-side from detail (weights are editable without refetching)
-    const v = c.detail as Record<string, number | null>;
-    const rec = (k: string) => typeof v[k] === 'number' && (v[k] as number) <= 3;
-    const side = (p: 'buy' | 'sell') => {
-      const P = p === 'buy' ? 'Buy' : 'Sell';
-      const parts = [[w.setup, Math.min(1, ((v[`${p}Setup`] as number) ?? 0) / 9)], [w.setup9, rec(`barsSince${P}9`) ? 1 : 0], [w.countdown, ((v[`${p}Countdown`] as number) ?? 0) / 13], [w.cd13, rec(`barsSince${P}13`) ? 1 : 0], [w.combo, ((v[`${p}Combo`] as number) ?? 0) / 13]];
-      const tot = parts.reduce((a, [x]) => a + x, 0);
-      return tot ? parts.reduce((a, [x, y]) => a + x * y, 0) / tot : 0;
-    };
-    return { ...c, score: side('buy') - side('sell') };
+    return { ...c, score: matrixScore(c.detail as Record<string, number | null>, w) };
   };
   return (
     <div className="panel-body flex flex-col">
