@@ -2,7 +2,8 @@ import { type AnyStudyDef, CATEGORIES, type Category, type JsonSchema, STUDIES, 
 import { AlertTriangle, RotateCcw, Search, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useIsMobile } from '../lib/useMedia';
-import { activePane, newStudy, useLayouts, useScripts, useStudyDefaults, useUi, useWorkspace } from '../state/store';
+import { DEMARK_STACK, STACK_NAME } from '../state/stack';
+import { activePane, newStudy, stackStudies, useLayouts, useScripts, useStudyDefaults, useUi, useWorkspace } from '../state/store';
 import type { OutputStyle, StudyInstanceCfg, TfBucket } from '../state/types';
 import { Field, Modal, Switch, TabPanel, Tabs } from './ui';
 
@@ -58,7 +59,7 @@ export function StudiesDialog() {
           {(['Favorites', ...CATEGORIES.filter((c) => c !== 'Custom'), 'Scripts', 'Templates'] as const).map((c) => (
             <button key={c} className="btn-ghost w-full justify-start mobile:w-auto mobile:shrink-0" data-active={!q && cat === c} onClick={() => (setCat(c), setQ(''))}>
               {CAT_LABEL[c]}
-              <span className="ml-auto text-[10px] text-faint">{c === 'Favorites' ? favs.length : c === 'Templates' ? templates.length : c === 'Scripts' ? scripts.length : STUDIES.filter((d) => d.category === c).length}</span>
+              <span className="ml-auto text-[10px] text-faint">{c === 'Favorites' ? favs.length : c === 'Templates' ? templates.length + 1 : c === 'Scripts' ? scripts.length : STUDIES.filter((d) => d.category === c).length}</span>
             </button>
           ))}
         </aside>
@@ -133,6 +134,21 @@ function TemplatesList({ close }: { close(): void }) {
         Save active chart’s studies as template
       </button>
       <ul>
+        <li className="flex items-center gap-2 border-b border-border/50 py-2">
+          <span className="flex-1 font-medium">{STACK_NAME} <span className="text-[10px] text-faint">built in</span></span>
+          <span className="text-[11px] text-dim" title={DEMARK_STACK.map((s) => `${getStudy(s.id)?.shortName ?? s.id}: ${s.role}`).join('\n')}>
+            {DEMARK_STACK.map((s) => getStudy(s.id)?.shortName ?? s.id).join(', ')}
+          </span>
+          <button
+            className="btn"
+            onClick={() => {
+              useWorkspace.getState().updatePane(pane.id, { studies: stackStudies() });
+              close();
+            }}
+          >
+            Apply
+          </button>
+        </li>
         {templates.map((t) => (
           <li key={t.id} className="flex items-center gap-2 border-b border-border/50 py-2">
             <span className="flex-1 font-medium">{t.name}</span>

@@ -17,6 +17,7 @@ import type {
   StudyTemplate,
   UserScript,
 } from './types';
+import { DEMARK_STACK } from './stack';
 import { GRID_LAYOUTS } from './types';
 
 export const uid = (p = 'x') => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -54,12 +55,15 @@ export function newStudy(id: string, cfg: Record<string, unknown> = {}): StudyIn
   };
 }
 
+/** A fresh copy of the default DeMark-style study stack (state/stack.ts) */
+export const stackStudies = (): StudyInstanceCfg[] => DEMARK_STACK.map((s) => newStudy(s.id, s.cfg));
+
 const defaultPane = (symbol = 'SPY', interval: Interval = '1D', studies?: StudyInstanceCfg[]): PaneConfig => ({
   id: uid('p'),
   symbol,
   interval,
   chartType: 'candles',
-  studies: studies ?? [newStudy('td-sequential'), newStudy('volume'), newStudy('td-demarker-1')],
+  studies: studies ?? stackStudies(),
   linkGroup: null,
   scaleMode: 'normal',
   adjust: 'split',
