@@ -1,6 +1,7 @@
 # CLAUDE.md — Meridian Terminal
 
-> Read this file first, then `docs/SPEC.md` (what to build) and `docs/INDICATORS.md` (exact study rules).
+> Read this file first, then `docs/SPEC.md` (what to build) and `docs/INDICATORS.md` (exact study rules), and
+> `docs/STRATEGY.md` (how the DeMark-style studies are layered; it drives the default chart layout).
 > Work in the phases defined in `docs/SPEC.md §9`. Stop at every **GATE** and show Brian a demo before continuing.
 
 ## Mission

@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- **TDST and risk levels did not draw.** Lightweight Charts 5.2 returns x = 0 for a fractional bar index. Every horizontal level
+  (TDST, setup/countdown risk, Propulsion, TD Points, TD Line targets) is drawn from half-bar edges, so each line collapsed to
+  zero width. Volume profiles and drawings anchored between bars had the same problem. Fractional positions are now
+  interpolated between neighbouring bars.
+
+### Added
+- **Default DeMark-style stack** (`docs/STRATEGY.md`): new charts open with Sequential, Combo v2, TD Lines (level 3, no targets),
+  DeMarker I and REI. DeMarker I and REI flag 6+ bars in a zone as extreme. Volume is no longer a default study. Also available
+  as the built-in template **Studies → Templates → DeMark-style stack**.
+- Active levels (TDST, risk, …) get a price-scale tag. TDST levels that span the visible bars are kept within the autoscaled
+  price range, as on reference DeMark charts.
+
 ## 0.3.0 — 2026-10-27 (current; review this as the combined demo)
 
 0.3.0 contains everything from 0.1.0 and 0.2.0 plus the items below, and it is the single build to review. Brian waived the

@@ -303,7 +303,7 @@ export class StudyRenderer {
         heat.set(s.i, h);
       }
     }
-    this.levels.setData({ runs, segments, paths, timeMarks, profiles, clouds });
+    this.levels.setData({ runs, segments, paths, timeMarks, profiles, clouds, last: n - 1 });
     this.markers.hollowProvisional = inp.hollowProvisional;
     this.markers.setData(
       marks,

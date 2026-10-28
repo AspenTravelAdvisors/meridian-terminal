@@ -1,5 +1,5 @@
 import type { VolumeProfile } from '@meridian/engine';
-import type { Coordinate, IChartApi, IPrimitivePaneRenderer, ISeriesApi, ISeriesPrimitive, Logical, PrimitiveHoveredItem, SeriesAttachedParameter, SeriesType, Time } from 'lightweight-charts';
+import type { AutoscaleInfo, Coordinate, IChartApi, IPrimitivePaneRenderer, ISeriesApi, ISeriesPrimitive, ISeriesPrimitiveAxisView, Logical, PrimitiveHoveredItem, SeriesAttachedParameter, SeriesType, Time } from 'lightweight-charts';
 
 type CanvasRenderingTarget2D = Parameters<IPrimitivePaneRenderer['draw']>[0];
 
@@ -38,6 +38,21 @@ const segDist = (px: number, py: number, x1: number, y1: number, x2: number, y2:
   const t = len2 ? Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2)) : 0;
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 };
+
+/**
+ * x coordinate of a possibly fractional logical index. Lightweight Charts 5.2 returns 0 for a non-integer logical, which
+ * collapsed every half-bar-edged level (TDST, risk) and between-bar drawing anchor to the left edge; interpolate instead.
+ */
+export function logicalX(chart: Pick<IChartApi, 'timeScale'> | null, logical: number): number | null {
+  const ts = chart?.timeScale();
+  if (!ts || !Number.isFinite(logical)) return null;
+  const i0 = Math.floor(logical);
+  const x0 = ts.logicalToCoordinate(i0 as Logical);
+  const f = logical - i0;
+  if (x0 === null || f === 0) return x0;
+  const x1 = ts.logicalToCoordinate((i0 + 1) as Logical);
+  return x1 === null ? null : x0 + f * (x1 - x0);
+}
 
 /** Base series primitive drawing in media (CSS-pixel) coordinates on the series' pane. */
 export abstract class BasePrimitive implements ISeriesPrimitive<Time> {
@@ -85,7 +100,7 @@ export abstract class BasePrimitive implements ISeriesPrimitive<Time> {
     this.request?.();
   }
   protected x(logical: number): number | null {
-    return this.chart?.timeScale().logicalToCoordinate(logical as Logical) ?? null;
+    return logicalX(this.chart, logical);
   }
   protected y(price: number): number | null {
     return this.series?.priceToCoordinate(price) ?? null;
@@ -287,11 +302,36 @@ export class LevelsPrimitive extends BasePrimitive {
   vrvp: (VolumeProfile & { color: string; upColor: string }) | null = null;
   clouds: CloudData[] = [];
   textColor = '#8b9aab';
+  /** index of the newest bar: labelled runs reaching it (active TDST and risk levels) get a price-scale tag */
+  last = -1;
   protected override zOrder = 'normal' as const;
+  private axisViews: ISeriesPrimitiveAxisView[] = [];
 
-  setData(p: Partial<Pick<LevelsPrimitive, 'runs' | 'segments' | 'paths' | 'timeMarks' | 'profiles' | 'clouds'>>) {
+  setData(p: Partial<Pick<LevelsPrimitive, 'runs' | 'segments' | 'paths' | 'timeMarks' | 'profiles' | 'clouds' | 'last'>>) {
     Object.assign(this, p);
+    this.axisViews = this.runs
+      .filter((r) => r.label && r.i2 === this.last)
+      .map((r) => ({
+        coordinate: () => this.y(r.price) ?? -1000,
+        text: () => this.series?.priceFormatter().format(r.price) ?? r.price.toFixed(2),
+        textColor: () => '#ffffff',
+        backColor: () => r.color,
+      }));
     this.update();
+  }
+  priceAxisViews() {
+    return this.axisViews;
+  }
+  /** TDST levels spanning the visible bars stay on screen, as on reference DeMark charts */
+  autoscaleInfo(from: Logical, to: Logical): AutoscaleInfo | null {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const r of this.runs) {
+      if (!r.out?.startsWith('tdst') || r.i2 < from || r.i1 > to) continue;
+      lo = Math.min(lo, r.price);
+      hi = Math.max(hi, r.price);
+    }
+    return lo <= hi ? { priceRange: { minValue: lo, maxValue: hi } } : null;
   }
   setVrvp(v: LevelsPrimitive['vrvp']) {
     this.vrvp = v;

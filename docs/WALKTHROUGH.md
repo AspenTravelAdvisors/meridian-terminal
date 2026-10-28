@@ -24,8 +24,10 @@ A few honesty notes before you start:
 1. **Open a market.** Click the symbol box (top left) or just start typing a ticker: `SPY`, `AAPL`, `BINANCE:BTCUSDT`,
    `EURUSD=X`, `ES=F`. To practise on data that never changes, use `SIM:DEMO`.
 2. **Pick a timeframe** from the toolbar (`1m` … `M`; the arrow menu has `30m` and `3M`).
-3. **Read the default studies.** New charts open with **DeMark-style Sequential**, **Volume** and **DeMark-style DeMarker I**.
-   The small numbers above and below the bars are setup counts (1–9). The boxed **13** is a completed countdown.
+3. **Read the default studies.** New charts open with the **DeMark-style stack**: Sequential (with TDST and risk levels),
+   Combo, TD Lines, DeMarker I and REI. `docs/STRATEGY.md` explains how the studies work together. The small numbers above and
+   below the bars are setup counts (1–9). The boxed **13** is a completed countdown. To put the stack on an existing chart, use
+   **Studies → Templates → DeMark-style stack**.
 4. **Check the DeMark Status panel** (right side; on phones, the **DeMark** tab). It summarises the live count on the daily,
    weekly and monthly charts and shows how past signals on this symbol played out.
 5. **Hover (or tap) a bar with the Rule Inspector open** to see exactly which rule conditions passed on that bar.
@@ -121,6 +123,8 @@ Click the gear next to a study's name in the chart legend to open its settings:
 - **Visibility:** show the study only on certain timeframe buckets (minutes, hours, days, weeks, months).
 - **Save as default** applies these inputs to every new instance; **Defaults** resets them.
 
+The **DeMark-style stack** template is built in (see `docs/STRATEGY.md`).
+
 Template workflow: set up a chart the way you like, then **Studies → Templates → Save active chart's studies as template**.
 Apply it to any chart in one click.
 
@@ -143,7 +147,8 @@ move is over*.
 drawn differently and can perfect later. A perfected 9 shows the sellers actually pushed into new lows at the end.
 
 **TDST levels.** A completed buy setup draws **TDST resistance** at the highest true high of its nine bars. A completed sell
-setup draws **TDST support** at its lowest true low. These levels are the "trend test": a close back above TDST resistance after
+setup draws **TDST support** at its lowest true low. Each level is drawn from the completed setup until the next same-direction
+setup replaces it, and the active ones are tagged on the price scale. These levels are the "trend test": a close back above TDST resistance after
 a buy setup says buyers have retaken the whole setup range. Breaks fire `TDST RES BREAK` / `TDST SUP BREAK`.
 
 **Countdown (1–13).** After a 9, Meridian starts counting bars, not necessarily consecutive, that close at or below the low
