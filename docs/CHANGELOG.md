@@ -8,7 +8,13 @@
   zero width. Volume profiles and drawings anchored between bars had the same problem. Fractional positions are now
   interpolated between neighbouring bars.
 
+- **MTF Matrix scored 13s wrongly.** Combo's "bars since 13" overwrote Sequential's, so a fresh Sequential 13 was missed
+  whenever a Combo 13 was on record, and a Combo 13 was credited under the Sequential 13 weight. The `combo13` weight was never
+  applied. Cells now keep both, and the panel re-weights with the engine's own `matrixScore`.
+- The signal heat strip is taller (8 px) with a 16 px click zone, and snaps to the nearest event on tightly packed bars.
+
 ### Added
+- Unit tests with hand-computed fixtures for Exhaustion Confluence, Count Consensus and the MTF Matrix score.
 - **Default DeMark-style stack** (`docs/STRATEGY.md`): new charts open with Sequential, Combo v2, TD Lines (level 3, no targets),
   DeMarker I and REI. DeMarker I and REI flag 6+ bars in a zone as extreme. Volume is no longer a default study. Also available
   as the built-in template **Studies → Templates → DeMark-style stack**.

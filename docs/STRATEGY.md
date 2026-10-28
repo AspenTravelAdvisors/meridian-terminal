@@ -37,8 +37,9 @@ single study is a trade on its own. The edge comes from **stacking** studies so 
 4. **Trigger:** a price flip in the new direction, or a qualified (`⇡`) TD Line break.
 5. **Risk:** stop at the risk level. Never move it wider.
 
-The **Meridian Confluence** study scores steps 1–3 automatically (Sequential/Combo state, DeMarker duration, REI, TDST proximity
-and higher-timeframe alignment). It is not in the default stack, because it adds a pane. Add it from Studies → DeMark.
+The **Exhaustion Confluence** study scores steps 1–3 automatically (Sequential/Combo state, DeMarker duration, REI, TDST proximity
+and higher-timeframe alignment). It is not in the default stack, because it adds a pane. Add it from Studies → Meridian. How to
+read it, and its companion **Count Consensus**, is in `WALKTHROUGH.md` § Meridian composites.
 
 ## The default layout
 New charts open with this stack (`apps/web/src/state/stack.ts`). Any chart can switch to it with **Studies → Templates →

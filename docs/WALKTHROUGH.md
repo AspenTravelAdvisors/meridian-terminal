@@ -249,11 +249,37 @@ bar opens beyond that close and then trades beyond its own open (`TDMA1 UP/DN BR
 (34) moving average on the price chart: bullish while the short is above the long, with an optional percent offset.
 
 ### Meridian composites
-- **Exhaustion Confluence:** one weighted score combining Sequential/Combo state, DeMarker zone duration, REI, TDST proximity
-  and higher-timeframe alignment, with a breakdown of what contributed.
-- **Count Consensus:** shows where standard Sequential, aggressive Sequential, and strict/v2 Combo agree or disagree, so you can
-  see how sensitive a count is to rule choices.
-- **Signal heat strip** (Settings): a thin strip under price showing which DeMark-style events fired on each bar.
+Both are under **Studies → Meridian** and each adds a pane. Neither is in the default stack.
+
+**Exhaustion Confluence** answers "how stretched is this move?" with one 0–100 score per side. Green bars above zero are the
+**buy** score (a decline is stretched), red bars below zero the **sell** score (a rally is stretched). The dashed lines are the
+threshold (60). Crossing it fires `CONFLUENCE_BUY` / `CONFLUENCE_SELL`; a score of 25 or more also shows a status chip.
+
+The score is a weighted average of seven parts, each worth 0 to 1 (weights are editable under Inputs → Weights):
+
+| Part | Weight | Full credit when |
+|---|---|---|
+| Sequential setup | 1 | the setup reaches 9 (a completed 9 or 13 stays at full credit for 5 bars) |
+| Sequential countdown | 2 | the countdown reaches 13 |
+| Combo countdown | 1.5 | the Combo countdown reaches 13 |
+| DeMarker I | 1 | 5 bars in the zone. Credit drops to 0 once the stay passes the duration limit (13 bars) |
+| REI | 1 | REI is in its zone |
+| TDST proximity | 1 | the close is on the opposite setup's TDST level, fading to 0 at 1.5 ATR away |
+| Higher timeframe | 1.5 | the next timeframe's setup is at 9 or its countdown at 13. Off by default: turn on *Use higher timeframe* |
+
+With the higher timeframe off the weights add up to 7.5, so a fresh Sequential 13 alone scores about 27. Reaching 60 takes
+several parts at once. Hover a bar (or use the Rule Inspector) to see which parts contributed. The score is context, not an
+entry: wait for the trigger and use the risk level, as in `STRATEGY.md`.
+
+**Count Consensus** answers "does this 13 depend on which rules I use?" It runs four variants side by side: Sequential
+standard (blue), Sequential aggressive (purple), Combo strict (orange) and Combo v2 (teal). Each line steps through its
+countdown, sell countdowns up toward +13 and buy countdowns down toward −13. The histogram counts how many variants finished a
+13 within the last 5 bars. When at least 3 of 4 agree, a boxed `3/4` or `4/4` marker appears and `CONSENSUS_BUY_13` /
+`CONSENSUS_SELL_13` fires. A 4/4 signal holds whichever rule set you prefer. One that only one variant produces is fragile.
+Widening the window lets Combo (which often finishes earlier) and Sequential (later) agree on the same move.
+
+**Signal heat strip** (Settings): a strip along the bottom of the price pane showing which DeMark-style events fired on each
+bar. Click or hover a cell for the detail.
 
 ---
 
@@ -331,8 +357,9 @@ chart it.
 
 **MTF Matrix.** Rows are symbols; columns are timeframes (15m to 1M). Each cell summarises the Sequential and Combo state as a
 signed score: **+** means buy-side exhaustion (a decline is getting stretched), **−** means sell-side. **Confluence** is the
-weighted average across the row. **Weights** lets you weight setups, 9s, countdowns, 13s and Combo, and give higher
-timeframes more say.
+weighted average across the row. **Weights** lets you weight setups, fresh 9s, countdowns, fresh Sequential 13s
+(`cd13`), Combo countdowns and fresh Combo 13s (`combo13`), and give higher timeframes more say. A 9 or 13 counts as fresh for
+3 bars.
 
 Reading it: a strong row reading (for example +60 with weekly and monthly both positive) means the stretch shows on several
 timeframes. Mixed signs mean the timeframes disagree, which is useful too: it often means a short-term counter-move inside a
