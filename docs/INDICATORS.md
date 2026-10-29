@@ -119,6 +119,8 @@ previous `N` highs (Symbolik: wave 1 is at least a 13-bar high). Config `basis: 
 - Wave 3's peak close must exceed Wave 1's peak close, and Wave 5's must exceed Wave 3's. If not, the wave is not confirmed.
 - If a Wave 2 pullback is too shallow to trigger and price makes a new high close, **Wave 1 shifts right** to the new high.
 - If Wave 4's low close undercuts Wave 2's low close, **Wave 2 shifts right** to where Wave 4 was (and the count re-evaluates).
+  Re-evaluating moves **Wave 1 to the old Wave 3 peak**, the highest high since Wave 1 began; the old 3 and 4 are dropped.
+  The same applies when price falls below Wave 2 while Wave 3 is still forming (reference chart, VERIFY_LOG note 7).
 - Once Wave C breaks Wave A's low close, Wave 5 is locked permanently.
 - Down-sequence mirrors everything.
 - Presets: `"High/low 21/13/8"` (default), `"Close-based 21/13/8"` (closes, strict N − 1 test), and `"Alt (H/L) 8/5/13"`

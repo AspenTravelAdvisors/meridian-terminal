@@ -226,6 +226,29 @@ describe('DeMark-style D-Wave', () => {
     expect(two!.first!.i).toBeLessThan(two!.i);
     expect(two!.first!.price).toBeGreaterThan(two!.price);
   });
+  it('re-evaluates wave 1 to the old wave-3 peak when wave 2 shifts right', () => {
+    // BTC 4H, Sep–Oct 2026 (VERIFY_LOG note 7): after wave 4 undercut wave 2, a bounce above the old wave 1 but below the
+    // old wave 3 moved wave 1 to that lower, later high. Wave 1 is the highest high since it began, so it must be the
+    // wave-3 peak (close 140, bar 155), and the bounce to 110 must not move it.
+    const c = legs(100, [
+      [60, 60],
+      [30, 100],
+      [25, 80],
+      [40, 140],
+      [40, 75], // below wave 2's low (80), above the origin (60)
+      [15, 110], // above the old wave 1 (100), below the old wave 3 (140)
+    ]);
+    const r = computeStudy(dwave, resolveConfig(dwave, { direction: 'up' }), barsFromCloses(c));
+    const piv = r.geometry.pivots ?? [];
+    const one = piv.find((p) => p.label === '1');
+    expect(one?.i).toBe(155);
+    expect(one?.price).toBe(140.5);
+    // "+" stays where wave 1 was first recognised, in the first advance
+    expect(one?.first?.i).toBeLessThan(91);
+    expect(one!.first!.price).toBeLessThan(101);
+    expect(piv.find((p) => p.label === '2')?.price).toBeLessThan(80);
+    expect(piv.find((p) => p.label === '3')).toBeUndefined();
+  });
 
   it('an N-bar high is a high at or above each of the previous N highs (ties count by default)', () => {
     // Bars 0–21 fall (high 121 − i, low 2 below) → origin on bar 21 (low 98). Bars 22–32 hold high 99.5; bars 33 and

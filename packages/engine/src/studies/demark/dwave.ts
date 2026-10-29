@@ -176,7 +176,9 @@ function step(cfg: DWaveCfg, q: Seq, x: SeriesCtx, s: Sg, i: number, w: Writer, 
       if (hi > q.w3.p) q.w3 = mv(q.w3, i, hi);
       else if (lo <= q.o.p) restartSeq(q, i, lo);
       else if (lo < q.w2.p) {
+        // Wave 2 shifts right; wave 1 re-evaluates to the highest high since it began, which is wave 3's peak.
         q.phase = 2;
+        q.w1 = mv(q.w1, q.w3.i, q.w3.p);
         q.w2 = mv(q.w2, i, lo);
         q.w3 = NONE;
       } else if (nLow(cfg, x, s, i, cfg.lbW4)) {
@@ -194,9 +196,11 @@ function step(cfg: DWaveCfg, q: Seq, x: SeriesCtx, s: Sg, i: number, w: Writer, 
     case 4:
       if (lo < q.w4.p) q.w4 = mv(q.w4, i, lo);
       if (q.w4.p < q.w2.p) {
-        // Wave 4 undercut wave 2 → wave 2 shifts right to wave 4's low; re-evaluate from wave 2
+        // Wave 4 undercut wave 2 → wave 2 shifts right to wave 4's low and wave 1 to wave 3's peak (the highest high
+        // since wave 1 began); re-evaluate from wave 2
         if (q.w4.p <= q.o.p) restartSeq(q, i, lo);
         else {
+          q.w1 = mv(q.w1, q.w3.i, q.w3.p);
           q.w2 = mv(q.w2, q.w4.i, q.w4.p);
           q.w3 = q.w4 = NONE;
           q.phase = 2;

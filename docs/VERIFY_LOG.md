@@ -22,6 +22,7 @@ existed.
 | 2026-10-27 | DeMark-style D-Wave | Basis / N-bar test (`basis`, `nBarTest`) | **`highLow`** / **`atLeastPriorN`** (wave 1 = a high at or above the previous 13 highs) | `demark.test.ts` › an N-bar high is a high at or above…; `verify.test.ts` | Symbolik descriptions ² | **fixed** — was closes, strictly above N − 1. "Close-based 21/13/8" kept as a preset |
 | 2026-10-27 | DeMark-style D-Wave | Lookback ladder (`lbOrigin…lbC`) | 21/13/8/21/13/21/13/8/21 | `verify.test.ts` › D-Wave ladder | Symbolik descriptions ² | wave 1 = 13 **confirmed**; the rest open (reference only says the later waves use Fibonacci lookbacks) |
 | 2026-10-27 | DeMark-style D-Wave | "+" first-recognition mark | drawn where a wave was first recognised when its end later shifts right | `demark.test.ts` › shifts wave 2 right… | Symbolik descriptions ² | **added** |
+| 2026-10-29 | DeMark-style D-Wave | Re-evaluation when wave 2 shifts right | wave 1 moves to the old wave-3 peak (highest high since wave 1 began) | `demark.test.ts` › re-evaluates wave 1 to the old wave-3 peak… | Symbolik reference chart (note 7) | **fixed** — wave 1 used to stay put, then "extend" to a lower, later high |
 | 2026-10-27 | DeMark-style Propulsion | Ratio / construction (`propulsionRules`) | 0.236 ratio, trigger P + M, target P + 2M, level-2 points, swing-high reference, pullback above A | `verify.test.ts`; `demark.test.ts` › projects trigger P + M and target P + 2M | Symbolik descriptions ² | open — reference names a Momentum level and an Exhaustion level (matches our trigger/target), but gives no formula |
 | 2026-10-27 | DeMark-style Lines | Breakout qualifiers Q1–Q3 (`useQ1..3`) | all on | `demark.test.ts` › draws a supply line…flags a break | Symbolik descriptions ² | open — reference adds a third **Cancelled** line state; qualifier and cancel rules not given |
 | 2026-10-27 | DeMark-style DeMarker II | Components (`rangeBasis`, `clampPriorClose`) | **`plain`** (C − L, H − C) / clamp on | `demark.test.ts` › uses the plain low and high…; `verify.test.ts` | Symbolik descriptions ² | **fixed** — was true low / true high (four on/off switches replaced). ⚠ open: the reference does not mention the clamp; kept because it holds the 0–100 range through gaps |
@@ -82,3 +83,13 @@ existed.
      - (d) Display: the vendor hides failed setups and counts past 9, removes cancelled or recycled countdown numbers, and
        draws a Combo countdown risk level (≈ 1024 on SPX 2011 = 1074.77 − true range 50.35).
      The fixtures leave these cells blank.
+7. **Reference-chart check, D-Wave (2026-10-29).** Brian sent a Symbolik chart of BTC-USD 4H, Sep 12–Oct 29 2026, next to
+   Meridian's. Meridian's chart was reproduced from Coinbase 1H candles grouped into UTC 4H bars.
+   - **Down-sequence passes label for label:** 0 87,397 (09-21), 1 82,709 (09-24), 2 87,249 (10-02), 3 80,315 (10-08),
+     4 84,262 (10-12), 5 79,107 (10-24), then A, B and C on 10-28/29 with C's "+" on 10-29.
+   - **Up-sequence fixed:** 0 74,888 (09-15), 1 81,925, 2 80,085, 3 87,397 (09-21), 4 82,709. On 10-15 wave 4 fell below wave
+     2. Meridian kept wave 1 at 81,925 and moved it to the 10-16 high (82,831) when price passed 81,925. The vendor puts
+     wave 1 on the 09-21 peak and wave 2 on the 10-24 low (79,107), which is what the fix now produces.
+   - **Still open:** the vendor draws the earlier down-sequence's C at the 09-21 peak (87,397). Meridian locks C at 82,087 on
+     the first bar past wave A, and the rest of the rally becomes the next sequence's 0. The vendor also shows both
+     directions at once; Meridian's `direction: auto` shows one.

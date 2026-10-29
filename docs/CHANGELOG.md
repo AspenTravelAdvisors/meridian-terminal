@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Fixed
+- **D-Wave lost the wave-3 peak when wave 4 fell below wave 2.** Wave 2 moved to the new low, but wave 1 stayed at its old
+  high and then jumped to the next, lower high. Wave 1 now moves to the old wave-3 peak, the highest high since it began, as
+  on Symbolik's BTC 4H chart (VERIFY_LOG note 7).
 - **TDST and risk levels did not draw.** Lightweight Charts 5.2 returns x = 0 for a fractional bar index. Every horizontal level
   (TDST, setup/countdown risk, Propulsion, TD Points, TD Line targets) is drawn from half-bar edges, so each line collapsed to
   zero width. Volume profiles and drawings anchored between bars had the same problem. Fractional positions are now
