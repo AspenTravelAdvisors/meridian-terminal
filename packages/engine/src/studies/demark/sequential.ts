@@ -31,6 +31,11 @@ export const sequentialSchema = z.object({
   ...setupShape,
   showSetup: bool(true, { title: 'Show setup counts', group: 'Display' }),
   showSetupExtension: bool(true, { title: 'Show setup extension (10+)', group: 'Display' }),
+  showFailedSetups: bool(false, {
+    title: 'Show failed setups',
+    group: 'Display',
+    description: 'Keep the numbers of a setup that resets before 9. Off: only completed setups and the one in progress are numbered.',
+  }),
   showCountdown: bool(true, { title: 'Show countdown', group: 'Display' }),
   showTdst: bool(true, { title: 'Show TDST levels', group: 'Display' }),
   showRisk: bool(true, { title: 'Show risk levels', group: 'Display' }),
@@ -417,7 +422,7 @@ export const sequential: StudyDef<SequentialCfg, SequentialState> = {
     { key: 'intersectionScope', note: 'INDICATORS §1.5' },
     { key: 'cd8Qualifier', note: 'INDICATORS §1.5' },
   ],
-  outputs: () => [
+  outputs: (cfg) => [
     { kind: 'line', id: 'tdst_res', title: 'TDST resistance', color: 'bear', render: 'level', width: 1, style: 'solid', label: 'TDST' },
     { kind: 'line', id: 'tdst_sup', title: 'TDST support', color: 'bull', render: 'level', width: 1, style: 'solid', label: 'TDST' },
     { kind: 'line', id: 'risk_buy', title: 'Buy setup risk', color: 'bull', render: 'level', width: 1, style: 'dashed', label: 'Risk' },
@@ -426,7 +431,16 @@ export const sequential: StudyDef<SequentialCfg, SequentialState> = {
     { kind: 'line', id: 'cdrisk_sell', title: 'Sell countdown risk', color: 'bearAlt', render: 'level', width: 1, style: 'dotted', label: 'CD risk' },
     { kind: 'data', id: 'setup', title: 'Setup (+sell / −buy)' },
     { kind: 'data', id: 'countdown', title: 'Countdown (+sell / −buy)' },
-    { kind: 'labels', id: 'setup_lbl', title: 'Setup counts', row: 0, posColor: 'bear', negColor: 'bull', mutedAbove: 9 },
+    {
+      kind: 'labels',
+      id: 'setup_lbl',
+      title: 'Setup counts',
+      row: 0,
+      posColor: 'bear',
+      negColor: 'bull',
+      mutedAbove: 9,
+      ...(cfg.showFailedSetups ? {} : { hideFailedRuns: { count: 'setup', length: cfg.setupLength } }),
+    },
     { kind: 'labels', id: 'cd_lbl', title: 'Countdown counts', row: 1, posColor: 'bearAlt', negColor: 'bullAlt' },
   ],
   signals: [

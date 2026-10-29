@@ -26,6 +26,9 @@ disagree or details are uncertain. Every ⚠ VERIFY parameter must be a config i
 ### 1.2 Setup [HIGH]
 - **Buy Setup:** starting at the bearish-flip bar (bar 1), nine *consecutive* bars each with `C[i] < C[i-4]`. Any bar failing the condition resets the count to 0.
 - Display counts 1–9; optional **setup extension** shows 10+ while the condition persists (config `showSetupExtension`, default on, small font).
+- A setup that resets before 9 loses its numbers once the bar that broke it closes; the setup in progress stays numbered
+  (config `showFailedSetups`, default off, as on reference charts). This is done by the chart, not the engine, so the
+  engine's output for a closed bar never changes (no look-ahead).
 - Signal `SEQ_BUY_SETUP_9` on bar 9 close.
 
 ### 1.3 Perfection [HIGH]

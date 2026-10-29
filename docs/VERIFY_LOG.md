@@ -80,7 +80,7 @@ existed.
        nor `v2` produces it.
      - (c) SPX 2018: an arrow on 04-02 for the 03-27 buy setup, despite a flip on 03-29 (deferred perfection survives a
        flip).
-     - (d) Display: the vendor hides failed setups and counts past 9, removes cancelled or recycled countdown numbers, and
+     - (d) Display: the vendor hides failed setups (done 2026-10-29: `showFailedSetups`, default off) and counts past 9, removes cancelled or recycled countdown numbers, and
        draws a Combo countdown risk level (≈ 1024 on SPX 2011 = 1074.77 − true range 50.35).
      The fixtures leave these cells blank.
 7. **Reference-chart check, D-Wave (2026-10-29).** Brian sent a Symbolik chart of BTC-USD 4H, Sep 12–Oct 29 2026, next to

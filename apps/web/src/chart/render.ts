@@ -22,6 +22,7 @@ import {
 } from 'lightweight-charts';
 import type { ChartType, ScaleMode, StudyInstanceCfg } from '../state/types';
 import type { ChartHit, CloudData, GeoSegment, HeatStripPrimitive, LabelColumn, LevelRun, LevelsPrimitive, MarkerItem, PivotPath, TextMarkersPrimitive } from './primitives';
+import { dropFailedRuns } from './labels';
 import type { TimeMap } from './timeMap';
 import { RIGHT_MARGIN } from './viewport';
 
@@ -280,7 +281,10 @@ export class StudyRenderer {
           const b = r.lines[o.b];
           if (a && b) clouds.push({ src: c.uid, out: o.id, a, b, offset: o.offset ?? 0, up: withAlpha(col(o.upColor), 0.16), down: withAlpha(col(o.downColor), 0.16) });
         } else if (o.kind === 'labels') {
-          columns.push({ src: c.uid, out: o.id, values: r.lines[o.id], row: o.row, posColor: col(o.posColor), negColor: col(o.negColor), mutedAbove: o.mutedAbove, provisionalFrom: inp.provisionalFrom });
+          const hf = o.hideFailedRuns;
+          const counts = hf && r.lines[hf.count];
+          const values = hf && counts ? dropFailedRuns(r.lines[o.id], counts, hf.length, inp.provisionalFrom) : r.lines[o.id];
+          columns.push({ src: c.uid, out: o.id, values, row: o.row, posColor: col(o.posColor), negColor: col(o.negColor), mutedAbove: o.mutedAbove, provisionalFrom: inp.provisionalFrom });
         }
       }
       // horizontal reference lines on the study's first series

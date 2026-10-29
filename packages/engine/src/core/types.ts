@@ -106,6 +106,11 @@ export interface LabelsOutput {
   /** |value| above this is drawn muted (e.g. setup extension 10+) */
   mutedAbove?: number;
   size?: 1 | 2 | 3;
+  /**
+   * Display-only: the chart hides the labels of a run whose `count` column (a data output id) ended before reaching
+   * ±`length`, keeping the run still open. The column itself is unchanged, so this cannot look ahead.
+   */
+  hideFailedRuns?: { count: string; length: number };
 }
 
 export type OutputSpec = LineOutput | HistogramOutput | CloudOutput | HLineOutput | DataOutput | LabelsOutput;

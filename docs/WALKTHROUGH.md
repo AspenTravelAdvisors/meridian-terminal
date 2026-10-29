@@ -170,7 +170,8 @@ minus its true range (mirrored for sells). It is a natural "the idea was wrong" 
 closes through it.
 
 Useful inputs: aggressive countdown (uses lows instead of closes, so it counts faster and noisier), setup extension (10+),
-TDST mode, and the countdown-13 qualifier.
+show failed setups (keeps the numbers of setups that reset before 9; off by default), TDST mode, and the countdown-13
+qualifier.
 
 ### Combo
 Same setup as Sequential, but the countdown begins on **setup bar 1**, and each counted bar must meet stricter tests: a close

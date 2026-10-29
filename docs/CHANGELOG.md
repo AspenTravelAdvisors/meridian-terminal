@@ -19,6 +19,9 @@
 - The signal heat strip is taller (8 px) with a 16 px click zone, and snaps to the nearest event on tightly packed bars.
 
 ### Changed
+- **Failed setups are no longer numbered.** A setup that resets before 9 loses its 1, 2, 3… once the bar that broke it
+  closes, so choppy stretches stay clear; the setup in progress keeps its numbers. Sequential → Inputs → **Show failed
+  setups** brings them back. The chart does the hiding; the engine's output is unchanged.
 - **Less overlap on the chart.** Labels on each side of a bar now stack tightly, so empty rows leave no gaps. The most important
   labels are drawn first: 9s, boxed 13s and qualified breaks. A small count or marker that would overlap one already drawn is
   left out. Hover still explains whatever is drawn.
