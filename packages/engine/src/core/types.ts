@@ -73,6 +73,7 @@ export interface CloudOutput {
   upColor: Color;
   downColor: Color;
   offset?: number;
+  hiddenByDefault?: boolean;
 }
 
 export interface HLineOutput {
@@ -183,7 +184,7 @@ export interface Geometry {
   /** volume profiles (per session or a fixed range) drawn as horizontal histograms */
   profiles?: VolumeProfile[];
   /** time markers that may lie in the future (index > last bar) */
-  timeMarks?: { i: number; label: string }[];
+  timeMarks?: { i: number; label: string; color?: Color }[];
 }
 
 export interface VolumeProfile {

@@ -28,3 +28,4 @@ export * from './signals/matrix';
 export * from './signals/scan';
 export * from './signals/alerts';
 export * from './script/dsl';
+export { exhaustionZone, exhaustionWindow, bestBand, countdownEta } from './studies/exhaustion';

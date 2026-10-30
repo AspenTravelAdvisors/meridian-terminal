@@ -1,5 +1,6 @@
 import type { AnyStudyDef, Category } from './core/types';
 import { confluence, consensus } from './studies/composite';
+import { exhaustionWindow, exhaustionZone } from './studies/exhaustion';
 import { combo } from './studies/demark/combo';
 import { dwave } from './studies/demark/dwave';
 import { tdLines } from './studies/demark/lines';
@@ -40,6 +41,8 @@ export const STUDIES: AnyStudyDef[] = [
   // Meridian composites
   confluence,
   consensus,
+  exhaustionZone,
+  exhaustionWindow,
   // Ichimoku
   ichimoku,
   // Standard library
