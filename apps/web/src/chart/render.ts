@@ -213,8 +213,13 @@ export class StudyRenderer {
       }
       const def = getStudy(c.id);
       const r = results.get(c.uid);
-      // results longer than the series belong to the previous symbol/interval (the engine has not caught up yet)
-      if (!def || !r || r.len > n) continue;
+      // results longer than the series belong to the previous symbol/interval (the engine has not caught up yet).
+      // Empty the study's series meanwhile: their old points would stay on the shared time scale, shifting every logical
+      // index, so the view set for the new bars lands somewhere else once the new results replace them.
+      if (!def || !r || r.len > n) {
+        for (const s of this.entries.get(c.uid)?.series.values() ?? []) s.setData([]);
+        continue;
+      }
       const isVol = c.id === 'volume';
       const outs: OutputSpec[] = r.outputs;
       let firstSeries: ISeriesApi<SeriesType> | null = null;
@@ -277,6 +282,7 @@ export class StudyRenderer {
             s.setData(pts as never);
           } else s.setData(pointsOf(vals, lo.offset ?? 0) as never);
         } else if (o.kind === 'cloud') {
+          if (o.hiddenByDefault && st.visible !== true) continue;
           const a = r.lines[o.a];
           const b = r.lines[o.b];
           if (a && b) clouds.push({ src: c.uid, out: o.id, a, b, offset: o.offset ?? 0, up: withAlpha(col(o.upColor), 0.16), down: withAlpha(col(o.downColor), 0.16) });
@@ -299,7 +305,7 @@ export class StudyRenderer {
       // the engine names a segment's dash `style`; the primitive reads `dash`
       for (const s of g.segments ?? []) segments.push({ ...s, dash: s.style, color: col(s.color), src: c.uid });
       if (g.pivots?.length) paths.push({ points: g.pivots, color: col(g.polylineColor ?? 'accent'), src: c.uid });
-      for (const t of g.timeMarks ?? []) timeMarks.push({ ...t, color: col('muted'), src: c.uid });
+      for (const t of g.timeMarks ?? []) timeMarks.push({ ...t, color: col(t.color ?? 'muted'), src: c.uid });
       for (const p of g.profiles ?? []) profiles.push({ ...p, color: col('info'), upColor: withAlpha(col('bull'), 0.5) });
       // heat strip
       for (const s of r.signals) {

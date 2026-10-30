@@ -473,6 +473,8 @@ function ChartSurface(p: SurfaceProps) {
       const range = ts.getVisibleLogicalRange();
       const prior = views.get(pane.id) ?? null;
       s.setData(d as never);
+      // a different series: dragging a price axis turns its auto-scale off, which would keep the old symbol's price range
+      if (prev.key !== seriesKey) for (let k = 0; k < chart.panes().length; k++) chart.priceScale('right', k).applyOptions({ autoScale: true });
       if (d.length) {
         if (prev.key === seriesKey && prev.len > 0 && range) {
           // same series reloaded or backfilled: follow the newest bar if we were, else keep the same bars on screen

@@ -17,6 +17,8 @@ export interface BarsState {
   loadingMore: boolean;
   live: 'off' | 'stream' | 'poll';
   lastUpdate?: number;
+  /** the symbol/interval/adjust these bars belong to (see `useBars`) */
+  key?: string;
 }
 
 const CACHE_MAX = 6000;
@@ -52,9 +54,16 @@ function pollMs(iv: Interval, sim: boolean): number {
 }
 
 export function useBars(symbol: string, interval: Interval, adjust: AdjustMode, enabled = true): BarsState & { loadMore(): void; reload(): void } {
-  const [st, setSt] = useState<BarsState>({ bars: [], info: null, status: 'idle', hasMore: false, loadingMore: false, live: 'off' });
+  const [raw, setSt] = useState<BarsState>({ bars: [], info: null, status: 'idle', hasMore: false, loadingMore: false, live: 'off' });
+  const key = cacheKey(symbol, interval, adjust);
+  // After a symbol/interval change the state still holds the previous series until the load effect resets it, one render
+  // later. Never hand those bars out under the new key: the chart would draw them as the new series and anchor its view
+  // to them, leaving the real bars mis-scrolled and mis-scaled until a reload.
+  const st: BarsState = raw.key === key ? raw : { bars: [], info: null, status: enabled ? 'loading' : 'idle', hasMore: false, loadingMore: false, live: 'off', key };
   const ref = useRef(st);
   ref.current = st;
+  // async results (fetches, polls, stream ticks, backfill) only apply while the state still belongs to their series
+  const patch = useCallback((k: string, f: (s: BarsState) => BarsState) => setSt((s) => (s.key === k ? f(s) : s)), []);
   const live = useSettings((s) => s.live);
   const [nonce, setNonce] = useState(0);
 
@@ -63,29 +72,28 @@ export function useBars(symbol: string, interval: Interval, adjust: AdjustMode, 
     if (!enabled) return;
     const ctrl = new AbortController();
     let cancelled = false;
-    const key = cacheKey(symbol, interval, adjust);
-    setSt({ bars: [], info: null, status: 'loading', hasMore: false, loadingMore: false, live: 'off' });
+    setSt({ bars: [], info: null, status: 'loading', hasMore: false, loadingMore: false, live: 'off', key });
     idbGet<{ bars: Bar[]; info: SymbolInfo; provider: string; simulated: boolean }>(key)
       .then((c) => {
-        if (!cancelled && c && ref.current.status === 'loading' && !ref.current.bars.length) setSt((s) => ({ ...s, bars: c.bars, info: c.info, provider: c.provider, simulated: c.simulated }));
+        if (!cancelled && c) patch(key, (s) => (s.status === 'loading' && !s.bars.length ? { ...s, bars: c.bars, info: c.info, provider: c.provider, simulated: c.simulated } : s));
       })
       .catch(() => {});
     fetchBarsClient(symbol, interval, { adjust, limit: 1500, signal: ctrl.signal })
       .then((r) => {
         if (cancelled) return;
-        setSt({ bars: r.bars, info: r.info, status: 'ready', provider: r.local ? 'sim (in-browser)' : r.provider, simulated: r.simulated, fallbacks: r.fallbacks, hasMore: r.hasMore, loadingMore: false, live: 'off', lastUpdate: Date.now() });
+        setSt({ bars: r.bars, info: r.info, status: 'ready', provider: r.local ? 'sim (in-browser)' : r.provider, simulated: r.simulated, fallbacks: r.fallbacks, hasMore: r.hasMore, loadingMore: false, live: 'off', lastUpdate: Date.now(), key });
         idbSet(key, { bars: r.bars.slice(-CACHE_MAX), info: r.info, provider: r.provider, simulated: r.simulated }).catch(() => {});
       })
       .catch((e) => {
         if (cancelled || ctrl.signal.aborted) return;
         const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e);
-        setSt((s) => ({ ...s, status: s.bars.length ? 'ready' : 'error', error: s.bars.length ? `offline — showing cached bars (${msg})` : msg }));
+        patch(key, (s) => ({ ...s, status: s.bars.length ? 'ready' : 'error', error: s.bars.length ? `offline — showing cached bars (${msg})` : msg }));
       });
     return () => {
       cancelled = true;
       ctrl.abort();
     };
-  }, [symbol, interval, adjust, enabled, nonce]);
+  }, [key, symbol, interval, adjust, enabled, nonce, patch]);
 
   // live updates: Binance WebSocket for crypto, polling otherwise (only while the market is open)
   useEffect(() => {
@@ -98,10 +106,10 @@ export function useBars(symbol: string, interval: Interval, adjust: AdjustMode, 
     let pending: Bar | null = null;
     let raf = 0;
 
-    const apply = (fresh: Bar[]) => setSt((s) => ({ ...s, bars: mergeTail(s.bars, fresh), lastUpdate: Date.now() }));
+    const apply = (fresh: Bar[]) => patch(key, (s) => ({ ...s, bars: mergeTail(s.bars, fresh), lastUpdate: Date.now() }));
     const startPoll = () => {
       if (stopped || timer) return;
-      setSt((s) => ({ ...s, live: 'poll' }));
+      patch(key, (s) => ({ ...s, live: 'poll' }));
       let lastPoll = 0;
       const tick = async () => {
         const cal = ref.current.info?.calendar ?? '24x7';
@@ -121,7 +129,7 @@ export function useBars(symbol: string, interval: Interval, adjust: AdjustMode, 
     if (p.provider === 'binance' && biv && typeof WebSocket !== 'undefined') {
       try {
         ws = new WebSocket(`wss://data-stream.binance.vision/ws/${p.ticker.toLowerCase()}@kline_${biv}`);
-        ws.onopen = () => setSt((s) => ({ ...s, live: 'stream' }));
+        ws.onopen = () => patch(key, (s) => ({ ...s, live: 'stream' }));
         ws.onmessage = (ev) => {
           const k = JSON.parse(String(ev.data))?.k;
           if (!k) return;
@@ -152,18 +160,18 @@ export function useBars(symbol: string, interval: Interval, adjust: AdjustMode, 
       }
       if (timer) clearInterval(timer);
       if (raf) cancelAnimationFrame(raf);
-      setSt((s) => ({ ...s, live: 'off' }));
+      patch(key, (s) => ({ ...s, live: 'off' }));
     };
-  }, [symbol, interval, adjust, enabled, live, st.status]);
+  }, [key, symbol, interval, adjust, enabled, live, st.status, patch]);
 
   const loadMore = useCallback(() => {
     const s = ref.current;
     if (!s.hasMore || s.loadingMore || !s.bars.length) return;
-    setSt((x) => ({ ...x, loadingMore: true }));
+    patch(key, (x) => ({ ...x, loadingMore: true }));
     fetchBarsClient(symbol, interval, { adjust, limit: 1500, to: s.bars[0].t })
-      .then((r) => setSt((x) => ({ ...x, bars: mergeBars(r.bars, x.bars), hasMore: r.hasMore && r.bars.length > 0, loadingMore: false })))
-      .catch(() => setSt((x) => ({ ...x, loadingMore: false, hasMore: false })));
-  }, [symbol, interval, adjust]);
+      .then((r) => patch(key, (x) => ({ ...x, bars: mergeBars(r.bars, x.bars), hasMore: r.hasMore && r.bars.length > 0, loadingMore: false })))
+      .catch(() => patch(key, (x) => ({ ...x, loadingMore: false, hasMore: false })));
+  }, [key, symbol, interval, adjust, patch]);
 
   return { ...st, loadMore, reload: () => setNonce((n) => n + 1) };
 }
