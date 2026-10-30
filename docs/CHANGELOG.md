@@ -2,7 +2,25 @@
 
 ## Unreleased
 
+### Added
+- **Exhaustion Zone** (Studies → Meridian, in the default stack): *where* a move is likely to stall. It collects the support
+  levels below the close (TDST, Sequential setup and countdown risk, the Ichimoku cloud edge and Kijun, TD Lines and
+  Propulsion downside targets), finds the band of one ATR holding the most weighted levels, and draws it as a dashed
+  **Buy zone** box; the **Sell zone** mirrors it above price. `ZONE_BUY_TEST` / `ZONE_SELL_TEST` fire when price trades into
+  the zone. The zone on past bars is off by default (Style → "(history)").
+- **Exhaustion Window** (Studies → Meridian, in the default stack): *when* a setup 9 or countdown 13 can complete. Dotted
+  time marks past the last bar show the earliest bar (every bar qualifies) and an estimate at the countdown's own pace so far,
+  for Sequential and Combo on both sides. `WINDOW_BUY_NEAR` / `WINDOW_SELL_NEAR` fire when a 13 is 3 bars away or less.
+- Time marks take a colour, and their labels stack instead of overprinting. Hidden-by-default clouds can be switched on in
+  Style.
+
 ### Fixed
+- **Changing symbol or timeframe left the chart mis-scrolled and mis-scaled until a reload.** For one render after a change,
+  the chart received the previous series' bars under the new symbol/interval and anchored its view to them, and study lines
+  kept the previous series' points on the shared time axis while the new results computed. Both shifted the view once the new
+  data arrived: switching 1D → 1W showed the first few weekly bars at the right edge. Bars now never outlive their series
+  (late fetches, polls and backfills for the old one are dropped), studies without current results are cleared, and a new
+  series turns price-axis auto-scale back on (dragging the axis had left the old symbol's price range in place).
 - **D-Wave lost the wave-3 peak when wave 4 fell below wave 2.** Wave 2 moved to the new low, but wave 1 stayed at its old
   high and then jumped to the next, lower high. Wave 1 now moves to the old wave-3 peak, the highest high since it began, as
   on Symbolik's BTC 4H chart (VERIFY_LOG note 7).

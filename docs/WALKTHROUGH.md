@@ -250,7 +250,26 @@ bar opens beyond that close and then trades beyond its own open (`TDMA1 UP/DN BR
 (34) moving average on the price chart: bullish while the short is above the long, with an optional percent offset.
 
 ### Meridian composites
-Both are under **Studies → Meridian** and each adds a pane. Neither is in the default stack.
+All four are under **Studies → Meridian**. Exhaustion Confluence and Count Consensus each add a pane and are not in the default
+stack. Exhaustion Zone and Exhaustion Window draw on the price pane and are part of the default stack.
+
+**Exhaustion Zone** answers "where is this move most likely to stall?" Each support level the other studies already draw below
+price (TDST, setup and countdown risk, the Ichimoku cloud edge and Kijun, TD Line and Propulsion downside targets) is a
+candidate. The study looks for the band one ATR tall holding the most of them and draws it as a dashed green **Buy zone (n)**
+box, n being how many levels it holds. The red **Sell zone** does the same with resistance above price. A zone needs at least 2
+levels; a lone level is just that level. Weights (TDST counts double), the band height, padding and minimum are under Inputs.
+Price trading into a zone fires `ZONE_BUY_TEST` / `ZONE_SELL_TEST`. The status card and Data Window list the levels; Style →
+"(history)" shows how the zone moved on past bars. Read it as a map, not a target: a buy zone that gives way on a close means
+every support in it failed.
+
+**Exhaustion Window** answers "when can the count finish?" Dotted lines past the last bar mark where a setup 9 (`B9` / `S9`)
+completes if it keeps going, and where each running countdown can reach 13. When every bar so far has counted, one mark (`B13`)
+shows it; otherwise `earliest` is the soonest it can happen (every bar from here counts) and `est.` is where it lands at the
+pace so far. Combo marks are lighter (`Combo B13`). `WINDOW_BUY_NEAR` / `WINDOW_SELL_NEAR` fire when a 13 is 3 bars away or less.
+A countdown can still be cancelled or recycled first, so the window says when to watch, not that a turn will come.
+
+Together they give the "where and when" for the checklist in `STRATEGY.md`: a buy 13 due inside the window while price sits in
+the buy zone, on more than one timeframe, is the confluence worth waiting for. The trigger and risk rules still apply.
 
 **Exhaustion Confluence** answers "how stretched is this move?" with one 0–100 score per side. Green bars above zero are the
 **buy** score (a decline is stretched), red bars below zero the **sell** score (a rally is stretched). The dashed lines are the

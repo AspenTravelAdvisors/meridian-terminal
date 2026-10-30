@@ -334,7 +334,7 @@ function SchemaField({ name, p, v, onChange }: { name: string; p: JsonSchema; v:
 }
 
 function StyleTab({ def, cfg, style, onChange }: { def: AnyStudyDef; cfg: Record<string, unknown>; style: Record<string, OutputStyle>; onChange(s: Record<string, OutputStyle>): void }) {
-  const outs = def.outputs(cfg).filter((o) => o.kind === 'line' || o.kind === 'histogram' || o.kind === 'labels');
+  const outs = def.outputs(cfg).filter((o) => o.kind === 'line' || o.kind === 'histogram' || o.kind === 'labels' || o.kind === 'cloud');
   if (!outs.length) return <p className="text-dim">This study draws markers only; colours follow the theme palette (Settings → colorblind-safe palette).</p>;
   return (
     <table className="table">
@@ -354,9 +354,9 @@ function StyleTab({ def, cfg, style, onChange }: { def: AnyStudyDef; cfg: Record
             <tr key={o.id}>
               <td>{o.title}</td>
               <td>
-                <Switch checked={s.visible !== false && !(o.kind === 'line' && o.hiddenByDefault && s.visible === undefined)} onChange={(v) => set({ visible: v })} />
+                <Switch checked={s.visible !== false && !((o.kind === 'line' || o.kind === 'cloud') && o.hiddenByDefault && s.visible === undefined)} onChange={(v) => set({ visible: v })} />
               </td>
-              <td>{o.kind !== 'labels' && <input type="color" className="h-6 w-10 cursor-pointer rounded border border-border bg-transparent" value={s.color ?? '#38bdf8'} onChange={(e) => set({ color: e.target.value })} aria-label={`${o.title} colour`} />}</td>
+              <td>{(o.kind === 'line' || o.kind === 'histogram') && <input type="color" className="h-6 w-10 cursor-pointer rounded border border-border bg-transparent" value={s.color ?? '#38bdf8'} onChange={(e) => set({ color: e.target.value })} aria-label={`${o.title} colour`} />}</td>
               <td>
                 {o.kind === 'line' && (
                   <select className="input" value={s.width ?? o.width ?? 1} onChange={(e) => set({ width: Number(e.target.value) })}>

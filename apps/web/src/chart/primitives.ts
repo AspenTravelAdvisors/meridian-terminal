@@ -538,9 +538,17 @@ export class LevelsPrimitive extends BasePrimitive {
     }
     // time marks (Ichimoku time theory) — may lie in the future
     ctx.font = '10px ui-sans-serif, system-ui, sans-serif';
-    for (const m of this.timeMarks) {
-      const x = this.x(m.i);
-      if (x === null || x < 0 || x > w) continue;
+    // labels of nearby marks stack upward instead of overprinting (rowEnd = right edge of the last label in each row)
+    const rowEnd: number[] = [];
+    const placed = this.timeMarks
+      .map((m) => ({ m, x: this.x(m.i) }))
+      .filter((p): p is { m: LevelsPrimitive['timeMarks'][number]; x: number } => p.x !== null && p.x >= 0 && p.x <= w)
+      .sort((a, b) => a.x - b.x);
+    for (const { m, x } of placed) {
+      const half = ctx.measureText(m.label).width / 2 + 3;
+      let row = rowEnd.findIndex((end) => x - half >= end);
+      if (row < 0) row = rowEnd.push(-Infinity) - 1;
+      rowEnd[row] = x + half;
       ctx.strokeStyle = m.color;
       setDash(ctx, 'dotted');
       ctx.beginPath();
@@ -550,7 +558,7 @@ export class LevelsPrimitive extends BasePrimitive {
       ctx.setLineDash([]);
       ctx.fillStyle = m.color;
       ctx.textAlign = 'center';
-      ctx.fillText(m.label, x, h - 16);
+      ctx.fillText(m.label, x, h - 16 - row * 12);
     }
   }
 

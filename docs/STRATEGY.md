@@ -51,6 +51,9 @@ DeMark-style stack → Apply**. Inputs that differ from the study defaults:
 | TD Lines | `level` / `showTargets` | `3` / off | Level-1 lines and their targets cluttered intraday charts |
 | DeMarker I, REI | `maxDuration` | `5` | Signals the 6th bar in a zone as extreme; 5 or fewer counts as mild |
 
+The stack also adds **Exhaustion Zone** (where the levels above cluster) and **Exhaustion Window** (when the counts can
+complete) with their default inputs. Both draw on the price pane; `WALKTHROUGH.md` § Meridian composites explains them.
+
 The study defaults in `INDICATORS.md` are unchanged. For example, DeMarker's default duration limit is still 13. The stack only
 sets inputs on its own instances.
 

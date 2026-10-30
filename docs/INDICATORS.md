@@ -269,5 +269,16 @@ Chikou  = C                            plotted displacement bars BACK
 - **Exhaustion Confluence:** a weighted score combining Sequential/Combo state, DeMarker zone duration, REI, TDST proximity, and HTF alignment. Weights and output come with a breakdown tooltip.
 - **Signal Heat Strip:** a one-pixel-tall strip under price showing which DeMark events fired on each bar (hover for detail).
 - **Count Consensus:** shows where Sequential standard, aggressive, and Combo strict/v2 agree or disagree, to visualize rule sensitivity.
+- **Exhaustion Zone (where):** on each bar, gather one level per source on the near side of the close (buy side: at or below
+  it; sell side: at or above it): the opposite setup's TDST, the setup and countdown risk levels, the Ichimoku cloud edge price
+  meets first, the Kijun, and the TD Lines / Propulsion objective in that direction. Ignore levels more than `maxDistAtr` ATR
+  away. Among bands `zoneAtr` ATR tall holding at least `minLevels` levels, pick the one with the most weight (ties: nearest the
+  close) and pad it by `padAtr` ATR. Signal `ZONE_*_TEST` when a bar trades into the previous bar's zone (once per visit).
+  Every weight and threshold is an input. A map of levels, not a forecast.
+- **Exhaustion Window (when):** from the current Sequential and Combo state, project the bar a setup 9 completes (setup length
+  minus the current count) and, for each active countdown, the earliest bar it can reach its final count (one count per bar)
+  and an estimate at its observed rate (counts so far ÷ bars since it started, floored at `minRate`). A pending final bar is
+  at least one bar away. Signal `WINDOW_*_NEAR` when the earliest 13 is `nearBars` away or less. Projections can be voided by
+  cancellation or recycling.
 
 Every study in this file must appear in the Studies dialog with Inputs generated from its Zod schema and documented ⚠ VERIFY knobs.

@@ -12,6 +12,9 @@ export const DEMARK_STACK: { id: string; role: string; cfg?: Record<string, unkn
   // 6+ bars in a zone is extreme duration (trend, don't fade it); 5 or fewer is the mild reading that confirms a reversal
   { id: 'td-demarker-1', role: 'Duration confirmation', cfg: { maxDuration: 5 } },
   { id: 'td-rei', role: 'Duration confirmation', cfg: { maxDuration: 5 } },
+  // where the levels above cluster into a zone, and when the counts can complete (both overlays, no extra pane)
+  { id: 'meridian-zone', role: 'Where: exhaustion zone' },
+  { id: 'meridian-window', role: 'When: exhaustion window' },
 ];
 
 export const STACK_NAME = 'DeMark-style stack';
