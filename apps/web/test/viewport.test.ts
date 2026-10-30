@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SPAN, RIGHT_MARGIN, anchoredRange, following, viewOf } from '../src/chart/viewport';
+import { DEFAULT_SPAN, RIGHT_MARGIN, anchoredRange, following, viewOf, withProjection } from '../src/chart/viewport';
 
 describe('chart viewport anchoring', () => {
   it('opens a new chart with the newest bar at the right edge', () => {
@@ -29,5 +29,26 @@ describe('chart viewport anchoring', () => {
   it('treats a view whose newest bar is on screen as following', () => {
     expect(following(viewOf({ from: 840, to: 1002 }, 1000))).toBe(true);
     expect(following(viewOf({ from: 700, to: 900 }, 1000))).toBe(false);
+  });
+});
+
+describe('making room for projections', () => {
+  // 1500 bars, newest at index 1499, showing 160 bars plus a 3-bar margin
+  const r = { from: 1342, to: 1502 };
+
+  it('leaves the view alone when nothing is projected or it already fits', () => {
+    expect(withProjection(r, 1500, 0)).toBe(r);
+    expect(withProjection(r, 1500, 1)).toBe(r);
+  });
+
+  it('extends the right edge to the furthest mark plus a bar, keeping the left edge', () => {
+    // a 13 projected 20 bars out → right edge at 1499 + 20 + 2
+    expect(withProjection(r, 1500, 20)).toEqual({ from: 1342, to: 1521 });
+  });
+
+  it('zooms out further rather than let the future take more than half the view', () => {
+    // 100 bars out: right edge 1601, future = 102 bars → span at least 204 → left edge no later than 1397
+    expect(withProjection(r, 1500, 100)).toEqual({ from: 1342, to: 1601 });
+    expect(withProjection({ from: 1450, to: 1502 }, 1500, 100)).toEqual({ from: 1397, to: 1601 });
   });
 });

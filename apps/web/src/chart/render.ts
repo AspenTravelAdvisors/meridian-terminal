@@ -110,9 +110,21 @@ export interface RenderInput {
 }
 
 /** Keeps LWC series in sync with study results; dense annotations go to primitives. */
+/** Bars of dated time axis kept past the furthest projection (time marks, forward segments). */
+export const FUTURE_PAD = 5;
+
+/** Compact date for a projected bar; display seconds are already shifted into the chart's time zone. */
+function shortDate(dispS: number, intraday: boolean, withYear: boolean): string {
+  const o: Intl.DateTimeFormatOptions = intraday ? { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false } : { month: 'short', day: 'numeric', ...(withYear ? { year: 'numeric' } : {}) };
+  return new Intl.DateTimeFormat(undefined, { ...o, timeZone: 'UTC' }).format(dispS * 1000);
+}
+
 export class StudyRenderer {
   private entries = new Map<string, Entry>();
   private sig = '';
+  /** whitespace-only series that gives the time axis dated slots past the last bar, out to the furthest projection */
+  private future: ISeriesApi<SeriesType> | null = null;
+  private futureKey = '';
   constructor(
     private chart: IChartApi,
     private main: ISeriesApi<SeriesType>,
@@ -147,7 +159,23 @@ export class StudyRenderer {
     this.entries.clear();
   }
 
-  render(inp: RenderInput) {
+  /** Dated empty slots for bars n … n + k − 1 (k = 0 removes them). */
+  private setFuture(tm: TimeMap, k: number) {
+    const n = tm.length;
+    const key = `${n}|${n ? tm.disp[n - 1] : ''}|${k}`;
+    if (key === this.futureKey) return;
+    this.futureKey = key;
+    if (!this.future) this.future = this.chart.addSeries(LineSeries, { lineVisible: false, pointMarkersVisible: false, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false }, 0);
+    const pts: { time: UTCTimestamp }[] = [];
+    for (let j = 0; j < k; j++) {
+      const time = tm.displayAt(n + j);
+      if (time !== null) pts.push({ time });
+    }
+    this.future.setData(pts as never);
+  }
+
+  /** Draws every study; returns how many bars past the last bar the furthest projected time mark lies (0 = none). */
+  render(inp: RenderInput): number {
     const { results, cfgs, tm, pal } = inp;
     const layout = this.layout(cfgs, inp.scriptPlots);
     const sig = cfgs.map((c) => `${c.uid}:${layout.get(c.uid)}:${c.id === 'script' ? inp.scriptPlots.find((s) => s.uid === c.uid)?.plots.length : ''}`).join('|');
@@ -166,6 +194,11 @@ export class StudyRenderer {
     const marks: MarkerItem[] = [...inp.extraMarkers];
     const heat = new Map<number, { bull: number; bear: number; neutral: number }>();
     const n = tm.length;
+    const intraday = tm.intervalMs < 86_400_000;
+    const lastYear = n ? new Date(tm.disp[n - 1] * 1000).getUTCFullYear() : 0;
+    // bars past the last bar reached by projected time marks (the view makes room for these) and by anything drawn there
+    let marksAhead = 0;
+    let ahead = 0;
 
     const pointsOf = (values: ArrayLike<number>, offset = 0, abs = false) => {
       const out: { time: UTCTimestamp; value?: number }[] = [];
@@ -305,7 +338,14 @@ export class StudyRenderer {
       // the engine names a segment's dash `style`; the primitive reads `dash`
       for (const s of g.segments ?? []) segments.push({ ...s, dash: s.style, color: col(s.color), src: c.uid });
       if (g.pivots?.length) paths.push({ points: g.pivots, color: col(g.polylineColor ?? 'accent'), src: c.uid });
-      for (const t of g.timeMarks ?? []) timeMarks.push({ ...t, color: col(t.color ?? 'muted'), src: c.uid });
+      for (const t of g.timeMarks ?? []) {
+        // projected marks carry their date: the point of a forward time mark is when it lands
+        const at = t.i >= n ? tm.displayAt(t.i) : null;
+        const label = at === null ? t.label : `${t.label} · ${shortDate(at, intraday, new Date(at * 1000).getUTCFullYear() !== lastYear)}`;
+        timeMarks.push({ ...t, label, color: col(t.color ?? 'muted'), src: c.uid });
+        marksAhead = Math.max(marksAhead, t.i - (n - 1));
+      }
+      for (const s of g.segments ?? []) ahead = Math.max(ahead, s.i2 - (n - 1));
       for (const p of g.profiles ?? []) profiles.push({ ...p, color: col('info'), upColor: withAlpha(col('bull'), 0.5) });
       // heat strip
       for (const s of r.signals) {
@@ -314,6 +354,8 @@ export class StudyRenderer {
         heat.set(s.i, h);
       }
     }
+    ahead = Math.max(ahead, marksAhead);
+    this.setFuture(tm, ahead > 0 ? ahead + FUTURE_PAD : 0);
     this.levels.setData({ runs, segments, paths, timeMarks, profiles, clouds, last: n - 1 });
     this.markers.hollowProvisional = inp.hollowProvisional;
     this.markers.setData(
@@ -325,6 +367,7 @@ export class StudyRenderer {
     this.heat.colors = { bull: pal.bull, bear: pal.bear, neutral: pal.neutral };
     this.heat.setData(heat);
     void this.main;
+    return marksAhead;
   }
 
   /** Series of a study (for legend values / crosshair). */

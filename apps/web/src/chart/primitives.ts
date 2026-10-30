@@ -546,9 +546,11 @@ export class LevelsPrimitive extends BasePrimitive {
       .sort((a, b) => a.x - b.x);
     for (const { m, x } of placed) {
       const half = ctx.measureText(m.label).width / 2 + 3;
-      let row = rowEnd.findIndex((end) => x - half >= end);
+      // keep the label inside the plot: a mark near the right edge would otherwise run under the price scale
+      const lx = Math.max(half, Math.min(w - half, x));
+      let row = rowEnd.findIndex((end) => lx - half >= end);
       if (row < 0) row = rowEnd.push(-Infinity) - 1;
-      rowEnd[row] = x + half;
+      rowEnd[row] = lx + half;
       ctx.strokeStyle = m.color;
       setDash(ctx, 'dotted');
       ctx.beginPath();
@@ -558,7 +560,7 @@ export class LevelsPrimitive extends BasePrimitive {
       ctx.setLineDash([]);
       ctx.fillStyle = m.color;
       ctx.textAlign = 'center';
-      ctx.fillText(m.label, x, h - 16 - row * 12);
+      ctx.fillText(m.label, lx, h - 16 - row * 12);
     }
   }
 

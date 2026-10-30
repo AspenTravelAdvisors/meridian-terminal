@@ -31,3 +31,14 @@ export function anchoredRange(n: number, prior: View | null, mode: AnchorMode): 
   const to = n - 1 + offset;
   return { from: to - span, to };
 }
+
+/**
+ * Widen a range so projections `ahead` bars past the newest bar (of `n`) are on screen, with a bar to spare. The left
+ * edge stays where it is (the view zooms out) unless the future would then fill more than `maxShare` of the width.
+ */
+export function withProjection(r: { from: number; to: number }, n: number, ahead: number, maxShare = 0.5): { from: number; to: number } {
+  const to = n - 1 + ahead + 2;
+  if (ahead <= 0 || r.to >= to) return r;
+  const minSpan = (to - (n - 1)) / maxShare;
+  return { from: Math.min(r.from, to - minSpan), to };
+}

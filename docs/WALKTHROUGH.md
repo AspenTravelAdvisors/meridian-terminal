@@ -265,7 +265,9 @@ every support in it failed.
 **Exhaustion Window** answers "when can the count finish?" Dotted lines past the last bar mark where a setup 9 (`B9` / `S9`)
 completes if it keeps going, and where each running countdown can reach 13. When every bar so far has counted, one mark (`B13`)
 shows it; otherwise `earliest` is the soonest it can happen (every bar from here counts) and `est.` is where it lands at the
-pace so far. Combo marks are lighter (`Combo B13`). `WINDOW_BUY_NEAR` / `WINDOW_SELL_NEAR` fire when a 13 is 3 bars away or less.
+pace so far. Combo marks are lighter (`Combo B13`). Each mark's label carries its date, the time axis runs on past the last bar to the
+furthest mark, and a chart that opens on the newest bar widens to show them; compare the dates across a daily and a weekly
+pane to see where the windows line up. `WINDOW_BUY_NEAR` / `WINDOW_SELL_NEAR` fire when a 13 is 3 bars away or less.
 A countdown can still be cancelled or recycled first, so the window says when to watch, not that a turn will come.
 
 Together they give the "where and when" for the checklist in `STRATEGY.md`: a buy 13 due inside the window while price sits in

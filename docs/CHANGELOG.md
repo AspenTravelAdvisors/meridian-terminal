@@ -13,6 +13,10 @@
   for Sequential and Combo on both sides. `WINDOW_BUY_NEAR` / `WINDOW_SELL_NEAR` fire when a 13 is 3 bars away or less.
 - Time marks take a colour, and their labels stack instead of overprinting. Hidden-by-default clouds can be switched on in
   Style.
+- **The time axis extends past the last bar to the furthest projection.** Projected time marks (Exhaustion Window, Ichimoku
+  time counts) and forward zone boxes get dated slots, so the axis shows when they land, and each projected mark's label
+  carries its date (`B13 est. · Nov 14`). When a series loads with the newest bar in view, the view widens once to include the
+  furthest mark (the future never takes more than half the width); the scroll-to-newest button does the same.
 
 ### Fixed
 - **Changing symbol or timeframe left the chart mis-scrolled and mis-scaled until a reload.** For one render after a change,

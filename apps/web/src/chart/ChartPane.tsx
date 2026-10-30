@@ -19,7 +19,7 @@ import { explain } from './explain';
 import { type ChartHit, HeatStripPrimitive, LevelsPrimitive, type MarkerItem, TextMarkersPrimitive } from './primitives';
 import { StudyRenderer, chartOptions, createMainSeries, mainData, readTheme, setScaleMode } from './render';
 import { TimeMap, displayTz } from './timeMap';
-import { type View, anchoredRange, following, viewOf } from './viewport';
+import { type View, anchoredRange, following, viewOf, withProjection } from './viewport';
 
 export const tfBucket = (iv: Interval): TfBucket => {
   const ms = INTERVAL_MS[iv];
@@ -457,6 +457,9 @@ function ChartSurface(p: SurfaceProps) {
 
   // main series data (incremental update for live ticks)
   const lastData = useRef<{ firstT: number; len: number; type: string; key: string }>({ firstT: NaN, len: 0, type: '', key: '' });
+  // bars past the newest bar reached by projected time marks, and the series whose view was last widened for them
+  const projAhead = useRef(0);
+  const projFitted = useRef('');
   const seriesKey = `${pane.symbol}|${pane.interval}|${pane.adjust}`;
   useEffect(() => {
     const s = seriesRef.current;
@@ -517,7 +520,17 @@ function ChartSurface(p: SurfaceProps) {
         if (i >= 0 && i < n) extra.push({ i, text: '✎', pos: 'above', color: pal.warn, row: 7, size: 2, style: 'solid', src: 'journal', tip: note.body ? `${note.title} — ${note.body}` : note.title });
       }
     for (const sp of p.scriptPlots) for (const s of sp.signals) if (s.i < n) extra.push({ i: s.i, text: s.text, pos: s.dir === 'bear' ? 'above' : 'below', color: s.dir === 'bull' ? pal.bull : s.dir === 'bear' ? pal.bear : pal.info, row: 6, size: 1, style: 'solid', src: sp.uid, tip: s.id });
-    r.render({ results: map, cfgs: p.cfgs, tm, pal, bars: display, provisionalFrom, hollowProvisional: settings.hollowProvisional, extraMarkers: extra, scriptPlots: p.scriptPlots });
+    const ahead = r.render({ results: map, cfgs: p.cfgs, tm, pal, bars: display, provisionalFrom, hollowProvisional: settings.hollowProvisional, extraMarkers: extra, scriptPlots: p.scriptPlots });
+    projAhead.current = ahead;
+    // once per series, widen a view that is following the newest bar so projected time marks (Exhaustion Window,
+    // Ichimoku time counts) and their dates are on screen; a view scrolled back into history is left alone
+    const chart = chartRef.current;
+    if (chart && ahead > 0 && n && projFitted.current !== seriesKey) {
+      projFitted.current = seriesKey;
+      const range = chart.timeScale().getVisibleLogicalRange();
+      const v = views.get(pane.id);
+      if (range && (!v || following(v))) chart.timeScale().setVisibleLogicalRange(withProjection(range, n, ahead));
+    }
     if (prims.current) prims.current.heat.enabled = settings.showHeatStrip;
     requestAnimationFrame(() => {
       const el = box.current;
@@ -586,7 +599,7 @@ function ChartSurface(p: SurfaceProps) {
           className="absolute bottom-8 right-[72px] z-20 grid size-7 place-items-center rounded-full border border-border bg-panel text-dim shadow hover:text-text"
           title="Scroll to the newest bar"
           aria-label="Scroll to the newest bar"
-          onClick={() => chartRef.current?.timeScale().setVisibleLogicalRange(anchoredRange(display.length, views.get(pane.id) ?? null, 'latest'))}
+          onClick={() => chartRef.current?.timeScale().setVisibleLogicalRange(withProjection(anchoredRange(display.length, views.get(pane.id) ?? null, 'latest'), display.length, projAhead.current))}
         >
           <ChevronsRight className="size-4" />
         </button>
