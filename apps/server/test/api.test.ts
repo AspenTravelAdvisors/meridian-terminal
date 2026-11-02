@@ -40,6 +40,45 @@ describe('API', () => {
     expect(mj.cells[0].cell?.label).toBeTruthy();
     expect((await post('/api/scan', { symbols: ['SIM:DEMO'], studies: [{ id: 'nope' }] })).status).toBe(400);
   });
+  it('reruns a Signal Tester test read-only and reproducibly', async () => {
+    const strategy = { exitOnOpposite: true, stop: 'level', stopPct: 5, atrMult: 2, atrLength: 14, timeStopBars: 20, takeProfitPct: 0, feesBps: 2, slippageBps: 3, entryAt: 'nextOpen', allowShort: false };
+    const qs = `symbol=SIM:DEMO&interval=1D&study=td-sequential&signals=SEQ_BUY_SETUP_9,SEQ_SELL_SETUP_9&horizons=1,5,20&bars=800&strategy=${encodeURIComponent(JSON.stringify(strategy))}`;
+    const a = await get(`/api/tester?${qs}`);
+    expect(a.status).toBe(200);
+    const aj = (await a.json()) as { schema: string; replay: string; runs: { hashes: { run: string }; data: { bars: number; toT: number; provider: string }; spec: { studyConfig: Record<string, unknown> }; strategy: { equity: unknown[] } }[] };
+    expect(aj.schema).toBe('meridian.test-export/1');
+    const run = aj.runs[0];
+    expect(run.data.provider).toBe('sim');
+    expect(run.strategy.equity).toHaveLength(run.data.bars);
+    expect(a.headers.get('x-meridian-run')).toBe(run.hashes.run);
+    // the replay link pins the window and reproduces the run exactly
+    const b = await get(aj.replay);
+    const bj = (await b.json()) as typeof aj;
+    expect(bj.runs[0].hashes.run).toBe(run.hashes.run);
+    // identical apart from the bar count asked for (the original asked for 800 and dropped the forming bar)
+    expect({ ...bj.runs[0], data: { ...bj.runs[0].data, requestedBars: 0 } }).toEqual({ ...run, data: { ...run.data, requestedBars: 0 } });
+    const csv = await get(`${aj.replay}&format=csv&part=equity`);
+    expect(csv.headers.get('content-type')).toMatch(/text\/csv/);
+    expect((await csv.text()).split('\n')[0]).toBe('run_hash,symbol,date,equity,buy_hold,equity_value');
+    expect((await get('/api/tester?symbol=SIM:DEMO&study=nope&signals=X')).status).toBe(400);
+    expect((await get('/api/tester?symbol=SIM:DEMO&study=td-sequential&signals=X&cfg={bad')).status).toBe(400);
+    expect((await post('/api/tester', {})).status).toBe(405);
+    // an evaluation window and a walk-forward
+    const w = (await (await get(`/api/tester?${qs}&from=2025-01-01&until=2025-12-31`)).json()) as { replay: string; runs: { data: { evaluated: { from: string; to: string } }; strategy: { equity: unknown[] } }[] };
+    expect(w.runs[0].data.evaluated).toMatchObject({ from: '2025-01-01', to: '2025-12-31' });
+    expect(w.replay).toMatch(/from=2025-01-01&until=2025-12-31/);
+    expect((await get(`/api/tester?${qs}&from=2099-01-01`)).status).toBe(422);
+    const wf = { trainYears: 1, testYears: 1, metricHorizon: 5, minEvents: 1, param: { key: 'setupLength', values: [8, 9] } };
+    const f = (await (await get(`/api/tester?${qs}&wf=${encodeURIComponent(JSON.stringify(wf))}`)).json()) as { schema: string; folds: unknown[]; trials: number };
+    expect(f.schema).toBe('meridian.walk-forward/1');
+    expect(f.trials).toBe(f.folds.length * 2);
+    // combined rules with a weekly condition, replayed exactly
+    const rules = { trigger: 'rising', longEntry: { combine: 'all', conditions: [{ kind: 'signal', study: 'td-sequential', signal: 'SEQ_BUY_SETUP_9', withinBars: 0 }, { kind: 'compare', interval: '1W', left: { kind: 'price', field: 'c' }, op: '>', right: { kind: 'line', study: 'sma', cfg: { length: 10 }, output: 'ma' } }] } };
+    const ru = (await (await get(`/api/tester?symbol=SIM:DEMO&interval=1D&study=rules&bars=800&horizons=5&rules=${encodeURIComponent(JSON.stringify(rules))}`)).json()) as typeof aj & { runs: { data: { aux?: { interval: string }[] } }[] };
+    expect(ru.runs[0].data.aux?.[0].interval).toBe('1W');
+    expect(((await (await get(ru.replay)).json()) as typeof aj).runs[0].hashes.run).toBe(ru.runs[0].hashes.run);
+    expect((await get('/api/tester?symbol=SIM:DEMO&study=rules')).status).toBe(400);
+  });
   it('falls back to a deterministic rule-based briefing', async () => {
     const r = await post('/api/analyst', { symbol: 'SIM:DEMO', interval: '1D', context: { simulated: true, chips: [{ text: 'B-Setup 7', dir: 'bull' }], recentSignals: [{ id: 'SEQ_BUY_SETUP_9', barsAgo: 2, dir: 'bull' }] } });
     expect(r.headers.get('x-meridian-analyst')).toBe('rule-based');

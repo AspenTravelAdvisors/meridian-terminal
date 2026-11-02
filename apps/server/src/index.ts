@@ -7,6 +7,7 @@ import { notifyRoute } from './routes/notify';
 import { pushRoutes } from './routes/push';
 import { matrixRoute, scanRoute } from './routes/scan';
 import { syncRoutes } from './routes/sync';
+import { testerRoute } from './routes/tester';
 
 export type { ServerEnv } from './http';
 export { ruleBasedBriefing } from './routes/analyst';
@@ -22,6 +23,7 @@ const ROUTES: Record<string, { GET?: Handler; POST?: Handler }> = {
   '/api/quotes': { GET: quotesRoute },
   '/api/scan': { POST: scanRoute },
   '/api/matrix': { POST: matrixRoute },
+  '/api/tester': { GET: testerRoute },
   '/api/analyst': { POST: analystRoute },
   '/api/notify': { POST: notifyRoute },
   ...accountRoutes,
