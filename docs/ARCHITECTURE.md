@@ -45,7 +45,7 @@ fixtures/           Golden-reference fixtures (hand-computed today; reference CS
 
 - `handle(req, env, fetcher)` routes web-standard `Request`s, so the same code runs as a Vercel Node function, under
   `scripts/serve.mjs` and inside the Vite dev server.
-- Routes: `GET /api/bars|search|quotes|health`, `POST /api/scan|matrix|analyst|notify`; accounts under `/api/account/*`,
+- Routes: `GET /api/bars|search|quotes|health|tester`, `POST /api/scan|matrix|analyst|notify`; accounts under `/api/account/*`,
   `GET|POST /api/sync`, `/api/push/*`, `GET /api/alerts/activity` and `GET|POST /api/cron/alerts`. Inputs are validated with Zod. The
   server rate-limits per client and sets CDN cache headers on market data.
 - `analyst` streams Claude output (`@anthropic-ai/sdk`, adaptive thinking, server-side refusal fallback), with

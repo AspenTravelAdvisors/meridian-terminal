@@ -404,6 +404,129 @@ horizons, seeded and reproducible), and **edge** (mean minus baseline). The hist
 
 You get an equity curve, drawdown and a trade list.
 
+**Capital and execution assumptions** (the second strategy row). Every choice is stated under the results, so a reader knows
+what the numbers assume:
+- **Starting capital** and **position size**: a % of equity (100% = one fully invested position), a fixed dollar amount, a
+  fixed share count, or the % of equity you'd lose if the stop is hit (risk sizing; entries without a stop are skipped).
+  **Whole shares** rounds down.
+- **Max open positions**: 1 means one trade at a time. Above 1, new signals open more positions while others are still
+  open. Gross exposure never exceeds equity (no leverage), so a later position gets whatever capital is left.
+- **Gap through stop/target**: a bar that opens beyond the level fills at the open (realistic, the default) or at the
+  level (optimistic).
+- **Stop and target in one candle**: daily bars don't say which came first. Count it as the stop (conservative, the default),
+  the target, or whichever is nearer the open. The results count how many exits this rule decided, and how many were gap fills.
+- **Check stops on the entry bar**: when you enter at the open, that same bar's range can already hit the stop (on by
+  default).
+- **Commission** per order in dollars, on top of fees and slippage in basis points.
+
+The trade list shows shares, dollar P/L and whether an exit was a gap fill or a stop-and-target bar. The results show starting
+and ending capital, the most positions open at once, and skipped signals by reason. With the defaults, the simulator matches
+the earlier one-position version trade for trade (a regression test pins 33 configurations), except that stops now also
+apply on the entry bar.
+
+**The event study and strategy mode test different things.** The event study measures every selected signal, buy signals long
+and sell signals short, from the signal bar's close, with no stops and no overlap rules. Strategy mode takes one position at a
+time from the next open (by default), skips signals while a trade is open and, with shorts off, uses sell signals only as
+exits. Each table states its own population (how many buy and sell signals, how many trades long and short) so the two are
+never read as one test.
+
+**Every result names its data.** The event study, the strategy and the DeMark Status signal statistics load up to 5,000 bars of
+their own history; the chart loads 1,500 and scrolls back for more. Each result shows its symbol, provider, adjustment
+method, first and last date and bar count, and the status bar shows the same for the active chart.
+
+**Options (theoretical).** In strategy mode, set *Instrument → Shares + options (theoretical)*. Each stock trade then also
+becomes an option trade: a call for a long and a put for a short, on the same entry and exit dates. You choose:
+- the **expiration**: days to expiry, then either the monthly (third-Friday) expiration on or after it, or exactly that
+  many days;
+- the **strike**: by delta (0.50 ≈ at the money) or by % out of the money, rounded to a strike step;
+- the **size**: a number of contracts, or a premium budget per trade (trades it can't afford are skipped and counted);
+- **execution**: you buy at the ask and sell at the bid (spread as % of mid with a $0.05 minimum), plus a fee per contract;
+- **volatility**: a fixed implied volatility, or trailing 20-day realized volatility × a multiplier (it changes over the
+  trade, so a volatility drop costs money). Enter **earnings dates** to add an event premium of N volatility points in the
+  days before each report; it disappears once the report is out. The price gap itself comes from the real stock data;
+- optionally, **close at N days to expiry**; otherwise a contract held to expiration settles at intrinsic value.
+
+The results show option trades, the option win rate next to the stock trades' win rate, total P/L, premium spent, return on
+premium, average win and loss, how many expired worthless, and a trade list (contract, delta, volatility in and out, ask
+and bid, stock and option returns, whether earnings fell inside). A warning box says that this is a **theoretical
+simulation**. Meridian has no historical option quotes, so it can't show what these contracts actually traded at; a
+real-quote backtest would need an options data provider. The JSON export includes the overlay and its settings. For a
+position you already hold, use **Position Scenarios** (below).
+
+**Uncertainty, comparison and trial count.**
+- The event-study table shows a **95% interval** for each mean (a seeded bootstrap, so it reproduces exactly) and a **p**
+  value. An interval that spans 0 means the sample can't tell the signal from no effect. p-values treat events as
+  independent; overlapping horizons make them look better than they are.
+- Strategy mode adds **average win and loss** (% and $), **expectancy per trade** with its 95% interval, and **payoff**.
+  It also shows two benchmarks that take the same exposure: **buy & hold at the same average exposure** (what being
+  invested that much earned, with no timing) and **the same trades at random dates** (same count, side, holding period
+  and costs), which tells you how often random timing beat the strategy.
+- **Trial count:** every distinct parameter set you run on a dataset (symbols, timeframe and period) is counted on this
+  device. Above the results, a note gives the p-value adjusted for that many tries: the chance the best of N tries looks
+  this good by luck. Reset the count when you start a genuinely new question.
+- **Save run** keeps a summary of the run (up to 30). **Saved runs** shows them side by side: events, mean and interval,
+  hit rate, edge, p before and after trials, trade statistics, the exposure benchmarks, drawdown, run hashes and data, plus
+  an equity overlay. You can rename runs and export them as JSON.
+
+**Combined rules.** Choose *Study → Combined rules…* to build entries and exits from several conditions, for example "daily
+buy setup 9 AND weekly close above its 40-week SMA". There are four groups (long entry, long exit, short entry, short exit),
+each set to ALL or ANY of its conditions. A condition is either:
+- a **signal**: a study fired a given signal on this bar or within the last N bars;
+- a **comparison**: price, a study line or a number compared with another (`>`, `<`, `≥`, `≤`, crosses above, crosses below).
+
+Each condition can use the chart's timeframe or a higher one (1W, 1M…). A higher-timeframe value counts only once that bar
+has closed, so a weekly condition never sees the week in progress. Lines drawn ahead of price (the Ichimoku cloud) are
+read where they're drawn; lines drawn from later bars (Chikou) are refused. Entries fire on the bar the rule turns true (or
+on every true bar, if you choose). Exits are separate rules that fire on every bar they're true. In strategy mode, **Signal
+exits** sets whether exit rules and opposite signals fill at the next open (the default) or at the signal bar's close. Two
+templates are included, and the panel shows how many bars each condition was true. Combined rules export, hash and replay
+through `GET /api/tester?study=rules&rules=…` like any other test. Walk-forward doesn't support them yet.
+
+**Periods and out-of-sample testing.** *Period* picks what the test evaluates:
+- **All history** — every bar loaded (up to 5,000).
+- **Date range** — a from/to window, with presets for YTD, 1, 3, 5 and 10 years. Studies still warm up on the bars before
+  the window, so a count already in progress at the start is right.
+- **Train / test** — training dates and test dates. Only the training results are shown. When you're happy with the
+  settings, **Freeze parameters & evaluate test period** runs exactly those settings on the test dates, then shows train and
+  test side by side. The panel remembers which parameter sets have looked at each test period on this device. From the
+  second one on, it warns you that the test period is no longer truly unseen.
+- **Walk-forward** — calendar-year folds (for example 5 years of training, then 1 year of testing, rolling or anchored).
+  Optionally choose one study parameter and candidate values. Each fold picks the best value on its training years, freezes
+  it, and measures it on the following year. The pooled test row is the honest result. The panel shows how many parameter
+  evaluations were made, and you can export the whole result as JSON.
+
+One rule applies everywhere: a signal counts in a period only if its whole horizon also ends inside that period. Results for
+a period never use bars after it, and training signals never reach into the test years. A property test checks this:
+rewriting every bar after a window doesn't change that window's results.
+
+**Results by year** sit under every run: signals, events, mean and hit rate at the selected horizon, plus the strategy's
+yearly return, trades and drawdown for a single symbol.
+
+**Reproducible exports.** After a run, the bar above the results exports it:
+- **Export JSON** — one record per symbol with everything needed to rerun it and everything it produced: the engine version,
+  the study and *every* parameter (defaults included, so a later default change can't silently change a rerun), signals,
+  horizons and baseline seed, strategy settings, data provider, adjustment method, first and last date, bar count, every
+  signal, each event's return at each horizon, trades and per-bar equity (daily on daily bars), plus the pooled table.
+- **CSV** — summary (configuration and statistics as key/value rows), signals, event returns, trades and equity. Every row
+  starts with the run hash and symbol, so files from different runs can be joined or compared.
+- **Copy API link** — a read-only `GET /api/tester?…` link that reruns the same test on the same data window (it pins the
+  last bar and the bar count). Add `&format=csv&part=equity` (or `summary`, `signals`, `events`, `trades`) for CSV.
+  `&from=2021-01-01&until=2023-12-31` evaluates a window; `&wf={"trainYears":5,"testYears":1,"metricHorizon":20}` (URL
+  encoded) runs a walk-forward, and `&symbols=SPY,QQQ` pools several symbols in it.
+
+Each record carries three hashes. **spec** changes when any setting changes, **bars** changes when the data changes (for
+example the provider revised history inside the window), and **run** covers both plus the engine version. Two runs with the
+same run hash produced the same numbers. Same settings and same bars give byte-identical output.
+
+From a script, sign in once and reuse the cookie (the site password gate covers `/api`):
+
+```bash
+curl -c meridian.cookies -d "password=$SITE_PASSWORD" https://your-host/__login
+curl -b meridian.cookies "https://your-host/api/tester?symbol=SPY&interval=1D&study=td-combo&signals=COMBO_BUY_13&horizons=5,20"
+```
+
+Script studies run only in your browser, so their exports have no API link (the record stores a hash of the script source).
+
 How to use it well:
 - **Look at *n* first.** Fewer than about 30 events is an anecdote. Pool symbols to get more.
 - **Compare against the baseline, not zero.** In a rising market every buy signal "works". Edge is what the signal adds.
@@ -493,6 +616,32 @@ signal(crossover(fast, slow), { id: 'RIBBON_UP', dir: 'bull', text: '▲' })
 - **Income:** dividends and interest by month.
 - **Position sizing:** equity × risk-per-trade ÷ (entry − stop), capped at a maximum position size. The stop defaults to the
   nearest TD level below the entry (or −5%). This is how you turn a risk level into a share count.
+
+### Position Scenarios (options)
+
+*Bottom dock → Position Scenarios; on a phone, More → Position Scenarios.* Enter an option position you hold (symbol, call or
+put, strike, expiration, contracts, premium paid) and compare three plans across stock prices, dates and post-earnings
+volatility:
+
+- **Hold** every contract.
+- **Close all now** at your bid (or the model's, if you leave the bid blank).
+- **Sell some at a limit** and hold the rest (for example sell 2 of 3 at $6.30).
+
+Each cell shows the dollar P/L and the capital remaining: cash after the entry and any sales, plus what the open contracts
+would sell for. Set **Capital before trade** to see it against your account; leave it blank to see it against the premium paid.
+
+The volatility inputs drive everything. Use the IV before earnings, the first session after the report, and the IV you expect
+after it; the **Post-earnings IVs to compare** table shows how much the volatility drop alone changes each plan. Enter **Your
+bid now** and the panel shows the volatility that bid implies, with a button to use it.
+
+What it is and isn't:
+- A **theoretical simulation** (Black-Scholes, European style, with your volatility), not a backtest on historical option
+  quotes. The panel says so at the top.
+- It gives **dollar outcomes per scenario**, not a probability of profit. A stock signal's hit rate from the Signal Tester is
+  not a probability for an option, which also depends on timing, strike and volatility.
+- Execution rules are declared on the panel: exits fill at the model mid minus half the spread, less the per-contract fee; a
+  worthless contract expires without a fee; a limit counts as filled only if the modelled bid reaches it at that price and
+  date (an earlier touch that later reversed is not modelled).
 
 ---
 

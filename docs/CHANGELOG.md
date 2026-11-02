@@ -3,6 +3,50 @@
 ## Unreleased
 
 ### Added
+- **Options overlay (theoretical)** for strategy mode: each stock trade becomes a call or put chosen by days to expiry
+  (monthly or exact), strike by delta or moneyness, contracts or a premium budget; ask/bid execution, fees, time decay,
+  realized-volatility-based IV that changes over the trade, and an earnings event premium that disappears after the report.
+  The option win rate is shown beside the stock trades' win rate. Clearly labelled a theoretical simulation; there is no
+  historical option-quote backtest (no options data source). `@meridian/portfolio` → `optionsBacktest.ts`.
+- **Comparison and uncertainty** in the Signal Tester: seeded bootstrap 95% intervals and p-values for event means; average
+  win/loss, expectancy (with interval) and payoff; exposure-matched buy & hold and a random-dates benchmark for the same
+  trades; a per-device count of parameter sets tried per dataset, with a best-of-N adjusted p; **Save run** and a side-by-side
+  **Saved runs** view with an equity overlay and JSON export. Engine: `signals/uncertainty.ts`.
+- **Capital and execution assumptions** in strategy mode: starting capital, sizing (% of equity, fixed $, fixed shares, or
+  % of equity risked to the stop), max open positions (overlap without leverage), whole shares, commission per order, a
+  declared gap-through-level fill, a declared rule for a candle that touches both stop and target, and an entry-bar stop
+  check. Results show dollar P/L per trade, start and end capital, most positions open at once, gap fills, stop-and-target
+  bars and skipped signals by reason. All of it is in the run record, CSV (shares, notional, P/L, equity value) and the API.
+
+### Changed
+- Strategy stops and targets now also apply on the entry bar when entering at the open (switch: *Check stops on the entry
+  bar*). Signal exits default to the next open. With both switched back, results match the previous simulator exactly.
+- **Combined signal rules** in the Signal Tester: long/short entry and exit groups (ALL / ANY) built from study signals
+  (within N bars) and comparisons of price, study lines and numbers, each on the chart's or a higher timeframe without
+  look-ahead. Entry and exit rules are separate. Strategy exits can fill at the next open (now the default) or the signal close.
+  Rules are part of the run record, its hashes (including the higher-timeframe bars) and the API (`study=rules&rules=…`).
+- **Signal Tester periods:** a date range with YTD/1/3/5/10-year presets; **train / test** with the test period hidden until
+  you freeze the parameters, a side-by-side comparison, and a per-device log that warns when a test period has been seen
+  by more than one parameter set; **walk-forward** over calendar-year folds (rolling or anchored), optionally choosing one
+  study parameter per fold on training data, with the pooled out-of-sample row and the trial count. **Results by year**
+  for events and strategy. Signals count in a period only if their horizon ends inside it, and a property test pins that
+  no period's results read later bars. `GET /api/tester` takes `from` / `until` and `wf`.
+- **Reproducible Signal Tester exports.** Export JSON (full run record per symbol: engine version, every study parameter,
+  data provider, adjustment, date range, bar count, signals, per-event returns, trades, per-bar equity, pooled stats) or CSV
+  parts keyed by run hash. Records carry spec / bars / run hashes, so identical runs are provably identical and data
+  revisions are visible. The browser and the API build records with the same engine function (`buildTestRun`).
+- **`GET /api/tester`** — a read-only, deterministic rerun of a Signal Tester test (JSON or CSV). Each export's API link pins
+  the data window (last bar and closed-bar count).
+- **Position Scenarios** (bottom dock; phone More page): enter an option position (e.g. 3 × Dec 18 $250 calls at $3.15) and
+  compare holding, closing now, or selling some at a limit, across stock prices, dates and post-earnings volatility. Shows
+  dollar P/L and remaining capital, plus position delta, one-day theta, vega, breakeven and the volatility your bid implies.
+  Black-Scholes math lives in `@meridian/portfolio` (`options.ts`) with hand-computed and property tests. Labelled as a
+  theoretical simulation, not a historical-quote backtest, and it never shows a win probability.
+- Every statistical result names its dataset: the Signal Tester (per symbol), the DeMark Status signal statistics and the
+  status bar each show provider, adjustment method, first and last date and bar count.
+- The Signal Tester labels the event study's population (buy signals measured long, sell signals measured short, entry at the
+  signal close) and the strategy's (long only or long and short, trades per side, what sell signals do, entry at next open),
+  so the two tables are not read as the same test.
 - **Exhaustion Zone** (Studies → Meridian, in the default stack): *where* a move is likely to stall. It collects the support
   levels below the close (TDST, Sequential setup and countdown risk, the Ichimoku cloud edge and Kijun, TD Lines and
   Propulsion downside targets), finds the band of one ATR holding the most weighted levels, and draws it as a dashed
