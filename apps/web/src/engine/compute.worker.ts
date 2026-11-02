@@ -7,6 +7,12 @@ import {
   type MatrixWeights,
   type StrategyConfig,
   type TestEvent,
+  type TestRunEvent,
+  type TestRunSource,
+  type TestRunSpec,
+  buildTestRun,
+  type WalkForwardSpec,
+  walkForward,
   computeStudies,
   computeStudy,
   eventStudy,
@@ -24,6 +30,8 @@ export type ComputeOp =
   | { op: 'events'; bars: Bar[]; study: string; cfg?: Record<string, unknown>; signals: string[] }
   | { op: 'eventStudy'; bars: Bar[]; events: TestEvent[]; horizons: number[]; seed: number; samples: number }
   | { op: 'strategy'; bars: Bar[]; config: StrategyConfig }
+  | { op: 'testRun'; bars: Bar[]; spec: TestRunSpec; source: TestRunSource; events?: TestRunEvent[]; aux?: Record<string, Bar[]> }
+  | { op: 'walkForward'; series: { bars: Bar[]; source: TestRunSource; symbol: string }[]; spec: Omit<TestRunSpec, 'symbol' | 'window'>; wf: WalkForwardSpec }
   | { op: 'evaluate'; bars: Bar[]; studies: { key: string; id: string; cfg?: Record<string, unknown> }[] }
   | { op: 'lines'; bars: Bar[]; study: string; cfg?: Record<string, unknown>; outputs: string[] }
   | { op: 'statuses'; bars: Bar[]; studies: { key: string; id: string; cfg?: Record<string, unknown> }[] }
@@ -45,6 +53,10 @@ function run(m: ComputeOp): unknown {
     }
     case 'eventStudy':
       return eventStudy(m.bars, m.events, m.horizons, { seed: m.seed, baselineSamples: m.samples });
+    case 'testRun':
+      return buildTestRun(m.bars, m.spec, m.source, { events: m.events, aux: m.aux });
+    case 'walkForward':
+      return walkForward(m.series, m.spec, m.wf);
     case 'strategy': {
       const r = runStrategy(m.bars, m.config);
       return { ...r, equity: Array.from(r.equity) };

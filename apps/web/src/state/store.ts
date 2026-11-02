@@ -517,3 +517,96 @@ export const SYNCED_STORES = {
   'meridian.scripts': useScripts,
   'meridian.studyDefaults': useStudyDefaults,
 } as const;
+
+// ── Option position scenarios (one saved position) ─────────────────────────
+export interface ScenarioInputs {
+  /** blank = the active chart's symbol */
+  symbol: string;
+  /** stock price override; null = the chart's last close */
+  spot: number | null;
+  type: 'call' | 'put';
+  strike: number;
+  expiry: string;
+  quantity: number;
+  entryPrice: number;
+  entryFee: number;
+  exitFee: number;
+  halfSpread: number;
+  /** your current bid per share; null = use the model */
+  bid: number | null;
+  ivBefore: number;
+  ivAfter: number;
+  /** extra post-earnings vols (percent, comma separated) for the sensitivity table */
+  ivAfterList: string;
+  earningsDate: string;
+  rate: number;
+  divYield: number;
+  sellQty: number;
+  limit: number;
+  /** capital before the trade; null = the premium paid */
+  capital: number | null;
+  rangePct: number;
+  rows: number;
+}
+export const SCENARIO_DEFAULTS: ScenarioInputs = {
+  symbol: '',
+  spot: null,
+  type: 'call',
+  strike: 250,
+  expiry: '2026-12-18',
+  quantity: 3,
+  entryPrice: 3.15,
+  entryFee: 0.65,
+  exitFee: 0.65,
+  halfSpread: 0.05,
+  bid: null,
+  ivBefore: 50,
+  ivAfter: 35,
+  ivAfterList: '25, 35, 45, 55',
+  earningsDate: '',
+  rate: 4,
+  divYield: 0,
+  sellQty: 2,
+  limit: 6.3,
+  capital: null,
+  rangePct: 20,
+  rows: 11,
+};
+interface ScenarioState {
+  inputs: ScenarioInputs;
+  set(patch: Partial<ScenarioInputs>): void;
+  reset(): void;
+}
+export const useScenario = create<ScenarioState>()(
+  persist(
+    (set, get) => ({
+      inputs: SCENARIO_DEFAULTS,
+      set: (patch) => set({ inputs: { ...get().inputs, ...patch } }),
+      reset: () => set({ inputs: SCENARIO_DEFAULTS }),
+    }),
+    { name: 'meridian.scenario', storage },
+  ),
+);
+
+// ── Out-of-sample log: which parameter sets have looked at each test period ──
+interface OosLogState {
+  /** test-period key → hashes of the parameter sets evaluated on it, in order */
+  seen: Record<string, string[]>;
+  record(key: string, paramsHash: string): string[];
+  clear(key: string): void;
+}
+export const useOosLog = create<OosLogState>()(
+  persist(
+    (set, get) => ({
+      seen: {},
+      record(key, paramsHash) {
+        const prev = get().seen[key] ?? [];
+        const next = prev.includes(paramsHash) ? prev : [...prev, paramsHash];
+        set({ seen: { ...get().seen, [key]: next } });
+        return next;
+      },
+      clear: (key) => set({ seen: Object.fromEntries(Object.entries(get().seen).filter(([k]) => k !== key)) }),
+    }),
+    { name: 'meridian.oos-log', storage },
+  ),
+);

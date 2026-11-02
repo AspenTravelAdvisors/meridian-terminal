@@ -22,3 +22,17 @@ export function fmtTime(t: number, intraday: boolean, tz?: string): string {
 }
 export const signalLabel = (id: string) => id.replace(/_/g, ' ').replace(/\bSEQ\b/, 'Seq').replace(/\bCD\b/, 'CD');
 export const dirColor = (d: string) => (d === 'bull' ? 'var(--ok)' : d === 'bear' ? 'var(--danger)' : 'var(--text-dim)');
+
+const ADJUST_LABEL: Record<string, string> = { split: 'split-adjusted', all: 'split + dividend adjusted', none: 'unadjusted' };
+const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
+
+/** "yahoo · split-adjusted · 1D · 2007-03-12 → 2026-10-30 · 5,000 bars" — the dataset behind one result. */
+export function describeBars(bars: readonly { t: number }[], src?: { provider?: string; adjust?: string; interval?: string; simulated?: boolean }): string {
+  const parts: string[] = [];
+  if (src?.provider) parts.push(`${src.provider}${src.simulated ? ' (simulated)' : ''}`);
+  if (src?.adjust) parts.push(ADJUST_LABEL[src.adjust] ?? src.adjust);
+  if (src?.interval) parts.push(src.interval);
+  if (bars.length) parts.push(`${isoDay(bars[0].t)} → ${isoDay(bars[bars.length - 1].t)}`);
+  parts.push(`${bars.length.toLocaleString()} bars`);
+  return parts.join(' · ');
+}

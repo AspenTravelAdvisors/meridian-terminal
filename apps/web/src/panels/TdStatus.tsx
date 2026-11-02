@@ -3,9 +3,9 @@ import type { EventStudyResult, StudyStatus } from '@meridian/engine';
 import { useQuery } from '@tanstack/react-query';
 import { chartActions } from '../chart/bus';
 import { Chip } from '../components/ui';
-import { getBarsCached } from '../data/useBars';
+import { getBarsSourced } from '../data/useBars';
 import { compute } from '../engine/compute';
-import { fmtPct, fmtPrice } from '../lib/format';
+import { describeBars, fmtPct, fmtPrice } from '../lib/format';
 import { useWorkspace } from '../state/store';
 import { useActive, useStatus } from './hooks';
 
@@ -59,13 +59,14 @@ function SignalStats({ symbol, tf }: { symbol: string; tf: Interval }) {
   const q = useQuery({
     queryKey: ['sigstats', symbol, tf],
     queryFn: async () => {
-      const bars = (await getBarsCached(symbol, tf, 5000)).filter((b) => b.final !== false);
+      const { bars: all, source } = await getBarsSourced(symbol, tf, 5000);
+      const bars = all.filter((b) => b.final !== false);
       const out: { label: string; r: EventStudyResult }[] = [];
       for (const s of STAT_SIGNALS) {
         const ev = await compute<{ events: { i: number; dir: 'bull' | 'bear' | 'neutral' }[] }>({ op: 'events', bars, study: s.study, signals: s.ids });
         out.push({ label: s.label, r: await compute<EventStudyResult>({ op: 'eventStudy', bars, events: ev.events, horizons: [20], seed: 7, samples: 400 }) });
       }
-      return { out, n: bars.length };
+      return { out, data: describeBars(bars, source) };
     },
     staleTime: 600_000,
     retry: 0,
@@ -101,7 +102,11 @@ function SignalStats({ symbol, tf }: { symbol: string; tf: Interval }) {
           </tbody>
         </table>
       )}
-      {q.data && <p className="mt-1 text-[10px] text-faint">Directional returns (sell signals measured short) over {q.data.n} bars. Small samples are noisy — this is descriptive, not predictive.</p>}
+      {q.data && (
+        <p className="mt-1 text-[10px] text-faint">
+          Data: {symbol} {q.data.data} — its own history, separate from the chart's. Directional returns (sell signals measured short), entry at the signal bar's close. Small samples are noisy — this is descriptive, not predictive.
+        </p>
+      )}
     </div>
   );
 }

@@ -176,14 +176,32 @@ export function useBars(symbol: string, interval: Interval, adjust: AdjustMode, 
   return { ...st, loadMore, reload: () => setNonce((n) => n + 1) };
 }
 
+/** Where a set of bars came from, so every result can name its own dataset. */
+export interface BarsSource {
+  symbol: string;
+  interval: Interval;
+  provider: string;
+  adjust: AdjustMode;
+  simulated: boolean;
+  /** bars requested (the dataset may hold fewer) */
+  limit: number;
+}
+
 /** One-shot fetch with an in-memory cache (panels: TD status D/W/M, tester, portfolio history). */
-const memo = new Map<string, { at: number; p: Promise<Bar[]> }>();
-export function getBarsCached(symbol: string, interval: Interval, limit = 1500, ttlMs = 120_000): Promise<Bar[]> {
+const memo = new Map<string, { at: number; p: Promise<{ bars: Bar[]; source: BarsSource }> }>();
+export function getBarsSourced(symbol: string, interval: Interval, limit = 1500, ttlMs = 120_000): Promise<{ bars: Bar[]; source: BarsSource }> {
   const k = `${symbol}|${interval}|${limit}`;
   const hit = memo.get(k);
   if (hit && Date.now() - hit.at < ttlMs) return hit.p;
-  const p = fetchBarsClient(symbol, interval, { limit }).then((r) => r.bars);
+  const p = fetchBarsClient(symbol, interval, { limit }).then((r) => ({
+    bars: r.bars,
+    source: { symbol: r.symbol, interval, provider: r.local ? 'sim (in-browser)' : r.provider, adjust: r.adjust, simulated: !!r.simulated, limit },
+  }));
   p.catch(() => memo.delete(k));
   memo.set(k, { at: Date.now(), p });
   return p;
+}
+
+export function getBarsCached(symbol: string, interval: Interval, limit = 1500, ttlMs = 120_000): Promise<Bar[]> {
+  return getBarsSourced(symbol, interval, limit, ttlMs).then((r) => r.bars);
 }

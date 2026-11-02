@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, Info, TriangleAlert, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { chartActions } from '../chart/bus';
 import { health } from '../lib/api';
-import { fmtPrice } from '../lib/format';
+import { describeBars, fmtPrice } from '../lib/format';
 import { activePane, useDrawings, useSettings, useUi, useWorkspace } from '../state/store';
 import { CHART_TYPES, GRID_LAYOUTS, type DrawingType } from '../state/types';
 import { PANEL_DEFS, openPanel } from './panels';
@@ -292,6 +292,7 @@ export function Toasts() {
 export function StatusBar() {
   const activeId = useWorkspace((s) => s.activePaneId);
   const rt = useUi((s) => s.runtime[activeId]);
+  const pane = useWorkspace((s) => s.panes.find((p) => p.id === activeId));
   const [online, setOnline] = useState(navigator.onLine);
   useEffect(() => {
     const on = () => setOnline(true);
@@ -302,17 +303,16 @@ export function StatusBar() {
   }, []);
   return (
     <footer className="flex h-6 shrink-0 items-center gap-3 border-t border-border bg-panel px-3 text-[10px] text-faint">
-      <span>Informational tool — analysis, not investment advice.</span>
-      <span className="ml-auto flex items-center gap-3">
+      <span className="shrink-0 whitespace-nowrap">Informational tool — analysis, not investment advice.</span>
+      <span className="ml-auto flex min-w-0 items-center gap-3 whitespace-nowrap">
         {!online && <span className="text-warn">offline</span>}
-        {rt?.provider && (
-          <span title={rt.fallbacks?.length ? `Fallbacks: ${rt.fallbacks.join(' · ')}` : undefined}>
-            data: {rt.provider}
-            {rt.simulated ? ' (simulated)' : ''}
+        {/* the chart's own dataset; panels that load more history (tester, signal stats) label theirs separately */}
+        {rt?.bars.length ? (
+          <span className="min-w-0 truncate" title={`chart ${pane?.symbol}: ${describeBars(rt.bars, { provider: rt.provider, simulated: rt.simulated, adjust: pane?.adjust, interval: pane?.interval })}${rt.fallbacks?.length ? ` · fallbacks: ${rt.fallbacks.join(' · ')}` : ''}`}>
+            chart {pane?.symbol}: {describeBars(rt.bars, { provider: rt.provider, simulated: rt.simulated, adjust: pane?.adjust, interval: pane?.interval })}
             {rt.fallbacks?.length ? ' ⤳' : ''}
           </span>
-        )}
-        {rt?.bars.length ? <span>{rt.bars.length.toLocaleString()} bars</span> : null}
+        ) : null}
         {rt?.computeMs !== undefined && rt.results.length > 0 && <span>engine {rt.computeMs.toFixed(1)} ms</span>}
         {rt?.lastUpdate && <span>updated {new Date(rt.lastUpdate).toLocaleTimeString()}</span>}
         {/* license attribution (NOTICE text + link) — stands in for the on-chart logo, which is off */}

@@ -4,6 +4,7 @@ import { AlertLogPanel, AlertsPanel } from '../panels/Alerts';
 import { GuidePanel } from '../panels/Guide';
 import { DataWindowPanel, ObjectTreePanel, RuleInspectorPanel, SymbolDetailsPanel } from '../panels/ChartInfo';
 import { PortfolioPanel } from '../panels/Portfolio';
+import { ScenarioPanel } from '../panels/Scenario';
 import { MatrixPanel, ScreenerPanel, TesterPanel } from '../panels/Signals';
 import { TdStatusPanel } from '../panels/TdStatus';
 import { WatchlistPanel } from '../panels/Watchlist';
@@ -24,6 +25,7 @@ export const PANELS: Record<string, ComponentType> = {
   screener: ScreenerPanel,
   matrix: MatrixPanel,
   tester: TesterPanel,
+  scenario: ScenarioPanel,
   script: ScriptEditorPanel,
   alertlog: AlertLogPanel,
   guide: GuidePanel,

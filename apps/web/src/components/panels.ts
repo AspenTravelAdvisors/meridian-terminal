@@ -15,6 +15,7 @@ export const PANEL_DEFS: { id: string; title: string; area: PanelArea }[] = [
   { id: 'screener', title: 'Screener', area: 'bottom' },
   { id: 'matrix', title: 'MTF Matrix', area: 'bottom' },
   { id: 'tester', title: 'Signal Tester', area: 'bottom' },
+  { id: 'scenario', title: 'Position Scenarios', area: 'bottom' },
   { id: 'script', title: 'Script Editor', area: 'bottom' },
   { id: 'alertlog', title: 'Alert Log', area: 'bottom' },
   { id: 'guide', title: 'Guide', area: 'right-bottom' },
@@ -57,7 +58,7 @@ export function buildDefaultLayout(a: DockviewApi) {
   a.addPanel({ id: 'tdstatus', component: 'tdstatus', title: 'DeMark Status', position: { referencePanel: 'watchlist', direction: 'below' } });
   for (const id of ['datawindow', 'inspector', 'objects', 'analyst', 'journal']) a.addPanel({ id, component: id, title: PANEL_DEFS.find((d) => d.id === id)!.title, position: { referencePanel: 'tdstatus', direction: 'within' } });
   const bottom = a.addPanel({ id: 'portfolio', component: 'portfolio', title: 'Portfolio', position: { referencePanel: 'charts', direction: 'below' } });
-  for (const id of ['screener', 'matrix', 'tester', 'script', 'alertlog']) a.addPanel({ id, component: id, title: PANEL_DEFS.find((d) => d.id === id)!.title, position: { referencePanel: 'portfolio', direction: 'within' } });
+  for (const id of ['screener', 'matrix', 'tester', 'scenario', 'script', 'alertlog']) a.addPanel({ id, component: id, title: PANEL_DEFS.find((d) => d.id === id)!.title, position: { referencePanel: 'portfolio', direction: 'within' } });
   a.getPanel('watchlist')?.api.setActive();
   a.getPanel('tdstatus')?.api.setActive();
   a.getPanel('portfolio')?.api.setActive();
