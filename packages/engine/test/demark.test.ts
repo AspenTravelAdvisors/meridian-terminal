@@ -250,6 +250,22 @@ describe('DeMark-style D-Wave', () => {
     expect(piv.find((p) => p.label === '3')).toBeUndefined();
   });
 
+  it('colours the up sequence bear (red) and the down sequence bull (green)', () => {
+    const c = legs(100, [
+      [60, 60],
+      [30, 100],
+      [25, 80],
+      [40, 140],
+    ]);
+    // the mirrored series (200 − close) runs the same waves as a down sequence
+    const up = computeStudy(dwave, resolveConfig(dwave, { direction: 'up' }), barsFromCloses(c)).geometry.pivots ?? [];
+    const down = computeStudy(dwave, resolveConfig(dwave, { direction: 'down' }), barsFromCloses(c.map((v) => 200 - v))).geometry.pivots ?? [];
+    expect(up.length).toBeGreaterThan(0);
+    expect(down.length).toBeGreaterThan(0);
+    expect(up.every((p) => p.color === 'bear')).toBe(true);
+    expect(down.every((p) => p.color === 'bull')).toBe(true);
+  });
+
   it('an N-bar high is a high at or above each of the previous N highs (ties count by default)', () => {
     // Bars 0–21 fall (high 121 − i, low 2 below) → origin on bar 21 (low 98). Bars 22–32 hold high 99.5; bars 33 and
     // 34 both reach 100. Bar 34 ties the highest of the previous 13 highs (bars 21 and 33) → a 13-bar high by default.

@@ -30,6 +30,13 @@ export interface ChartHit {
   provisional?: boolean;
 }
 type Scored = { hit: ChartHit; prio: number; dist: number };
+/** a pivot is a peak when it is at or above both neighbours on its path (its label then goes above the bar) */
+const isPeak = (pts: PivotPath['points'], k: number) => {
+  const p = pts[k].price;
+  const prev = pts[k - 1]?.price ?? p;
+  const next = pts[k + 1]?.price ?? prev;
+  return p >= prev && p >= next;
+};
 const better = (a: Scored | null, b: Scored) => (!a || b.prio > a.prio || (b.prio === a.prio && b.dist < a.dist) ? b : a);
 const segDist = (px: number, py: number, x1: number, y1: number, x2: number, y2: number) => {
   const dx = x2 - x1;
@@ -187,6 +194,19 @@ export class TextMarkersPrimitive extends BasePrimitive {
     this.highs = highs;
     this.lows = lows;
     this.update();
+  }
+
+  /** label rows stacked on one side of bar `i` (counts and bar-anchored markers), so other overlays can sit clear of them */
+  depth(i: number, pos: 'above' | 'below'): number {
+    const dense = this.barSpacing() < 5.5;
+    let n = 0;
+    if (!dense)
+      for (const col of this.columns) {
+        const v = col.values[i];
+        if (Number.isFinite(v) && v !== 0 && v > 0 === (pos === 'above')) n++;
+      }
+    for (const m of this.byIndex.get(i) ?? []) if (m.price === undefined && m.pos === pos && (!dense || m.size >= 2)) n++;
+    return n;
   }
 
   protected draw(ctx: Ctx) {
@@ -348,6 +368,8 @@ export class LevelsPrimitive extends BasePrimitive {
   runs: LevelRun[] = [];
   segments: GeoSegment[] = [];
   paths: PivotPath[] = [];
+  /** label rows the marker layer stacks above/below a bar; pivot labels are pushed past them */
+  clearance: (i: number, pos: 'above' | 'below') => number = () => 0;
   timeMarks: { i: number; label: string; color: string; src?: string }[] = [];
   profiles: (VolumeProfile & { color: string; upColor: string })[] = [];
   vrvp: (VolumeProfile & { color: string; upColor: string }) | null = null;
@@ -504,10 +526,8 @@ export class LevelsPrimitive extends BasePrimitive {
         const x = this.x(pt.i);
         const y = this.y(pt.price);
         if (x === null || y === null) return;
-        const prev = pts[k - 1]?.price ?? pt.price;
-        const next = pts[k + 1]?.price ?? prev;
-        const peak = pt.price >= prev && pt.price >= next;
-        const ty = peak ? y - 8 : y + 16;
+        const peak = isPeak(pts, k);
+        const ty = this.pivotLabelY(pt.i, y, peak);
         ctx.beginPath();
         ctx.arc(x, y, 3, 0, Math.PI * 2);
         if (pt.locked) {
@@ -531,7 +551,7 @@ export class LevelsPrimitive extends BasePrimitive {
           const fy = this.y(pt.first.price);
           if (fx !== null && fy !== null) {
             ctx.fillStyle = p.color;
-            ctx.fillText('+', fx, peak ? fy - 8 : fy + 16);
+            ctx.fillText('+', fx, this.pivotLabelY(pt.first.i, fy, peak));
           }
         }
       });
@@ -564,20 +584,28 @@ export class LevelsPrimitive extends BasePrimitive {
     }
   }
 
+  /** baseline of a pivot label: past the bar's stacked counts/markers (12px rows), with a gap even when there are none */
+  private pivotLabelY(i: number, y: number, peak: boolean): number {
+    const n = this.clearance(i, peak ? 'above' : 'below');
+    return peak ? y - Math.max(14, 12 * n + 12) : y + Math.max(22, 12 * n + 16);
+  }
+
   override explainAt(x: number, y: number): ChartHit | null {
     const vr = this.visible();
     if (!vr) return null;
     let best: Scored | null = null;
     const near = 5;
     for (const p of this.paths)
-      for (const pt of p.points) {
+      p.points.forEach((pt, k) => {
         const px = this.x(pt.i);
         const py = this.y(pt.price);
-        if (px === null || py === null) continue;
-        const d = Math.hypot(x - px, y - py);
+        if (px === null || py === null) return;
+        // the label sits clear of the bar's count stack, so measure to the nearer of the pivot and its label
+        const ly = this.pivotLabelY(pt.i, py, isPeak(p.points, k)) - 4;
+        const d = Math.min(Math.hypot(x - px, y - py), Math.hypot(x - px, y - ly));
         // the wave label sits beside the pivot, so accept a generous radius
-        if (d <= 14) best = better(best, { hit: { kind: 'pivot', src: p.src, i: pt.i, text: pt.label, value: pt.price, color: p.color, provisional: !pt.locked }, prio: 3, dist: d });
-      }
+        if (d <= 10) best = better(best, { hit: { kind: 'pivot', src: p.src, i: pt.i, text: pt.label, value: pt.price, color: p.color, provisional: !pt.locked }, prio: 3, dist: d });
+      });
     for (const r of this.runs) {
       if (r.i2 < vr.from || r.i1 > vr.to) continue;
       const x1 = this.x(r.i1 - 0.5);

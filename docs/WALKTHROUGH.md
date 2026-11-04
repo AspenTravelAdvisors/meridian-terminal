@@ -184,7 +184,8 @@ near the same place, the two methods agree.
 A mechanical, Elliott-style wave labeller built from N-bar highs and lows (default ladder 21/13/8; wave 1 is a high at or
 above the previous 13 highs). It labels waves 0–5 and A–C, shifts waves when price forces it (for example, wave 2 moves right
 if wave 4 undercuts it), and locks wave C when price trades below wave A's low. A **`+`** marks where a wave was first
-recognised before it shifted right. A close-based preset is available. Use it to see **where in a larger advance or decline** you are. A setup 9 during wave 5
+recognised before it shifted right. Up sequences are drawn in red and down sequences in green, and the wave labels sit past
+any counts or markers stacked on the same bar. A close-based preset is available. Use it to see **where in a larger advance or decline** you are. A setup 9 during wave 5
 reads very differently from one during wave 3. The optional Fibonacci guides show the "ideal" retracement and extension zones.
 
 ### Propulsion ⚠

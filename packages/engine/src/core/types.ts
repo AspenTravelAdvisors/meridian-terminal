@@ -162,6 +162,8 @@ export interface Pivot {
   locked: boolean;
   /** where this pivot was first recognised, when it has since shifted right (drawn as "+") */
   first?: { i: number; price: number };
+  /** per-pivot colour (overrides `Geometry.polylineColor`), e.g. D-Wave colours its up and down sequences apart */
+  color?: Color;
 }
 
 export interface Segment {

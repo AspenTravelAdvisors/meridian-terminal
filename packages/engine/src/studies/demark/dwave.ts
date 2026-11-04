@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { bool, choice, int, num } from '../../core/params';
-import type { Geometry, Pivot, SeriesCtx, StudyDef, StudyStatus, Writer } from '../../core/types';
+import type { Color, Geometry, Pivot, SeriesCtx, StudyDef, StudyStatus, Writer } from '../../core/types';
 import { type Sg, mC, mH, mL } from './common';
 
 const ladder = (def: number, title: string) => int(def, 2, 89, { title, group: 'Lookbacks', verify: 'INDICATORS §3 lookback ladder' });
@@ -320,8 +320,10 @@ export const dwave: StudyDef<DWaveCfg, DWaveState> = {
     for (const k of show) {
       const q = st.seq[k];
       const s: Sg = k === 0 ? 1 : -1;
-      for (const done of q.done) g.pivots!.push(...done.map((p) => ({ ...p, locked: true })));
-      if (q.phase >= 1) g.pivots!.push(...pivots(q, s));
+      // up sequence red, down sequence green (Brian, 2026-11-04)
+      const waveColor: Color = k === 0 ? 'bear' : 'bull';
+      for (const done of q.done) g.pivots!.push(...done.map((p) => ({ ...p, locked: true, color: waveColor })));
+      if (q.phase >= 1) g.pivots!.push(...pivots(q, s).map((p) => ({ ...p, color: waveColor })));
       if (cfg.showFib && q.phase >= 2 && q.o.i >= 0 && q.w1.i >= 0) {
         const L1 = q.w1.p - q.o.p;
         const end = Math.max(q.w1.i, q.w2.i, q.w3.i, q.w4.i) + 30;

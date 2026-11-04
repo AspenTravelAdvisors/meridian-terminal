@@ -337,7 +337,15 @@ export class StudyRenderer {
       const g = r.geometry;
       // the engine names a segment's dash `style`; the primitive reads `dash`
       for (const s of g.segments ?? []) segments.push({ ...s, dash: s.style, color: col(s.color), src: c.uid });
-      if (g.pivots?.length) paths.push({ points: g.pivots, color: col(g.polylineColor ?? 'accent'), src: c.uid });
+      // pivots carrying their own colour (D-Wave up vs down) split into one path per contiguous colour run
+      const piv = g.pivots ?? [];
+      for (let a = 0; a < piv.length; ) {
+        const pc = piv[a].color ?? g.polylineColor ?? 'accent';
+        let b = a + 1;
+        while (b < piv.length && (piv[b].color ?? g.polylineColor ?? 'accent') === pc) b++;
+        paths.push({ points: piv.slice(a, b), color: col(pc), src: c.uid });
+        a = b;
+      }
       for (const t of g.timeMarks ?? []) {
         // projected marks carry their date: the point of a forward time mark is when it lands
         const at = t.i >= n ? tm.displayAt(t.i) : null;

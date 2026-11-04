@@ -240,6 +240,7 @@ function ChartSurface(p: SurfaceProps) {
     dr.bg = theme.bg;
     dr.text = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#d6dee7';
     levels.textColor = theme.text;
+    levels.clearance = (i, pos) => markers.depth(i, pos);
     series.attachPrimitive(levels);
     series.attachPrimitive(markers);
     series.attachPrimitive(heat);
