@@ -12,7 +12,7 @@ export function setDash(ctx: Ctx, d: Dash | undefined, w = 1) {
 
 /** A chart element under the pointer, resolved to a human explanation by `explain.ts`. */
 export interface ChartHit {
-  kind: 'marker' | 'count' | 'level' | 'segment' | 'pivot' | 'time' | 'cloud' | 'line' | 'histogram' | 'heat' | 'note';
+  kind: 'marker' | 'count' | 'level' | 'segment' | 'pivot' | 'time' | 'cloud' | 'line' | 'histogram' | 'heat' | 'note' | 'fan';
   /** study instance uid ('journal' for notes); absent for anonymous geometry */
   src?: string;
   /** study output id (levels, lines, count columns, clouds) */
@@ -354,6 +354,24 @@ export interface PivotPath {
   color: string;
   src?: string;
 }
+/** A forecast fan past bar `i0` (step k is bar i0 + k + 1): nested bands, widest first, around a median path. */
+export interface FanShape {
+  src?: string;
+  i0: number;
+  p0: number;
+  mid: number[];
+  bands: { level: number; lo: number[]; hi: number[]; fill: string }[];
+  color: string;
+  label?: string;
+}
+export interface GhostCandle {
+  i: number;
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+}
+const signedPct = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`;
 export interface CloudData {
   src?: string;
   out?: string;
@@ -374,13 +392,17 @@ export class LevelsPrimitive extends BasePrimitive {
   profiles: (VolumeProfile & { color: string; upColor: string })[] = [];
   vrvp: (VolumeProfile & { color: string; upColor: string }) | null = null;
   clouds: CloudData[] = [];
+  fans: FanShape[] = [];
+  /** illustrative candles past the last bar, drawn faint */
+  ghosts: GhostCandle[] = [];
+  ghostColors = { up: '#22c55e', down: '#f43f5e' };
   textColor = '#8b9aab';
   /** index of the newest bar: labelled runs reaching it (active TDST and risk levels) get a price-scale tag */
   last = -1;
   protected override zOrder = 'normal' as const;
   private axisViews: ISeriesPrimitiveAxisView[] = [];
 
-  setData(p: Partial<Pick<LevelsPrimitive, 'runs' | 'segments' | 'paths' | 'timeMarks' | 'profiles' | 'clouds' | 'last'>>) {
+  setData(p: Partial<Pick<LevelsPrimitive, 'runs' | 'segments' | 'paths' | 'timeMarks' | 'profiles' | 'clouds' | 'fans' | 'ghosts' | 'last'>>) {
     Object.assign(this, p);
     this.axisViews = this.runs
       .filter((r) => r.label && r.i2 === this.last)
@@ -403,6 +425,16 @@ export class LevelsPrimitive extends BasePrimitive {
       if (!r.out?.startsWith('tdst') || r.i2 < from || r.i1 > to) continue;
       lo = Math.min(lo, r.price);
       hi = Math.max(hi, r.price);
+    }
+    // a fan on screen is kept whole: its widest band and any ghost candles
+    for (const f of this.fans) {
+      if (f.i0 + f.mid.length < from || f.i0 > to || !f.bands.length) continue;
+      for (const v of f.bands[0].lo) if (Number.isFinite(v)) lo = Math.min(lo, v);
+      for (const v of f.bands[0].hi) if (Number.isFinite(v)) hi = Math.max(hi, v);
+      for (const g of this.ghosts) {
+        lo = Math.min(lo, g.l);
+        hi = Math.max(hi, g.h);
+      }
     }
     return lo <= hi ? { priceRange: { minValue: lo, maxValue: hi } } : null;
   }
@@ -439,6 +471,60 @@ export class LevelsPrimitive extends BasePrimitive {
         ctx.closePath();
         ctx.fill();
       }
+    }
+    // forecast fans: bands filled widest first so the inner band reads darker, then the median path
+    const fanEnds: { f: FanShape; x: number; top: number }[] = [];
+    for (const f of this.fans) {
+      const n = f.mid.length;
+      if (!n || f.i0 + n < vr.from || f.i0 > vr.to) continue;
+      const x0 = this.x(f.i0);
+      const y0 = this.y(f.p0);
+      const xs = f.mid.map((_, k) => this.x(f.i0 + k + 1));
+      if (x0 === null || y0 === null || xs.some((v) => v === null)) continue;
+      const ys = (vals: number[]) => vals.map((v) => this.y(v));
+      let top = y0;
+      for (const b of f.bands) {
+        const hi = ys(b.hi);
+        const lo = ys(b.lo);
+        if (hi.some((v) => v === null) || lo.some((v) => v === null)) continue;
+        ctx.fillStyle = b.fill;
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        for (let k = 0; k < n; k++) ctx.lineTo(xs[k]!, hi[k]!);
+        for (let k = n - 1; k >= 0; k--) ctx.lineTo(xs[k]!, lo[k]!);
+        ctx.closePath();
+        ctx.fill();
+        for (const v of hi) top = Math.min(top, v!);
+      }
+      const mid = ys(f.mid);
+      if (!mid.some((v) => v === null)) {
+        ctx.strokeStyle = f.color;
+        ctx.lineWidth = 1.5;
+        setDash(ctx, 'dashed');
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        for (let k = 0; k < n; k++) ctx.lineTo(xs[k]!, mid[k]!);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      fanEnds.push({ f, x: xs[n - 1]!, top });
+    }
+    // ghost candles: one past case replayed from the last close, faint so they never read as real bars
+    if (this.ghosts.length) {
+      const bw = Math.max(1, Math.floor(this.barSpacing() * 0.6));
+      ctx.globalAlpha = 0.35;
+      for (const g of this.ghosts) {
+        const x = this.x(g.i);
+        const yo = this.y(g.o);
+        const yc = this.y(g.c);
+        const yh = this.y(g.h);
+        const yl = this.y(g.l);
+        if (x === null || yo === null || yc === null || yh === null || yl === null) continue;
+        ctx.fillStyle = g.c >= g.o ? this.ghostColors.up : this.ghostColors.down;
+        ctx.fillRect(Math.round(x), yh, 1, Math.max(1, yl - yh));
+        ctx.fillRect(Math.round(x - bw / 2), Math.min(yo, yc), bw, Math.max(1, Math.abs(yc - yo)));
+      }
+      ctx.globalAlpha = 1;
     }
     // session volume profiles
     for (const p of this.profiles) this.drawProfile(ctx, p, false, w);
@@ -502,6 +588,22 @@ export class LevelsPrimitive extends BasePrimitive {
       }
     }
     ctx.setLineDash([]);
+    // fan labels: the headline above the fan, and where the median and the widest band end, as moves from the last close
+    for (const { f, x, top } of fanEnds) {
+      if (f.label) label(f.label, f.color, Math.min(w - 4, x), top - 6, 'right');
+      // beside the fan's end when there is room, otherwise tucked inside it
+      const out = x + 44 <= w;
+      const n = f.mid.length;
+      const end = (v: number, inside: number) => {
+        const y = this.y(v);
+        if (y !== null) label(signedPct(100 * (v / f.p0 - 1)), f.color, out ? x + 4 : x - 3, y + (out ? 3 : inside), out ? 'left' : 'right');
+      };
+      end(f.mid[n - 1], -3);
+      if (f.bands.length) {
+        end(f.bands[0].hi[n - 1], 11);
+        end(f.bands[0].lo[n - 1], -3);
+      }
+    }
     // pivot paths (D-Wave, ZigZag)
     for (const p of this.paths) {
       const pts = p.points;
@@ -633,6 +735,22 @@ export class LevelsPrimitive extends BasePrimitive {
       if (mx === null) continue;
       const d = Math.abs(x - mx);
       if (d <= 4) best = better(best, { hit: { kind: 'time', src: m.src, i: m.i, text: m.label, color: m.color }, prio: 1, dist: d });
+    }
+    if (!best) {
+      // inside a fan's widest band: the range at that step
+      const l = this.chart?.timeScale().coordinateToLogical(x as Coordinate);
+      const at = l === null || l === undefined ? NaN : Math.round(l);
+      const fmt = (v: number) => this.series?.priceFormatter().format(v) ?? v.toFixed(2);
+      for (const f of this.fans) {
+        const k = at - f.i0 - 1;
+        const b = f.bands[0];
+        if (!b || !(k >= 0 && k < f.mid.length)) continue;
+        const yh = this.y(b.hi[k]);
+        const yl = this.y(b.lo[k]);
+        if (yh === null || yl === null || y < yh - 2 || y > yl + 2) continue;
+        const tip = `${k + 1} bar${k ? 's' : ''} ahead · ${f.bands.map((r) => `${Math.round(100 * r.level)}% range ${fmt(r.lo[k])} – ${fmt(r.hi[k])}`).join(' · ')}`;
+        return { kind: 'fan', src: f.src, i: at, text: f.label, tip, value: f.mid[k], color: f.color };
+      }
     }
     if (!best && this.clouds.length) {
       const l = this.chart?.timeScale().coordinateToLogical(x as Coordinate);

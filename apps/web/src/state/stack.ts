@@ -15,6 +15,8 @@ export const DEMARK_STACK: { id: string; role: string; cfg?: Record<string, unkn
   // where the levels above cluster into a zone, and when the counts can complete (both overlays, no extra pane)
   { id: 'meridian-zone', role: 'Where: exhaustion zone' },
   { id: 'meridian-window', role: 'When: exhaustion window' },
+  // what followed past bars in the same state: the outcome range for the next 21 bars, with its own track record
+  { id: 'meridian-cone', role: 'What next: forward cone' },
 ];
 
 export const STACK_NAME = 'DeMark-style stack';

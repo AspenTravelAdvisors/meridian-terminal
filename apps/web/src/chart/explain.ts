@@ -58,6 +58,11 @@ const OUTPUTS: Record<string, string> = {
   'meridian-zone:sell_hi':
     'Top of the sell exhaustion zone. A close well above it means every clustered resistance gave way.',
   'meridian-zone:sell_lo': 'Bottom of the sell exhaustion zone.',
+  'meridian-cone:fwd_band':
+    'Where the forecast made that many bars earlier put price on this bar: the 80% range of what followed similar bars. Price sitting inside it about four times in five means the range has been honest.',
+  'meridian-cone:fwd_hi': 'Top of the 80% range forecast for this bar when the forecast was made.',
+  'meridian-cone:fwd_lo': 'Bottom of the 80% range forecast for this bar when the forecast was made.',
+  'meridian-cone:fwd_mid': 'Median outcome forecast for this bar when the forecast was made.',
   'td-propulsion:up_trigger':
     'Upside propulsion trigger: pullback low plus the swing’s momentum. A close above it suggests the advance is resuming.',
   'td-propulsion:up_target': 'Upside propulsion target: where the resumed advance is projected to tire.',
@@ -389,12 +394,28 @@ export function explain(h: ChartHit, ctx: ExplainCtx): Explanation {
           ? 'Fibonacci guide for the wave count: an ideal retracement or projection target.'
           : cfg.id === 'meridian-zone'
             ? 'Current exhaustion zone: the band where the most support (buy zone) or resistance (sell zone) levels cluster, drawn from the bar it formed. The number is how many levels are in it; the Data Window and status card list them.'
+            : cfg.id === 'meridian-cone'
+              ? h.text?.startsWith('Target')
+                ? 'Target: the median best excursion of the similar cases within the horizon, scaled by current volatility. “First in” is the share of those cases that reached it before the stop.'
+                : h.text?.startsWith('Stop')
+                  ? 'Stop: the nearest Sequential risk level on the losing side of price, or, when there is none, the adverse move four in five similar cases stayed inside. “First in” is the share of cases that reached it before the target; a bar touching both counts as stopped.'
+                  : 'The 80% range drawn at the last lean signal. A close outside it fires a Cone break signal.'
             : cfg.id === 'td-range-projection'
               ? 'Projected range for the next bar, from the current bar’s prices.'
               : cfg.id === 'linreg'
                 ? 'Regression channel: the fitted line with standard-error bands.'
                 : undefined;
     return { ...base, title: h.text || base.title, meaning };
+  }
+  if (h.kind === 'fan') {
+    const v = (ctx.results.get(cfg.uid)?.status?.values ?? {}) as Record<string, unknown>;
+    return {
+      ...base,
+      title: 'Forward Cone',
+      meaning:
+        'The range of what followed past bars in the same state as the newest bar, scaled by current volatility. The dashed line is the median outcome; the darker band held half of the cases and the lighter band four in five. It is a range of past outcomes, not a path price will follow.',
+      detail: [h.tip, typeof v.summary === 'string' ? v.summary : undefined, typeof v.match === 'string' ? `Matched on: ${v.match}` : undefined].filter(Boolean).join('\n'),
+    };
   }
   if (h.kind === 'time' && cfg.id === 'meridian-window')
     return {

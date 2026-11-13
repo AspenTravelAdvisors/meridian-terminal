@@ -460,7 +460,7 @@ function ChartSurface(p: SurfaceProps) {
   const lastData = useRef<{ firstT: number; len: number; type: string; key: string }>({ firstT: NaN, len: 0, type: '', key: '' });
   // bars past the newest bar reached by projected time marks, and the series whose view was last widened for them
   const projAhead = useRef(0);
-  const projFitted = useRef('');
+  const projFitted = useRef({ key: '', ahead: 0 });
   const seriesKey = `${pane.symbol}|${pane.interval}|${pane.adjust}`;
   useEffect(() => {
     const s = seriesRef.current;
@@ -523,11 +523,13 @@ function ChartSurface(p: SurfaceProps) {
     for (const sp of p.scriptPlots) for (const s of sp.signals) if (s.i < n) extra.push({ i: s.i, text: s.text, pos: s.dir === 'bear' ? 'above' : 'below', color: s.dir === 'bull' ? pal.bull : s.dir === 'bear' ? pal.bear : pal.info, row: 6, size: 1, style: 'solid', src: sp.uid, tip: s.id });
     const ahead = r.render({ results: map, cfgs: p.cfgs, tm, pal, bars: display, provisionalFrom, hollowProvisional: settings.hollowProvisional, extraMarkers: extra, scriptPlots: p.scriptPlots });
     projAhead.current = ahead;
-    // once per series, widen a view that is following the newest bar so projected time marks (Exhaustion Window,
-    // Ichimoku time counts) and their dates are on screen; a view scrolled back into history is left alone
+    // once per series (and again if a later result reaches further), widen a view that is following the newest bar so
+    // projections (Exhaustion Window, Ichimoku time counts, the Forward Cone) and their dates are on screen; a view
+    // scrolled back into history is left alone
     const chart = chartRef.current;
-    if (chart && ahead > 0 && n && projFitted.current !== seriesKey) {
-      projFitted.current = seriesKey;
+    const fitted = projFitted.current;
+    if (chart && ahead > 0 && n && (fitted.key !== seriesKey || ahead > fitted.ahead)) {
+      projFitted.current = { key: seriesKey, ahead };
       const range = chart.timeScale().getVisibleLogicalRange();
       const v = views.get(pane.id);
       if (range && (!v || following(v))) chart.timeScale().setVisibleLogicalRange(withProjection(range, n, ahead));

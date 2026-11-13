@@ -7,6 +7,7 @@ import { getBarsSourced } from '../data/useBars';
 import { compute } from '../engine/compute';
 import { describeBars, fmtPct, fmtPrice } from '../lib/format';
 import { useWorkspace } from '../state/store';
+import { ConeCard } from './ConeCard';
 import { useActive, useStatus } from './hooks';
 
 const TFS: Interval[] = ['1D', '1W', '1M'];
@@ -114,6 +115,7 @@ function SignalStats({ symbol, tf }: { symbol: string; tf: Interval }) {
 export function TdStatusPanel() {
   const { pane, rt } = useActive();
   const seq = rt.results.find((r) => pane.studies.find((s) => s.uid === r.id)?.id === 'td-sequential');
+  const cone = rt.results.find((r) => pane.studies.find((s) => s.uid === r.id)?.id === 'meridian-cone');
   const v = (seq?.status?.values ?? {}) as Record<string, number | null>;
   const levels: [string, number | null | undefined, string][] = [
     ['TDST resistance', v.tdstResistance, 'bear'],
@@ -144,6 +146,7 @@ export function TdStatusPanel() {
       ) : (
         <p className="px-3 text-faint">Add DeMark-style Sequential to the chart to see its live levels.</p>
       )}
+      <ConeCard result={cone} interval={pane.interval} />
       <SignalStats symbol={pane.symbol} tf="1D" />
       <SignalStats symbol={pane.symbol} tf="1W" />
     </div>

@@ -21,7 +21,7 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts';
 import type { ChartType, ScaleMode, StudyInstanceCfg } from '../state/types';
-import type { ChartHit, CloudData, GeoSegment, HeatStripPrimitive, LabelColumn, LevelRun, LevelsPrimitive, MarkerItem, PivotPath, TextMarkersPrimitive } from './primitives';
+import type { ChartHit, CloudData, FanShape, GeoSegment, GhostCandle, HeatStripPrimitive, LabelColumn, LevelRun, LevelsPrimitive, MarkerItem, PivotPath, TextMarkersPrimitive } from './primitives';
 import { dropFailedRuns } from './labels';
 import type { TimeMap } from './timeMap';
 import { RIGHT_MARGIN } from './viewport';
@@ -174,7 +174,7 @@ export class StudyRenderer {
     this.future.setData(pts as never);
   }
 
-  /** Draws every study; returns how many bars past the last bar the furthest projected time mark lies (0 = none). */
+  /** Draws every study; returns how many bars past the last bar the furthest projected time mark or fan reaches (0 = none). */
   render(inp: RenderInput): number {
     const { results, cfgs, tm, pal } = inp;
     const layout = this.layout(cfgs, inp.scriptPlots);
@@ -190,13 +190,15 @@ export class StudyRenderer {
     const timeMarks: LevelsPrimitive['timeMarks'] = [];
     const profiles: LevelsPrimitive['profiles'] = [];
     const clouds: CloudData[] = [];
+    const fans: FanShape[] = [];
+    const ghosts: GhostCandle[] = [];
     const columns: LabelColumn[] = [];
     const marks: MarkerItem[] = [...inp.extraMarkers];
     const heat = new Map<number, { bull: number; bear: number; neutral: number }>();
     const n = tm.length;
     const intraday = tm.intervalMs < 86_400_000;
     const lastYear = n ? new Date(tm.disp[n - 1] * 1000).getUTCFullYear() : 0;
-    // bars past the last bar reached by projected time marks (the view makes room for these) and by anything drawn there
+    // bars past the last bar reached by projected time marks and fans (the view makes room for these) and by anything drawn there
     let marksAhead = 0;
     let ahead = 0;
 
@@ -354,6 +356,12 @@ export class StudyRenderer {
         marksAhead = Math.max(marksAhead, t.i - (n - 1));
       }
       for (const s of g.segments ?? []) ahead = Math.max(ahead, s.i2 - (n - 1));
+      for (const fa of g.fans ?? []) {
+        const fc = col(fa.color);
+        fans.push({ src: c.uid, i0: fa.i0, p0: fa.p0, mid: fa.mid, bands: fa.bands.map((b, k) => ({ ...b, fill: withAlpha(fc, k === 0 ? 0.1 : 0.14) })), color: fc, label: fa.label });
+        marksAhead = Math.max(marksAhead, fa.i0 + fa.mid.length - (n - 1));
+      }
+      for (const gh of g.ghosts ?? []) ghosts.push(gh);
       for (const p of g.profiles ?? []) profiles.push({ ...p, color: col('info'), upColor: withAlpha(col('bull'), 0.5) });
       // heat strip
       for (const s of r.signals) {
@@ -364,7 +372,8 @@ export class StudyRenderer {
     }
     ahead = Math.max(ahead, marksAhead);
     this.setFuture(tm, ahead > 0 ? ahead + FUTURE_PAD : 0);
-    this.levels.setData({ runs, segments, paths, timeMarks, profiles, clouds, last: n - 1 });
+    this.levels.ghostColors = { up: pal.up, down: pal.down };
+    this.levels.setData({ runs, segments, paths, timeMarks, profiles, clouds, fans, ghosts, last: n - 1 });
     this.markers.hollowProvisional = inp.hollowProvisional;
     this.markers.setData(
       marks,
