@@ -347,6 +347,7 @@ export interface GeoSegment {
   dash?: Dash;
   width?: number;
   label?: string;
+  labelAt?: 'start' | 'end';
   src?: string;
 }
 export interface PivotPath {
@@ -536,12 +537,13 @@ export class LevelsPrimitive extends BasePrimitive {
     const label = (text: string, color: string, x: number, y: number, align: 'left' | 'right') => {
       const tw = ctx.measureText(text).width;
       const b = align === 'right' ? { x1: x - tw, x2: x, y1: y - 9, y2: y + 1 } : { x1: x, x2: x + tw, y1: y - 9, y2: y + 1 };
-      if (taken.some((o) => b.x1 < o.x2 && b.x2 > o.x1 && b.y1 < o.y2 && b.y2 > o.y1)) return;
+      if (taken.some((o) => b.x1 < o.x2 && b.x2 > o.x1 && b.y1 < o.y2 && b.y2 > o.y1)) return false;
       taken.push(b);
       ctx.setLineDash([]);
       ctx.fillStyle = color;
       ctx.textAlign = align;
       ctx.fillText(text, x, y);
+      return true;
     };
     for (const r of this.runs) {
       if (r.i2 < vr.from || r.i1 > vr.to) continue;
@@ -578,7 +580,16 @@ export class LevelsPrimitive extends BasePrimitive {
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       ctx.stroke();
-      if (s.label) {
+      if (s.label && s.labelAt === 'start') {
+        // above the segment's start; when that would reach the level tags at the right edge (about 60 px), to the left
+        // of the start instead; below the line when another label already sits above it
+        const start = Math.min(x1, x2);
+        const fits = start + 4 + ctx.measureText(s.label).width <= w - 60;
+        const lx = fits ? start + 4 : start - 6;
+        const align = fits ? 'left' : 'right';
+        if (!label(s.label, s.color, lx, y1 - 4, align)) label(s.label, s.color, lx, y1 + 12, align);
+      }
+      else if (s.label) {
         if (x2 + 40 < w) label(s.label, s.color, x2 + 3, y2 - 3, 'left');
         else {
           // the line runs off the right edge: label it where it meets the price scale
@@ -590,7 +601,8 @@ export class LevelsPrimitive extends BasePrimitive {
     ctx.setLineDash([]);
     // fan labels: the headline above the fan, and where the median and the widest band end, as moves from the last close
     for (const { f, x, top } of fanEnds) {
-      if (f.label) label(f.label, f.color, Math.min(w - 4, x), top - 6, 'right');
+      // the headline needs room: on a narrow pane it would print over the legend (the status panel carries it there)
+      if (f.label && w >= 520) label(f.label, f.color, Math.min(w - 4, x), top - 6, 'right');
       // beside the fan's end when there is room, otherwise tucked inside it
       const out = x + 44 <= w;
       const n = f.mid.length;

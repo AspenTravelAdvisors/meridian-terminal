@@ -177,6 +177,8 @@ export interface Segment {
   width?: number;
   /** extend to the right edge of the chart */
   extend?: boolean;
+  /** where the label sits: past the segment's end (default) or above its start */
+  labelAt?: 'start' | 'end';
 }
 
 /**

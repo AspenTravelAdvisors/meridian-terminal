@@ -442,7 +442,10 @@ function ChartSurface(p: SurfaceProps) {
     if (!chart) return;
     const obs = new MutationObserver(() => {
       const t = readTheme();
+      // the options carry the default right margin, which would scroll away the room made for projections
+      const range = chart.timeScale().getVisibleLogicalRange();
       chart.applyOptions(chartOptions(t));
+      if (range) chart.timeScale().setVisibleLogicalRange(range);
       if (prims.current) {
         prims.current.markers.bg = t.bg;
         prims.current.drawings.bg = t.bg;

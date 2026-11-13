@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { sinkWriter } from '../core/mtf';
 import { bool, defineStudy, int, num } from '../core/params';
 import type { Fan, Geometry, GhostBar, SeriesCtx, StudyStatus } from '../core/types';
-import { f } from './demark/common';
 import { demarker1 } from './demark/oscillators';
 import { newSequentialState, sequential, sequentialSchema } from './demark/sequential';
 import { ichimoku } from './ichimoku';
@@ -269,6 +268,8 @@ const L_COVER = 10;
 const L_SKILL = 11;
 
 const pct = (v: number) => `${Math.round(100 * v)}%`;
+/** a price for a label: 2 decimals from 10 up, 4 significant digits below */
+const px = (v: number) => (Math.abs(v) >= 10 ? v.toFixed(2) : String(+v.toPrecision(4)));
 const signed = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`;
 const ret = (z: number, sigma: number) => 100 * (Math.exp(z * sigma) - 1);
 
@@ -731,8 +732,8 @@ export const forwardCone = defineStudy(coneSchema, {
     if (cfg.showLevels && p.trade) {
       const t = p.trade;
       segments.push(
-        { i1: i0, p1: t.target, i2: i0 + H, p2: t.target, color: p.fan.dir > 0 ? 'bull' : 'bear', style: 'dashed', width: 1, label: `Target ${f(t.target)} · first in ${pct(t.hitTarget)}` },
-        { i1: i0, p1: t.stop, i2: i0 + H, p2: t.stop, color: 'warn', style: 'dashed', width: 1, label: `Stop ${f(t.stop)} (${t.stopSrc}) · first in ${pct(t.hitStop)}` },
+        { i1: i0, p1: t.target, i2: i0 + H, p2: t.target, color: p.fan.dir > 0 ? 'bull' : 'bear', style: 'dashed', width: 1, label: `Target ${px(t.target)} · first in ${pct(t.hitTarget)}`, labelAt: 'start' },
+        { i1: i0, p1: t.stop, i2: i0 + H, p2: t.stop, color: 'warn', style: 'dashed', width: 1, label: `Stop ${px(t.stop)} (${t.stopSrc}) · first in ${pct(t.hitStop)}`, labelAt: 'start' },
       );
     }
     const an = st.anchor;
