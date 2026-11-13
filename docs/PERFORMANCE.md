@@ -25,6 +25,12 @@ bench now measures the bundled engine instead.
 run to run. A desktop browser worker should measure clearly under it; run `MERIDIAN_PERF_BUDGET_MS=150 pnpm bench` on a
 desktop machine to confirm. A normal chart (1,500 bars) recomputes in about 3 ms (the status bar shows `engine … ms`).
 
+## Forward Cone
+
+Forward Cone is not in the 20-study bench. On its own it takes about 200 ms for 50,000 bars under Vitest (which runs the
+engine roughly 1.6× slower than the shipped bundle) and adds about 6 ms to a 1,500-bar chart. It runs Sequential, Ichimoku
+and DeM I internally and makes `horizon` × 4 histogram increments per bar. A live tick forks about 1 MB of state (≈1 ms).
+
 ## Where the time goes
 
 - **Study code** is about 80% of the run. The largest costs are Sequential (setup, countdown, TDST, risk and recycling on

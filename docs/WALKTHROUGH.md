@@ -251,8 +251,8 @@ bar opens beyond that close and then trades beyond its own open (`TDMA1 UP/DN BR
 (34) moving average on the price chart: bullish while the short is above the long, with an optional percent offset.
 
 ### Meridian composites
-All four are under **Studies → Meridian**. Exhaustion Confluence and Count Consensus each add a pane and are not in the default
-stack. Exhaustion Zone and Exhaustion Window draw on the price pane and are part of the default stack.
+All five are under **Studies → Meridian**. Exhaustion Confluence and Count Consensus each add a pane and are not in the default
+stack. Exhaustion Zone, Exhaustion Window and Forward Cone draw on the price pane and are part of the default stack.
 
 **Exhaustion Zone** answers "where is this move most likely to stall?" Each support level the other studies already draw below
 price (TDST, setup and countdown risk, the Ichimoku cloud edge and Kijun, TD Line and Propulsion downside targets) is a
@@ -270,6 +270,30 @@ pace so far. Combo marks are lighter (`Combo B13`). Each mark's label carries it
 furthest mark, and a chart that opens on the newest bar widens to show them; compare the dates across a daily and a weekly
 pane to see where the windows line up. `WINDOW_BUY_NEAR` / `WINDOW_SELL_NEAR` fire when a 13 is 3 bars away or less.
 A countdown can still be cancelled or recycled first, so the window says when to watch, not that a turn will come.
+
+**Forward Cone** answers "what usually came next?" It finds every past bar on this chart that was in the same state as the
+newest bar (the Sequential count phase, the side of the Ichimoku cloud, the DeM I zone) and shows where price went over the
+following 21 bars, scaled to today's volatility. Nobody can predict 21 individual candles; this is the range that held.
+
+- **On the chart:** a shaded fan to the right of the last bar. The dashed line is the median outcome, the darker band held
+  half of the cases and the lighter band four in five. The numbers at its right edge are those moves in percent from the
+  last close. The fan is green when the cases lean up, red when they lean down and blue when they do not lean.
+- **The lean:** the cases lean only when clearly more (or fewer) of them closed higher than is normal for this chart, and
+  only when enough separate cases back it. Neighbouring bars share most of their next 21 bars, so the card also shows how
+  many cases are a full horizon apart. With too few, the match is loosened step by step, down to "all bars", which is a
+  plain volatility range.
+- **Levels:** when the cases lean, a dashed **Target** (the median best move of those cases) and **Stop** (the nearest
+  Sequential risk level, or the adverse move four in five cases stayed inside) are drawn, each with the share of cases that
+  reached it first. A bar that touched both counts as stopped.
+- **Track record:** every forecast is scored against the close that came 21 bars later, so the record is out of sample.
+  The DeMark Status panel says how often the 80% range held and whether matching on state beat the all-bars forecast. If it
+  did not, read the fan as a volatility range and ignore the lean. The fan corrects its own width from these scores.
+- **Signals:** `CONE_BULL` / `CONE_BEAR` when a lean appears, and `CONE_BREAK_UP` / `CONE_BREAK_DOWN` when price closes
+  outside the range drawn at that signal: the setup failed or over-delivered. Both work in alerts and the Signal Tester.
+- **Options (Inputs):** *Bars ahead* (presets 8, 13, 21, 34; shorter is narrower and is scored more often), *Show ghost
+  candles* (one similar past case replayed faintly from the last close: an illustration, off by default), *Show the range
+  drawn at the last lean signal*, and the matching thresholds. Style → "(as forecast)" overlays where each past forecast
+  put price, to see the track record on the chart.
 
 Together they give the "where and when" for the checklist in `STRATEGY.md`: a buy 13 due inside the window while price sits in
 the buy zone, on more than one timeframe, is the confluence worth waiting for. The trigger and risk rules still apply.

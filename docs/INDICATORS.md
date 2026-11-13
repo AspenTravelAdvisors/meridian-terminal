@@ -280,5 +280,36 @@ Chikou  = C                            plotted displacement bars BACK
   and an estimate at its observed rate (counts so far ÷ bars since it started, floored at `minRate`). A pending final bar is
   at least one bar away. Signal `WINDOW_*_NEAR` when the earliest 13 is `nearBars` away or less. Projections can be voided by
   cancellation or recycling.
+- **Forward Cone (what next):** the range of outcomes over the next `horizon` bars (default 21; presets 8 / 13 / 21 / 34),
+  read from what followed past bars in the same state. It fits nothing and extrapolates nothing.
+  - *State.* Each bar gets a **phase** from Sequential: per side, rank 5 = countdown 13 completed within `reactionBars`,
+    4 = countdown at 8–12, 3 = setup 9 completed within `recentBars`, 2 = countdown at 1–7, 1 = setup at 5–8, 0 = none; the
+    side with the higher rank gives the phase, equal non-zero ranks are "mixed". Plus the **cloud position** (close above /
+    inside / below the Ichimoku cloud) and the **DeM I zone** (oversold / neutral / overbought at that study's defaults).
+  - *Volatility.* σ = square root of the mean squared log return: a simple mean over the first `volLength` returns, then
+    exponential with α = 2 ÷ (`volLength` + 1). A bar is usable once `volLength` returns exist.
+  - *Filing outcomes.* When bar i closes, it completes the h-bar move of bar i − h for h = 1…horizon. Each move,
+    z = ln(close i ÷ close i−h) ÷ σ at bar i−h, is added to the histograms (z ÷ √h in 160 bins of 0.05 over ±4) of bar i−h's
+    four keys: full state, phase + cloud, phase, all bars. At h = horizon that bar becomes a **case**. Cases at least a
+    horizon apart are counted as **non-overlapping**.
+  - *Forecast on bar i.* Use the finest key with ≥ `minSamples` cases of which ≥ `minIndependent` are non-overlapping;
+    otherwise all bars (needs `minSamples`). Read the 10/25/50/75/90% quantiles for each step, blend them with the all-bars
+    quantiles with weight n ÷ (n + `shrink`), n = non-overlapping cases, scale each band about the median by its width
+    factor, and convert to price: close × exp(z × σ at bar i).
+  - *Lean.* Up when the share of cases that closed higher exceeds the all-bars share by at least `edge` and by `confidence`
+    standard errors of a share on the non-overlapping cases, and is above half (down mirrored). A new lean fires
+    `CONE_BULL` / `CONE_BEAR`; a close outside the 80% range drawn at that signal (by more than one bin) fires
+    `CONE_BREAK_UP` / `CONE_BREAK_DOWN` once.
+  - *Scorecard.* Each forecast is scored against the close `horizon` bars later: inside the 80% and 50% bands or not,
+    quantile (pinball) loss of the matched forecast against the all-bars one, and whether a lean was right. Each score moves
+    the 80% width factor by `adapt` × 0.8 after a miss and −`adapt` × 0.2 after a hit (50% band: ±`adapt` × 0.5), clamped
+    to 0.5–3, so each band settles where it holds its target share.
+  - *Levels (when the cases lean).* From the matched state's 150 most recent cases: target = median best excursion (highs
+    for an up lean) within the horizon; stop = the nearest Sequential setup or countdown risk level on the losing side,
+    else the adverse excursion 80% of cases stayed inside. "First in" = share of cases reaching that level before the
+    other; a bar reaching both counts as stopped. Ghost candles (off by default) replay the case whose close-to-close path
+    is nearest the median path, rescaled to the current close and volatility.
+  - *No look-ahead.* An outcome is filed on the bar that completes it, and a case's whole horizon precedes the bar using it.
+    Per bar: `horizon` × 4 histogram increments and two quantile reads.
 
 Every study in this file must appear in the Studies dialog with Inputs generated from its Zod schema and documented ⚠ VERIFY knobs.

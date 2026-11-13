@@ -3,6 +3,13 @@
 ## Unreleased
 
 ### Added
+- **Forward Cone** (Studies → Meridian, in the default stack): the range of outcomes for the next 21 bars (8 / 13 / 34 as
+  presets), taken from what followed past bars in the same Sequential phase, cloud position and DeM I zone and scaled by
+  current volatility. Draws a median path with 50% and 80% bands past the last bar, target and stop lines with the share of
+  cases that reached each first when the cases lean, and optional ghost candles. Scores every forecast out of sample
+  (range coverage, gain over the all-bars forecast, lean calls) and corrects its own band width from those scores. The
+  DeMark Status panel reads it out in plain words. Signals: `CONE_BULL`, `CONE_BEAR`, `CONE_BREAK_UP`, `CONE_BREAK_DOWN`.
+  Engine: `studies/cone.ts`; rules in `INDICATORS.md` §8. Geometry gains `fans` and `ghosts`.
 - **Options overlay (theoretical)** for strategy mode: each stock trade becomes a call or put chosen by days to expiry
   (monthly or exact), strike by delta or moneyness, contracts or a premium budget; ask/bid execution, fees, time decay,
   realized-volatility-based IV that changes over the trade, and an earnings event premium that disappears after the report.

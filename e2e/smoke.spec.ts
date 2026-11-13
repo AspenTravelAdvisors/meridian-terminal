@@ -103,3 +103,17 @@ test('Renko box size: auto by default, fixed size from the chart-type menu', asy
   await expect(page.locator('[data-testid^="chart-"] canvas').first()).toBeVisible();
   expect(errs).toEqual([]);
 });
+
+test('Forward Cone: the status panel reads out the outcome range and its track record', async ({ page }) => {
+  const errs = errors(page);
+  const card = page.getByTestId('cone-card');
+  await expect(card).toBeVisible({ timeout: 20_000 });
+  await expect(card).toContainText('next 21 bars');
+  await expect(card).toContainText(/closed (higher|lower) 21 bars later/);
+  await expect(card).toContainText('Four in five');
+  await expect(card).toContainText('Track record on this chart');
+  await expect(card).toContainText(/On this chart the 80% range held/);
+  // the study is on the chart (legend row) as part of the default stack
+  await expect(page.locator('[data-testid^="chart-"]').first().locator('..')).toContainText('Cone');
+  expect(errs).toEqual([]);
+});
