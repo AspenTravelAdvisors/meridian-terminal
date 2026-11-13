@@ -1,5 +1,6 @@
 import type { AnyStudyDef, Category } from './core/types';
 import { confluence, consensus } from './studies/composite';
+import { forwardCone } from './studies/cone';
 import { exhaustionWindow, exhaustionZone } from './studies/exhaustion';
 import { combo } from './studies/demark/combo';
 import { dwave } from './studies/demark/dwave';
@@ -43,6 +44,7 @@ export const STUDIES: AnyStudyDef[] = [
   consensus,
   exhaustionZone,
   exhaustionWindow,
+  forwardCone,
   // Ichimoku
   ichimoku,
   // Standard library

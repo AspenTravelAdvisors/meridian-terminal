@@ -179,6 +179,32 @@ export interface Segment {
   extend?: boolean;
 }
 
+/**
+ * A forecast fan past bar `i0`: step k (0-based) is bar i0 + k + 1. Each band is the range that held `level` of the
+ * time among the cases behind it; `mid` is their median path. All arrays have one price per step.
+ */
+export interface Fan {
+  i0: number;
+  /** price the fan starts from (the close of bar i0) */
+  p0: number;
+  mid: number[];
+  /** widest band first */
+  bands: { level: number; lo: number[]; hi: number[] }[];
+  /** which way the cases lean versus all bars: 1 up, −1 down, 0 no lean */
+  dir: -1 | 0 | 1;
+  color: Color;
+  label?: string;
+}
+
+/** A candle drawn past the last bar as an illustration (never a bar of the series). */
+export interface GhostBar {
+  i: number;
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+}
+
 export interface Geometry {
   pivots?: Pivot[];
   polylineColor?: Color;
@@ -187,6 +213,10 @@ export interface Geometry {
   profiles?: VolumeProfile[];
   /** time markers that may lie in the future (index > last bar) */
   timeMarks?: { i: number; label: string; color?: Color }[];
+  /** forecast fans drawn past the last bar */
+  fans?: Fan[];
+  /** illustrative candles past the last bar */
+  ghosts?: GhostBar[];
 }
 
 export interface VolumeProfile {

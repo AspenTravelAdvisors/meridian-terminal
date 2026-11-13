@@ -32,3 +32,4 @@ export * from './signals/scan';
 export * from './signals/alerts';
 export * from './script/dsl';
 export { exhaustionZone, exhaustionWindow, bestBand, countdownEta } from './studies/exhaustion';
+export { forwardCone, coneSchema, type ConeCfg, histQuantiles, conePhase, coneKeys, CONE_BINS, CONE_BIN_WIDTH } from './studies/cone';
