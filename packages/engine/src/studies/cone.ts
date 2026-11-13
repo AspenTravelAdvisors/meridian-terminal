@@ -149,6 +149,12 @@ export const coneSchema = z.object({
     step: 0.01,
     description: 'The share of similar bars that closed higher must differ from the all-bars share by at least this much (0.10 = 10 points) to call a lean.',
   }),
+  adapt: num(0.02, 0, 0.2, {
+    title: 'Self-correcting width (step)',
+    group: 'Matching',
+    step: 0.005,
+    description: 'Each scored forecast nudges the band width: wider after a close outside the range, narrower after one inside, so the 80% range settles where it holds 80% of the time. 0 keeps the raw width.',
+  }),
   confidence: num(2, 0, 5, {
     title: 'Lean must also clear (standard errors)',
     group: 'Signals',
@@ -211,6 +217,9 @@ interface ConeState {
   pDir: Int8Array;
   /** scored forecasts: n, inside 80%, inside 50%, matched n, matched loss, all-bars loss, lean calls, lean calls right */
   score: Float64Array;
+  /** width factors of the 80% and 50% bands about the median, corrected by every scored forecast */
+  k80: number;
+  k50: number;
   now: ConeNow;
   prevDir: number;
   /** the 80% range drawn at the last lean signal, as log prices per step (i = −1: none) */
@@ -227,14 +236,24 @@ const S_LOSS_BASE = 5;
 const S_CALLS = 6;
 const S_HITS = 7;
 
+const K_MIN = 0.5;
+const K_MAX = 3;
+
+/** Scale the 80% and 50% bands (QS order) about their median by `k80` and `k50`, keeping the 50% band inside the 80% one. */
+function widen(q: number[], k80: number, k50: number): void {
+  const m = q[Q_MID];
+  q[Q_LO50] = m + k50 * (q[Q_LO50] - m);
+  q[Q_HI50] = m + k50 * (q[Q_HI50] - m);
+  q[Q_LO80] = Math.min(m + k80 * (q[Q_LO80] - m), q[Q_LO50]);
+  q[Q_HI80] = Math.max(m + k80 * (q[Q_HI80] - m), q[Q_HI50]);
+}
+
 /** Quantile (pinball) loss: the proper score for a quantile forecast. Lower is better. */
 const pinball = (y: number, q: number, p: number) => (y >= q ? p * (y - q) : (1 - p) * (q - y));
 
 // scratch (single-threaded; never stored in state)
 const Q: number[] = [0, 0, 0, 0, 0];
 const QB: number[] = [0, 0, 0, 0, 0];
-const Q2: number[] = [0, 0];
-const P_80 = [0.1, 0.9] as const;
 
 const L_FWD_HI = 0;
 const L_FWD_LO = 1;
@@ -308,6 +327,7 @@ function project(cfg: ConeCfg, st: ConeState, x: SeriesCtx): Projection | null {
       histQuantiles(hb, (k - 1) * CONE_BINS, QS, QB);
       for (let q = 0; q < 5; q++) Q[q] = wt * Q[q] + (1 - wt) * QB[q];
     }
+    widen(Q, st.k80, st.k50);
     const s = SQRT[k] * sg;
     lo80.push(c * Math.exp(Q[Q_LO80] * s));
     lo50.push(c * Math.exp(Q[Q_LO50] * s));
@@ -317,7 +337,8 @@ function project(cfg: ConeCfg, st: ConeState, x: SeriesCtx): Projection | null {
     midZ[k - 1] = Q[Q_MID] * SQRT[k];
   }
   const dir = now.dir as -1 | 0 | 1;
-  const label = `${H} bars: ${pct(now.pUp)} up · median ${signed(ret(now.z[Q_MID], sg))} · 80%: ${signed(ret(now.z[Q_LO80], sg))} to ${signed(ret(now.z[Q_HI80], sg))} · n=${now.n}`;
+  // short on purpose: the chart prints the median and range ends at the fan's right edge
+  const label = `Next ${H} bars · ${dir > 0 ? 'leans up · ' : dir < 0 ? 'leans down · ' : ''}${pct(dir < 0 ? 1 - now.pUp : now.pUp)} closed ${dir < 0 ? 'lower' : 'higher'}`;
   const fan: Fan = {
     i0,
     p0: c,
@@ -479,6 +500,8 @@ export const forwardCone = defineStudy(coneSchema, {
       pOk: new Int8Array(H),
       pDir: new Int8Array(H),
       score: new Float64Array(8),
+      k80: 1,
+      k50: 1,
       now: { ok: false, key: BASE, level: 3, n: 0, independent: 0, weight: 1, pUp: NaN, baseUp: NaN, z: [NaN, NaN, NaN, NaN, NaN], dir: 0, sigma: NaN, phase: 0, trend: 1, mom: 1 },
       prevDir: 0,
       anchor: { i: -1, dir: 0, sigma: NaN, lo: new Float64Array(H), hi: new Float64Array(H) },
@@ -558,9 +581,17 @@ export const forwardCone = defineStudy(coneSchema, {
       const jsH = slot + 1 === M ? 0 : slot + 1;
       const zr = (ln - st.rLn[jsH]) / st.rSig[jsH];
       const o = 10 * ps;
+      const in80 = zr >= st.pQ[o + Q_LO80] && zr <= st.pQ[o + Q_HI80];
+      const in50 = zr >= st.pQ[o + Q_LO50] && zr <= st.pQ[o + Q_HI50];
       sc[S_N]++;
-      if (zr >= st.pQ[o + Q_LO80] && zr <= st.pQ[o + Q_HI80]) sc[S_IN80]++;
-      if (zr >= st.pQ[o + Q_LO50] && zr <= st.pQ[o + Q_HI50]) sc[S_IN50]++;
+      if (in80) sc[S_IN80]++;
+      if (in50) sc[S_IN50]++;
+      // a miss widens the band by (target coverage) × step, a hit narrows it by (1 − target) × step: the width is at
+      // rest exactly when the band holds its target share of the time
+      if (cfg.adapt > 0) {
+        st.k80 = Math.min(K_MAX, Math.max(K_MIN, st.k80 + cfg.adapt * (in80 ? -0.2 : 0.8)));
+        st.k50 = Math.min(K_MAX, Math.max(K_MIN, st.k50 + cfg.adapt * (in50 ? -0.5 : 0.5)));
+      }
       if (st.pOk[ps] <= 3) {
         sc[S_NCOND]++;
         for (let q = 0; q < 5; q++) {
@@ -606,11 +637,15 @@ export const forwardCone = defineStudy(coneSchema, {
         // few independent cases say little: blend the matched range with the all-bars range in proportion to the evidence
         const wt = level < 3 ? ind[key] / (ind[key] + cfg.shrink) : 1;
         const o = 10 * ps;
+        if (level === 3) for (let q = 0; q < 5; q++) QB[q] = Q[q];
+        else for (let q = 0; q < 5; q++) Q[q] = wt * Q[q] + (1 - wt) * QB[q];
+        // both forecasts get the same width correction, so the score compares the matching alone
+        widen(Q, st.k80, st.k50);
+        widen(QB, st.k80, st.k50);
         for (let q = 0; q < 5; q++) {
-          const base = level < 3 ? QB[q] : Q[q];
-          now.z[q] = (wt * Q[q] + (1 - wt) * base) * sH;
+          now.z[q] = Q[q] * sH;
           st.pQ[o + q] = now.z[q];
-          st.pQ[o + 5 + q] = base * sH;
+          st.pQ[o + 5 + q] = QB[q] * sH;
         }
         const pUp = st.up[key] / cnt[key];
         const baseUp = st.up[BASE] / cnt[BASE];
@@ -667,10 +702,12 @@ export const forwardCone = defineStudy(coneSchema, {
       const hk = st.hist[now.key]!;
       const hb = st.hist[BASE]!;
       for (let k = 1; k <= H; k++) {
-        histQuantiles(hk, (k - 1) * CONE_BINS, P_80, Q2);
-        histQuantiles(hb, (k - 1) * CONE_BINS, P_80, QB);
-        an.lo[k - 1] = ln + (now.weight * Q2[0] + (1 - now.weight) * QB[0]) * SQRT[k] * sigma;
-        an.hi[k - 1] = ln + (now.weight * Q2[1] + (1 - now.weight) * QB[1]) * SQRT[k] * sigma;
+        histQuantiles(hk, (k - 1) * CONE_BINS, QS, Q);
+        histQuantiles(hb, (k - 1) * CONE_BINS, QS, QB);
+        for (let q = 0; q < 5; q++) Q[q] = now.weight * Q[q] + (1 - now.weight) * QB[q];
+        widen(Q, st.k80, st.k50);
+        an.lo[k - 1] = ln + Q[Q_LO80] * SQRT[k] * sigma;
+        an.hi[k - 1] = ln + Q[Q_HI80] * SQRT[k] * sigma;
       }
       an.i = i;
       an.dir = now.dir;
@@ -724,6 +761,8 @@ export const forwardCone = defineStudy(coneSchema, {
       skill: sc[S_LOSS_BASE] > 0 ? 1 - sc[S_LOSS] / sc[S_LOSS_BASE] : null,
       calls: sc[S_CALLS],
       callHitRate: sc[S_CALLS] > 0 ? sc[S_HITS] / sc[S_CALLS] : null,
+      widen80: st.k80,
+      widen50: st.k50,
     };
     if (!now.ok) return { chips: [], values: { horizon: H, ...scoreValues } };
     const sg = now.sigma;

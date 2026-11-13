@@ -98,8 +98,9 @@ describe('Forward Cone — warm-up', () => {
 describe('Forward Cone — learns what the matched state reveals (alternating fixture)', () => {
   const N = 400; // last bar 399 is a high bar; bar 398 a low bar
   const bars = alternating(N);
-  // shrink 0: the matched cases alone, so the hand-computed values are exact (blending is tested separately)
-  const exact = { shrink: 0 };
+  // shrink 0 and adapt 0: the matched cases alone at their raw width, so the hand-computed values are exact
+  // (blending and the self-correcting width are tested separately)
+  const exact = { shrink: 0, adapt: 0 };
   const r = run(bars, exact);
 
   it('high bars: no similar bar ever closed higher 21 bars on; low bars: all did', () => {
@@ -149,7 +150,7 @@ describe('Forward Cone — learns what the matched state reveals (alternating fi
 
   it('blends toward the all-bars range while independent cases are few (shrink > 0)', () => {
     const a = values(bars, exact);
-    const b = values(bars, { shrink: 10 });
+    const b = values(bars, { shrink: 10, adapt: 0 });
     const n = a.independent as number;
     expect(b.weight as number).toBeCloseTo(n / (n + 10), 12);
     expect(a.weight).toBe(1);
@@ -218,11 +219,13 @@ describe('Forward Cone — learns what the matched state reveals (alternating fi
 
 describe('Forward Cone — price leaving the range drawn at a signal', () => {
   it('signals a close below the 80% range; ordinary bars inside it stay quiet', () => {
+    // the matched cases at their raw width: every case moved identically, so the range is one histogram bin wide
+    const exact = { shrink: 0, adapt: 0 };
     const bars = alternating(301); // bar 300 is a low bar with a bullish lean
-    const quiet = run(bars);
+    const quiet = run(bars, exact);
     expect(quiet.signals.filter((s) => s.id.startsWith('CONE_BREAK'))).toEqual([]);
     const crash: Bar = { t: bars[300].t + 86_400_000, o: 100, h: 100.5, l: 79.5, c: 80, v: 1 };
-    const r = run([...bars, crash]);
+    const r = run([...bars, crash], exact);
     const br = r.signals.filter((s) => s.id.startsWith('CONE_BREAK'));
     expect(br.map((s) => `${s.i}|${s.id}|${s.dir}`)).toEqual(['301|CONE_BREAK_DOWN|bear']);
   });
@@ -239,12 +242,50 @@ describe('Forward Cone — a lean needs evidence', () => {
   });
 });
 
+describe('Forward Cone — self-correcting width', () => {
+  it('moves the 80% and 50% coverage toward their targets', () => {
+    for (const seed of [7, 42, 99]) {
+      const bars = randomWalk(4000, seed);
+      const raw = values(bars, { adapt: 0 });
+      const adj = values(bars);
+      expect(raw.widen80).toBe(1);
+      expect(Math.abs((adj.cover80 as number) - 0.8)).toBeLessThanOrEqual(Math.abs((raw.cover80 as number) - 0.8) + 0.005);
+      expect(adj.cover80 as number).toBeGreaterThan(0.77);
+      expect(adj.cover80 as number).toBeLessThan(0.83);
+      expect(adj.cover50 as number).toBeGreaterThan(0.46);
+      expect(adj.cover50 as number).toBeLessThan(0.54);
+    }
+  });
+
+  it('widens a range that kept missing: the factor rises above 1 and the fan is wider', () => {
+    // this walk under-covers at its raw width (77%)
+    const bars = randomWalk(6000, 42);
+    const raw = run(bars, { adapt: 0 });
+    const adj = run(bars);
+    expect((raw.status!.values as Record<string, number>).cover80).toBeLessThan(0.79);
+    expect((adj.status!.values as Record<string, number>).widen80).toBeGreaterThan(1);
+    const w = (r: typeof raw) => {
+      const f = (r.geometry.fans as Fan[])[0];
+      return f.bands[0].hi[20] - f.bands[0].lo[20];
+    };
+    expect(w(adj)).toBeGreaterThan(w(raw));
+  });
+
+  it('keeps the bands nested whatever the two factors are', () => {
+    const fan = (run(randomWalk(3000, 99)).geometry.fans as Fan[])[0];
+    for (let k = 0; k < 21; k++) {
+      expect(fan.bands[0].lo[k]).toBeLessThanOrEqual(fan.bands[1].lo[k]);
+      expect(fan.bands[1].hi[k]).toBeLessThanOrEqual(fan.bands[0].hi[k]);
+    }
+  });
+});
+
 describe('Forward Cone — calibration on a random walk', () => {
   const bars = randomWalk(4000, 7);
-  const r = run(bars);
+  const r = run(bars, { adapt: 0 });
   const v = r.status!.values as Record<string, number | string | null>;
 
-  it('the 80% range held close to 80% of the time, the 50% range close to half', () => {
+  it('at its raw width the 80% range held close to 80% of the time, the 50% range close to half', () => {
     expect(v.scored as number).toBeGreaterThan(3000);
     expect(v.cover80 as number).toBeGreaterThan(0.7);
     expect(v.cover80 as number).toBeLessThan(0.9);
@@ -253,7 +294,7 @@ describe('Forward Cone — calibration on a random walk', () => {
   });
 
   it('is deterministic: the same bars give identical output', () => {
-    const again = run(bars);
+    const again = run(bars, { adapt: 0 });
     expect(again.status).toEqual(r.status);
     expect(again.geometry).toEqual(r.geometry);
     for (const id of Object.keys(r.lines)) expect(Array.from(again.lines[id])).toEqual(Array.from(r.lines[id]));
@@ -268,7 +309,8 @@ describe('Forward Cone — calibration on a random walk', () => {
 
   it('a cut-off series forecasts exactly what the full run did on that bar', () => {
     const cut = 2500;
+    const full = run(bars);
     const pre = run(bars.slice(0, cut));
-    for (const id of Object.keys(pre.lines)) for (let i = 0; i < cut; i++) expect(Object.is(pre.lines[id][i], r.lines[id][i]) || (Number.isNaN(pre.lines[id][i]) && Number.isNaN(r.lines[id][i]))).toBe(true);
+    for (const id of Object.keys(pre.lines)) for (let i = 0; i < cut; i++) expect(Object.is(pre.lines[id][i], full.lines[id][i]) || (Number.isNaN(pre.lines[id][i]) && Number.isNaN(full.lines[id][i]))).toBe(true);
   });
 });
