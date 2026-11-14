@@ -1,4 +1,4 @@
-import { type AdjustMode, type BarsResponse, type Interval, type Quote, type SymbolInfo, type WireBar, fromWire, parseSymbol, simBars, simInfo } from '@meridian/data';
+import { type AdjustMode, type BarsResponse, type Interval, type Quote, type SymbolInfo, type WireBar, fromWire, isExpression, parseSymbol, simBars, simInfo } from '@meridian/data';
 import type { Bar } from '@meridian/engine';
 
 export class ApiError extends Error {
@@ -57,7 +57,7 @@ export async function fetchBarsClient(symbol: string, interval: Interval, opts: 
     return { ...j, bars: j.bars.map(fromWire) };
   } catch (e) {
     const p = parseSymbol(symbol);
-    if (p.provider === 'sim' && e instanceof ApiError && (e.status === 0 || e.status === 404 || e.status >= 500)) {
+    if (p.provider === 'sim' && !isExpression(symbol) && e instanceof ApiError && (e.status === 0 || e.status === 404 || e.status >= 500)) {
       const bars = simBars(p.ticker, interval, Date.now(), opts.to, opts.limit ?? 1500);
       return { symbol: p.canonical, interval, provider: 'sim', info: simInfo(p.ticker), bars, events: { splits: [], dividends: [] }, adjust: 'split', simulated: true, hasMore: bars.length > 0, local: true };
     }

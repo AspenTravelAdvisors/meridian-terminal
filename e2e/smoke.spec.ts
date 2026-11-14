@@ -117,3 +117,18 @@ test('Forward Cone: the status panel reads out the outcome range and its track r
   await expect(page.locator('[data-testid^="chart-"]').first().locator('..')).toContainText('Cone');
   expect(errs).toEqual([]);
 });
+
+test('ratio chart: a typed expression charts one symbol divided by another, with studies', async ({ page }) => {
+  const errs = errors(page);
+  await page.getByRole('button', { name: 'Symbol search' }).first().click();
+  await page.getByLabel('Search symbols').fill('sim:demo / sim:trend');
+  await expect(page.getByRole('option', { name: /SIM:DEMO\/SIM:TREND/ })).toBeVisible();
+  await page.getByLabel('Search symbols').press('Enter');
+  await expect(page.getByText('Expression', { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('SIM:DEMO/SIM:TREND · DeMark-style status', { exact: false })).toBeVisible();
+  // the crypto reading of a typed pair is offered first
+  await page.getByRole('button', { name: 'Symbol search' }).first().click();
+  await page.getByLabel('Search symbols').fill('eth/btc');
+  await expect(page.getByRole('option').first()).toContainText('BINANCE:ETHBTC');
+  expect(errs).toEqual([]);
+});

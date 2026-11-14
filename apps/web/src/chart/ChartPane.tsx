@@ -1,4 +1,4 @@
-import { INTERVAL_MS, type Interval, autoBox, heikinAshi, parseSymbol, rangeBars, renko } from '@meridian/data';
+import { INTERVAL_MS, type Interval, autoBox, heikinAshi, isExpression, parseSymbol, rangeBars, renko } from '@meridian/data';
 import { type Bar, type InspectRow, type StudyResult, getStudy, volumeProfileBars } from '@meridian/engine';
 import { LINK_COLORS, type LinkGroup, palette } from '@meridian/ui';
 import type { IChartApi, ISeriesApi, Logical, MouseEventParams, SeriesType, Time } from 'lightweight-charts';
@@ -480,6 +480,7 @@ function ChartSurface(p: SurfaceProps) {
       const range = ts.getVisibleLogicalRange();
       const prior = views.get(pane.id) ?? null;
       s.setData(d as never);
+      if (display.length) s.applyOptions({ priceFormat: priceFormatFor(display) });
       // a different series: dragging a price axis turns its auto-scale off, which would keep the old symbol's price range
       if (prev.key !== seriesKey) for (let k = 0; k < chart.panes().length; k++) chart.priceScale('right', k).applyOptions({ autoScale: true });
       if (d.length) {
@@ -629,6 +630,13 @@ function ChartSurface(p: SurfaceProps) {
       {!p.solo && <LinkDot pane={pane} />}
     </div>
   );
+}
+
+/** Axis precision from the price level: 2 decimals from 1 up, more below (a 0.003 ratio would otherwise read 0.00). */
+export function priceFormatFor(bars: readonly Bar[]): { type: 'price'; precision: number; minMove: number } {
+  const ref = Math.abs(bars[bars.length - 1]?.c ?? 1);
+  const precision = !(ref > 0) || ref >= 1 ? 2 : Math.min(8, Math.ceil(-Math.log10(ref)) + 3);
+  return { type: 'price', precision, minMove: 10 ** -precision };
 }
 
 function useCompare(chartRef: React.RefObject<IChartApi | null>, pane: PaneConfig, tm: TimeMap, display: Bar[]) {
@@ -794,6 +802,7 @@ function Legend({ surface: p, i, paneTops }: { surface: SurfaceProps; i: number;
           <span className="font-semibold text-text">{p.pane.symbol}</span>
           <span className="text-dim">{p.pane.interval}</span>
           <span className="hidden truncate text-faint sm:inline">{p.name !== p.pane.symbol ? p.name : ''}</span>
+          {isExpression(p.pane.symbol) && <span className="rounded bg-accent/15 px-1 text-[9px] font-semibold uppercase tracking-wide text-accent" title="Computed from other symbols. The first symbol sets the bar times; open, high, low and close are combined field by field; there is no volume.">Expression</span>}
           {p.simulated && <span className="rounded bg-warn/20 px-1 text-[9px] font-semibold uppercase tracking-wide text-warn" title="Deterministic simulated data — not market prices">Simulated</span>}
           {p.live !== 'off' && <span className="flex items-center gap-0.5 text-[10px] text-ok" title={p.live === 'stream' ? 'Live stream' : 'Live (polling)'}><Radio className="size-3" />{p.live}</span>}
           {p.replayActive && <span className="rounded bg-accent/20 px-1 text-[9px] font-semibold uppercase text-accent">Replay</span>}

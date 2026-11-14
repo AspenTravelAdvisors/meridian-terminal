@@ -62,7 +62,7 @@ export function WatchlistPanel() {
                   <td className="max-w-28 truncate font-medium">
                     {/* the row is clickable for the mouse; this button makes it reachable by keyboard and touch AT */}
                     <button className="w-full truncate text-left" aria-label={`Open ${s}`}>
-                      {s.replace(/^BINANCE:/, '')}
+                      {s.replace(/BINANCE:/g, '')}
                       {parseSymbol(s).provider === 'sim' && <span className="ml-1 text-[9px] text-warn">SIM</span>}
                     </button>
                   </td>

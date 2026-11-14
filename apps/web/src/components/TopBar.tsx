@@ -91,7 +91,7 @@ export function TopBar() {
       <button className="btn min-w-28 justify-between font-semibold" onClick={() => ui.set({ symbolSearch: { open: true, initial: '', target: 'pane' } })} aria-label="Symbol search" title="Symbol search (just start typing)">
         <span className="flex items-center gap-1.5">
           <Search className="size-3.5 text-dim" />
-          {pane.symbol}
+          <span className="max-w-56 truncate">{pane.symbol}</span>
         </span>
       </button>
       <Tooltip content="Compare / overlay another symbol">

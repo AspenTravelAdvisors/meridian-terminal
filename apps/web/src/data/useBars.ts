@@ -1,4 +1,4 @@
-import { type AdjustMode, INTERVAL_MS, type Interval, type SymbolInfo, isOpen, mergeBars, parseSymbol } from '@meridian/data';
+import { type AdjustMode, INTERVAL_MS, type Interval, type SymbolInfo, isExpression, isOpen, mergeBars, parseSymbol } from '@meridian/data';
 import type { Bar } from '@meridian/engine';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -98,8 +98,10 @@ export function useBars(symbol: string, interval: Interval, adjust: AdjustMode, 
   // live updates: Binance WebSocket for crypto, polling otherwise (only while the market is open)
   useEffect(() => {
     if (!enabled || !live || st.status !== 'ready') return;
+    // an expression polls its combined bars; only a single Binance symbol can stream
+    const expr = isExpression(symbol);
     const p = parseSymbol(symbol);
-    const sim = p.provider === 'sim';
+    const sim = !expr && p.provider === 'sim';
     let ws: WebSocket | null = null;
     let timer: ReturnType<typeof setInterval> | null = null;
     let stopped = false;
@@ -126,7 +128,7 @@ export function useBars(symbol: string, interval: Interval, adjust: AdjustMode, 
       timer = setInterval(tick, pollMs(interval, sim));
     };
     const biv = BINANCE_IV[interval];
-    if (p.provider === 'binance' && biv && typeof WebSocket !== 'undefined') {
+    if (!expr && p.provider === 'binance' && biv && typeof WebSocket !== 'undefined') {
       try {
         ws = new WebSocket(`wss://data-stream.binance.vision/ws/${p.ticker.toLowerCase()}@kline_${biv}`);
         ws.onopen = () => patch(key, (s) => ({ ...s, live: 'stream' }));
