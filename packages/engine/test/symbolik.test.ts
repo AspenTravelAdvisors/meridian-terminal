@@ -52,6 +52,35 @@ describe('Setup perfection is strict', () => {
   });
 });
 
+describe('Deferred perfection survives an opposite flip', () => {
+  /**
+   * Mirrors VERIFY_LOG note 6(c) / Symbolik SPX 2018: hollow buy 9, bullish flip, then a later low still prints P.
+   * thr = min(L6, L7) = 110. Bar 17 extends the setup with L ≥ thr; bar 18 is the bullish flip (C17 < C13, C18 > C14)
+   * with L ≥ thr; bar 19 undercuts thr → deferred perfection.
+   */
+  const head = barsFromCloses(up([10, 11, 12, 13, 14, 15, 14.5, 14, 13.5, 13, 12.5, 12, 11.5, 11, 10.5, 10.5, 10.6]));
+  const t0 = head[0].t;
+  const day = 86_400_000;
+  const bars: Bar[] = [
+    ...head,
+    { t: t0 + 17 * day, o: 110.6, h: 111.0, l: 110.6, c: 110.9, v: 1000 },
+    { t: t0 + 18 * day, o: 110.9, h: 112.5, l: 110.6, c: 112.0, v: 1000 },
+    { t: t0 + 19 * day, o: 112.0, h: 112.2, l: 109.0, c: 109.2, v: 1000 },
+  ];
+
+  it('default: perfection arrow on the post-flip bar', () => {
+    const r = computeStudy(sequential, SEQ, bars);
+    expect(r.markers.find((m) => m.i === 16 && m.text === '9')?.style).toBe('hollow');
+    expect(ids(r, 'SEQ_BUY_SETUP_PERFECTED')).toEqual([19]);
+    expect(r.signals.find((s) => s.id === 'SEQ_BUY_SETUP_PERFECTED' && s.i === 19)?.label).toBe('deferred');
+  });
+
+  it('cancelDeferredOnFlip restores the old clear-on-flip behaviour', () => {
+    const r = computeStudy(sequential, resolveConfig(sequential, { cancelDeferredOnFlip: true }), bars);
+    expect(ids(r, 'SEQ_BUY_SETUP_PERFECTED')).toEqual([]);
+  });
+});
+
 describe('Recycling — 100%–200% size test and the 22-bar long setup', () => {
   it('the setup that started the countdown running to 22 does not recycle it', () => {
     // One unbroken decline: setup from bar 8 reaches 22 on bar 29 while a 30-bar countdown is still running.

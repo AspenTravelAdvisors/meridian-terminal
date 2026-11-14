@@ -36,6 +36,13 @@ export const sequentialSchema = z.object({
     group: 'Display',
     description: 'Keep the numbers of a setup that resets before 9. Off: only completed setups and the one in progress are numbered.',
   }),
+  cancelDeferredOnFlip: bool(false, {
+    title: 'Cancel deferred perfection on flip',
+    group: 'Setup',
+    description:
+      'Off (default): a pending perfection arrow can still fire after an opposite flip (Symbolik SPX 2018 reference). On: any flip clears the pending test.',
+    verify: 'INDICATORS §1.3 / VERIFY_LOG note 6(c)',
+  }),
   showCountdown: bool(true, { title: 'Show countdown', group: 'Display' }),
   showTdst: bool(true, { title: 'Show TDST levels', group: 'Display' }),
   showRisk: bool(true, { title: 'Show risk levels', group: 'Display' }),
@@ -184,9 +191,10 @@ export function sequentialStep(
     if (emit.markers && cfg.showSetup && cnt > 0 && cnt !== cfg.setupLength && (cnt < cfg.setupLength || cfg.showSetupExtension)) w.line(LBL_SETUP, -s * cnt);
     if (step.flip && cfg.emitFlips) w.signal(`${P}_${s > 0 ? 'BEARISH' : 'BULLISH'}_FLIP`, 'neutral', x.c[i]);
 
-    // Deferred perfection: cancelled by any intervening flip or new setup completion (INDICATORS §1.3).
-    if (Number.isFinite(side.su.perfThr) && (anyFlip || anyCompleted)) side.su.perfThr = NaN;
-    if (Number.isFinite(side.su.perfThr) && mL(x, s, i) <= side.su.perfThr) {
+    // Deferred perfection: cancelled by a new setup completion (either side). Flips do not cancel by default
+    // (VERIFY_LOG note 6(c) / Symbolik SPX 2018-04-02). Optional cancelDeferredOnFlip restores the old rule.
+    if (Number.isFinite(side.su.perfThr) && (anyCompleted || (cfg.cancelDeferredOnFlip && anyFlip))) side.su.perfThr = NaN;
+    if (Number.isFinite(side.su.perfThr) && mL(x, s, i) < side.su.perfThr) {
       side.su.perfThr = NaN;
       w.signal(`${P}_${name}_SETUP_PERFECTED`, dir, x.c[i], 'deferred');
       if (emit.markers && cfg.showSetup) w.marker({ i, text: 'P', pos, color: s > 0 ? 'bull' : 'bear', row: emit.row + 2, size: 1, tooltip: 'Deferred perfection' });
@@ -421,6 +429,7 @@ export const sequential: StudyDef<SequentialCfg, SequentialState> = {
     { key: 'requireIntersection', note: 'INDICATORS §1.5' },
     { key: 'intersectionScope', note: 'INDICATORS §1.5' },
     { key: 'cd8Qualifier', note: 'INDICATORS §1.5' },
+    { key: 'cancelDeferredOnFlip', note: 'INDICATORS §1.3 / VERIFY_LOG note 6(c)' },
   ],
   outputs: (cfg) => [
     { kind: 'line', id: 'tdst_res', title: 'TDST resistance', color: 'bear', render: 'level', width: 1, style: 'solid', label: 'TDST' },

@@ -160,7 +160,8 @@ the count. **Setup 9** (`Seq BUY SETUP 9`) means the decline has been persistent
 move is over*.
 
 **Perfection.** A buy 9 is *perfected* when the low of bar 8 or 9 undercuts the lows of bars 6 and 7. An unperfected 9 is
-drawn differently and can perfect later. A perfected 9 shows the sellers actually pushed into new lows at the end.
+drawn differently and can perfect later — even after an opposite price flip — until a new setup completes. A perfected 9
+shows the sellers actually pushed into new lows at the end.
 
 **TDST levels.** A completed buy setup draws **TDST resistance** at the highest true high of its nine bars. A completed sell
 setup draws **TDST support** at its lowest true low. Each level is drawn from the completed setup until the next same-direction

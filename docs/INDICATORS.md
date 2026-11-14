@@ -34,7 +34,10 @@ disagree or details are uncertain. Every ⚠ VERIFY parameter must be a config i
 ### 1.3 Perfection [HIGH]
 - A Buy Setup is **perfected** if `L[8] < min(L[6], L[7])` or `L[9] < min(L[6], L[7])` (setup-bar numbering). Strict: a tie
   does not perfect (Symbolik, 2026-10-27).
-- If not perfected at 9, it stays "unperfected" until a later bar's low satisfies the condition (deferred perfection), unless a new setup or flip intervenes. Render unperfected 9s with a distinct style. Signal `SEQ_BUY_SETUP_PERFECTED`.
+- If not perfected at 9, it stays "unperfected" until a later bar's low satisfies the condition (deferred perfection),
+  unless a **new setup completes** in either direction. An opposite **flip alone does not cancel** the pending test
+  (Symbolik SPX 2018 reference, VERIFY_LOG note 6(c); config `cancelDeferredOnFlip`, default off). Render unperfected 9s
+  with a distinct style. Signal `SEQ_BUY_SETUP_PERFECTED`.
 
 ### 1.4 TDST levels [HIGH; ⚠ VERIFY break qualifier]
 - After a completed **Buy Setup**: **TDST Resistance** = the highest True High of setup bars 1–9 (confirmed against Symbolik).

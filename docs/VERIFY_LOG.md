@@ -10,12 +10,13 @@ existed.
 | Date | Study | Rule / parameter | Default implemented | Pinned test | Reference checked | Status |
 |---|---|---|---|---|---|---|
 | 2026-10-27 | DeMark-style Sequential | TDST mode (`tdstMode`) | `allSetupBars` (highest true high / lowest true low of setup bars 1–9); `bar1TrueExtreme` option | `sequential.test.ts` › sets TDST resistance…(14.5); `demark.test.ts` › bar1TrueExtreme TDST uses only setup bar 1 | Symbolik help ¹ ² | **confirmed** — TDST is the highest true high / lowest true low of the whole completed setup |
-| 2026-10-27 | DeMark-style Sequential | TDST break qualifier (`tdstBreakQualifier`) | off | `verify.test.ts` | Symbolik descriptions ² | open — reference marks TDST qualified/disqualified when breakout qualifiers are on; exact qualifier not given |
+| 2026-10-27 | DeMark-style Sequential | TDST break qualifier (`tdstBreakQualifier`) | off | `verify.test.ts` | Symbolik help ¹ (2026-11-14 re-read) | open — public Sequential article applies breakout qualifiers to whether a *completed* signal stays intact (risk), not to TDST cancel; exact Q1–Q3 mapping to TDST break signals still not given |
 | 2026-10-27 | DeMark-style Sequential | CD13 qualifier (`cd13Qualifier`) | `low_vs_cd8_close` (bar 13 low ≤ close of CD bar 8, else deferred "+") | `sequential.test.ts` › defers bar 13 with "+"… | Symbolik help ¹ ² | **confirmed** — buy 13 low ≤ CD8 close (sell: high ≥), "+" on deferral |
 | 2026-10-27 | DeMark-style Sequential / Combo | Cancellation (`cancelOnOppositeSetup`, `cancelOnTdstBreak`, `tdstCancelTest`) | on / on / **`trueExtreme`** (buy: true low above TDST resistance) | `symbolik.test.ts` › TDST cancellation uses the whole bar; Sequential oracle | Symbolik help ¹ ² | **fixed** — was `close`; `close` stays an option |
 | 2026-10-27 | DeMark-style Sequential | Intersection (`requireIntersection`, `intersectionScope`) | off / `anyLaterBar` — when on, *postpones* the countdown start until a bar's high reaches the low of a setup bar ≥ 3 bars earlier | `symbolik.test.ts` › elective intersection postpones the countdown start | Symbolik help ¹ ² | **fixed** — replaces `cancelOnIntersectionFailure` (which blocked the countdown and tested bars 8–9 vs 1–3 only). Removed from Combo (Sequential-only per reference). Extension bars count as setup bars while waiting (reference chart, note 6). ⚠ open: whether non-setup bars may confirm (`intersectionScope`) |
 | 2026-10-27 | DeMark-style Sequential / Combo | Recycling (`recycleFactor`, `recycleMode`, `recycleOnLongSetup`, `recycleSetupCount`) | **2.0** (100–200%), `size`, **on**, **22** | `symbolik.test.ts` › Recycling…; Sequential oracle | Symbolik help ¹ ² | **fixed** — was 1.618 and an off-by-default 18-bar toggle; the long-setup rule only applies to a *later* setup |
 | 2026-10-27 | DeMark-style Sequential / Combo | Perfection test | buy: bar 8 or 9 low **<** min(bar 6, bar 7 low) | `symbolik.test.ts` › a tie with bars 6–7 does not perfect the 9 | Symbolik descriptions ² | **fixed** — was ≤ |
+| 2026-11-14 | DeMark-style Sequential | Deferred perfection vs flip (`cancelDeferredOnFlip`) | **off** — pending perfection survives an opposite flip; cleared only by a new setup completion | `symbolik.test.ts` › Deferred perfection survives…; `verify.test.ts` | Symbolik SPX 2018 chart (note 6c) + Yahoo `^GSPC` replay | **fixed** — was cancel-on-flip; `cancelDeferredOnFlip` keeps the old rule |
 | 2026-10-27 | DeMark-style Sequential | 8-vs-5 deferral (`cd8Qualifier`) | off (elective): would-be 8 needs low ≤ CD5 close, else "+" | `symbolik.test.ts` › elective 8-vs-5 deferral | Symbolik help ¹ ² | **added** |
 | 2026-10-27 | DeMark-style Sequential / Combo | 12-bar rule (`reactionBars`) | 12 — the 13 status chip stays up for 12 bars | `symbolik.test.ts` › 12-bar reaction window | Symbolik help ¹ ² | **added** |
 | 2026-10-27 | DeMark-style Combo | Version 2 threshold (`v2From`) | bar 11+ (only a lower close than the previous countdown bar) | `demark.test.ts` › v2 relaxes the rules from countdown 11 | Symbolik descriptions ² | **confirmed** — v1 keeps the same rules throughout (our `strict`); v2 relaxes bars 11–13; the default v2 variant compares closes |
@@ -75,14 +76,14 @@ existed.
      setup run's extension bars (`symbolik.test.ts` › setup extension bars…).
    - **Still open, not changed:**
      - (a) NVDA: after "+" on 07-10 the vendor prints 13 on 07-11, whose close (127.40) is below the high two bars
-       earlier (133.82). Only the 13-vs-8 test passes there.
+       earlier (133.82). Only the 13-vs-8 test passes there. See note 8 for the 2026-11-14 Yahoo replay.
      - (b) SPX 2011-10-04 Combo 13 (close 1123.95 above the prior close and the prior countdown close): neither `strict`
-       nor `v2` produces it.
-     - (c) SPX 2018: an arrow on 04-02 for the 03-27 buy setup, despite a flip on 03-29 (deferred perfection survives a
-       flip).
+       nor `v2` produces it. See note 8.
+     - (c) ~~SPX 2018 deferred perfection vs flip~~ — **fixed 2026-11-14** (see table row and note 8).
      - (d) Display: the vendor hides failed setups (done 2026-10-29: `showFailedSetups`, default off) and counts past 9, removes cancelled or recycled countdown numbers, and
-       draws a Combo countdown risk level (≈ 1024 on SPX 2011 = 1074.77 − true range 50.35).
-     The fixtures leave these cells blank.
+       draws a Combo countdown risk level (≈ 1024 on SPX 2011 = 1074.77 − true range 50.35). Combo still does not emit that
+       countdown-risk line (Sequential does).
+     The fixtures leave the still-open cells blank.
 7. **Reference-chart check, D-Wave (2026-10-29).** Brian sent a Symbolik chart of BTC-USD 4H, Sep 12–Oct 29 2026, next to
    Meridian's. Meridian's chart was reproduced from Coinbase 1H candles grouped into UTC 4H bars.
    - **Down-sequence passes label for label:** 0 87,397 (09-21), 1 82,709 (09-24), 2 87,249 (10-02), 3 80,315 (10-08),
@@ -93,3 +94,19 @@ existed.
    - **Still open:** the vendor draws the earlier down-sequence's C at the 09-21 peak (87,397). Meridian locks C at 82,087 on
      the first bar past wave A, and the rest of the rally becomes the next sequence's 0. The vendor also shows both
      directions at once; Meridian's `direction: auto` shows one.
+8. **Open-item replay (2026-11-14).** Public Yahoo OHLC (no vendor charts) against note 6(a)(b)(c) and the public Symbolik
+   help centre (re-read 2026-11-14):
+   - **(c) SPX 2018 — fixed.** Yahoo `^GSPC` daily: setup 9 on 03-27 (hollow; thr = min(L 03-22, L 03-23) ≈ 2585.89),
+     bullish flip on 03-29, L on 04-02 ≈ 2553.80 under the threshold. Default no longer clears pending perfection on flip;
+     `cancelDeferredOnFlip` restores the old rule.
+   - **(a) NVDA 2024 — still open.** Split-adjusted Yahoo matches the note’s prices (07-11 C ≈ 127.40, 07-09 H ≈ 133.82).
+     Meridian already prints sell CD13 on **07-09** (after "+" on 07-03 and 07-05); it does not defer to 07-10/07-11. Likely
+     a feed or countdown-membership difference versus the vendor screenshot, not the 13-vs-8 qualifier alone.
+   - **(b) SPX 2011-10-04 Combo 13 — still open.** Buy Combo is on 12 after 10-03 (C ≈ 1099.23). 10-04 closes ≈ 1123.95
+     *above* the prior close and prior countdown close, so it fails both `strict` and `v2`. Vendor 13 is not explained by
+     any current Combo version.
+   - **Public help:** Sequential article still confirms CD13 vs CD8, elective 8-vs-5, 12-bar rule, 100–200%/22 recycle, and
+     whole-bar TDST cancel. Breakout qualifiers are described for whether a *completed* Sequential signal stays intact (risk),
+     not as a TDST-construction cancel — leaving `tdstBreakQualifier` off remains consistent. Intersection, Propulsion,
+     Pressure, REI lags, MA lengths, Camouflage, Reverse Differential and Lines “Cancelled” stay open (no formula in the
+     public pages).
