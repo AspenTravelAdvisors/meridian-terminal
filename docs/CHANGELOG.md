@@ -32,6 +32,9 @@
   bars and skipped signals by reason. All of it is in the run record, CSV (shares, notional, P/L, equity value) and the API.
 
 ### Changed
+- **Deferred Sequential perfection survives a flip** (VERIFY_LOG note 6(c)): a pending perfection arrow is no longer cleared
+  by an opposite price flip — only by a new setup completion. Matches Symbolik’s SPX 2018 chart (Yahoo replay). Toggle
+  `cancelDeferredOnFlip` restores the old rule. Deferred test also uses strict `<` like the bar-8/9 test.
 - **D-Wave colours and label spacing:** up sequences draw red and down sequences green (each pivot carries its own colour,
   so one study can draw two colours). Wave labels and `+` marks now sit beyond the counts and markers stacked on that bar
   instead of a fixed 8 px from the high or low, so they no longer print over Sequential/Combo numbers.

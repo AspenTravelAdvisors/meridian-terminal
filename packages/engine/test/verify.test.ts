@@ -8,7 +8,7 @@ import { type AnyStudyDef, STUDIES, combo, defaultsOf, demarker2, differential, 
 describe('⚠ VERIFY defaults are pinned', () => {
   it('Sequential: TDST over all setup bars, CD13 low vs CD8 close, recycle at 100–200% or a 22-bar setup, whole-bar TDST cancel', () => {
     const d = defaultsOf(sequential);
-    expect(d).toMatchObject({ tdstMode: 'allSetupBars', cd13Qualifier: 'low_vs_cd8_close', recycleMode: 'size', recycleFactor: 2, recycleOnLongSetup: true, recycleSetupCount: 22, cancelOnOppositeSetup: true, cancelOnTdstBreak: true, tdstCancelTest: 'trueExtreme', tdstBreakQualifier: false, cd8Qualifier: false, reactionBars: 12 });
+    expect(d).toMatchObject({ tdstMode: 'allSetupBars', cd13Qualifier: 'low_vs_cd8_close', recycleMode: 'size', recycleFactor: 2, recycleOnLongSetup: true, recycleSetupCount: 22, cancelOnOppositeSetup: true, cancelOnTdstBreak: true, tdstCancelTest: 'trueExtreme', tdstBreakQualifier: false, cd8Qualifier: false, reactionBars: 12, cancelDeferredOnFlip: false });
   });
 
   it('Combo: same cancellation and recycling defaults as Sequential, and no intersection (Sequential only)', () => {
