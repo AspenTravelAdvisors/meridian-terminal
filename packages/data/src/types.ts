@@ -91,6 +91,8 @@ export interface BarsResponse {
   fallbacks?: string[];
   /** set when more history exists before the first bar */
   hasMore: boolean;
+  /** symbol expressions only: where each symbol's bars came from (the first symbol sets the bar times) */
+  components?: { symbol: string; provider: ProviderId; simulated: boolean }[];
 }
 
 export interface Quote {

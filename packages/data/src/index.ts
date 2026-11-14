@@ -4,6 +4,7 @@ export * from './sessions';
 export * from './transform';
 export * from './csv';
 export * from './router';
+export * from './expression';
 export { ProviderError } from './providers/http';
 export { yahoo, parseYahooChart } from './providers/yahoo';
 export { binance, coinbase, toCoinbaseProduct } from './providers/crypto';

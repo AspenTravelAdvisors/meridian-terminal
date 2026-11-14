@@ -9,7 +9,7 @@ import { HttpError, type ServerEnv, body, rateLimit } from '../http';
  */
 export const analystBody = z.object({
   kind: z.enum(['chart', 'portfolio']).default('chart'),
-  symbol: z.string().max(40).optional(),
+  symbol: z.string().max(120).optional(),
   interval: z.string().max(5).optional(),
   question: z.string().max(2000).optional(),
   /** engine/portfolio snapshot assembled by the client */

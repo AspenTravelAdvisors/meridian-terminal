@@ -22,6 +22,17 @@ describe('API', () => {
     expect(j.bars).toHaveLength(50);
     expect(j.bars[0]).toHaveLength(6);
   });
+  it('serves ratio charts of two symbols, and scans them like any symbol', async () => {
+    const r = await get(`/api/bars?symbol=${encodeURIComponent('sim:demo / sim:trend')}&interval=1D&limit=50`);
+    expect(r.status).toBe(200);
+    const j = (await r.json()) as { bars: number[][]; symbol: string; components: { symbol: string }[] };
+    expect(j.symbol).toBe('SIM:DEMO/SIM:TREND');
+    expect(j.components.map((c) => c.symbol)).toEqual(['SIM:DEMO', 'SIM:TREND']);
+    expect(j.bars).toHaveLength(50);
+    expect((await get(`/api/bars?symbol=${encodeURIComponent('SIM:DEMO//SIM:TREND')}`)).status).toBe(400);
+    const s = await post('/api/scan', { symbols: ['SIM:DEMO/SIM:TREND'], interval: '1D', lookback: 50 });
+    expect(((await s.json()) as { rows: unknown[] }).rows).toHaveLength(1);
+  });
   it('validates input and reports provider failures honestly', async () => {
     expect((await get('/api/bars?symbol=<script>')).status).toBe(400);
     expect((await get('/api/bars?symbol=AAPL&interval=7m')).status).toBe(400);

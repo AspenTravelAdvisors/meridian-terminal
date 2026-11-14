@@ -17,7 +17,8 @@ export function parseSymbol(raw: string): { provider: ProviderId; ticker: string
   return { provider: 'yahoo', ticker: s, canonical: s };
 }
 
-export const SYMBOL_RE = /^[A-Za-z0-9.\-^=:_/]{1,40}$/;
+/** A symbol, or a symbol expression such as `SPY/RSP` (see expression.ts; the parser does the full check). */
+export const SYMBOL_RE = /^[A-Za-z0-9.\-^=:_/*+() ]{1,120}$/;
 
 /** Yahoo-style listing suffixes for non-US venues: calendar, currency and a display name. */
 const SUFFIX: Record<string, { calendar: CalendarId; currency: string; exchange: string }> = {
