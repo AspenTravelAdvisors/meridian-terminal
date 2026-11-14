@@ -72,6 +72,22 @@ Deep links work too: `/?symbol=BINANCE:ETHUSDT&interval=4h` opens straight to th
 
 The **Symbol** panel shows the exchange, session calendar, time zone and which provider actually served the data.
 
+### Ratio and spread charts (symbol expressions)
+Type arithmetic on symbols into symbol search to chart one market against another, like `SPY/RSP` or `ETHUSDT/BTCUSDT`.
+Other platforms call these *ratio*, *relative-strength* or *spread* charts. A rising `SPY/RSP` means the cap-weighted
+S&P 500 is beating the equal-weighted one, so leadership is narrowing to the largest stocks. A rising `ETH/BTC` means ether
+is outperforming bitcoin.
+
+- Use `/ * + -` and parentheses: `SPY/RSP`, `GLD/SLV`, `XOM - CVX`, `(XLY + XLK)/2`, `QQQ*100`. Put spaces around `+` and
+  `-`. `BRK-B` without spaces stays a ticker.
+- Typing `ETH/BTC` offers **BINANCE:ETHBTC** first: the real cross pair, which streams live. Next it offers the ratio of the
+  two USDT pairs. On Yahoo, `ETH` and `BTC` are Grayscale ETFs, so the expression as typed is listed last.
+- The chart shows an **Expression** badge. Every study works on it, including Sequential, Combo, TDST, DeMarker and
+  Ichimoku, and so do alerts, the screener, the MTF Matrix, the Signal Tester and watchlists.
+- How the bars are built: the first symbol sets the bar times. Open, high, low and close are each divided (or added, …)
+  field by field, then high and low are widened to cover the open and close. There is no volume, so volume-based studies
+  read zero. If one market is closed on a day the other trades, its last close is used.
+
 ### Timeframes, sessions and the forming bar
 Bars follow each market's real session: NYSE hours and holidays, CME's overnight session, FX's 24×5 week, and crypto 24×7.
 The **last bar is "forming"** until its session or period actually closes. A daily stock bar closes at 16:00 New York time;

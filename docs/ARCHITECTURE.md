@@ -41,6 +41,30 @@ fixtures/           Golden-reference fixtures (hand-computed today; reference CS
   merging.
 - The wire format is `[t, o, h, l, c, v, (0 if provisional)]`, which keeps payloads compact.
 
+### Symbol expressions
+
+`expression.ts` lets any symbol field hold arithmetic on symbols, such as `SPY/RSP` (cap- vs equal-weight S&P 500),
+`ETHUSDT/BTCUSDT`, `XOM - CVX` or `(XLY + XLK)/2`. Other platforms call these ratio, relative-strength or spread charts.
+`fetchBars` and `fetchQuotes` detect an expression with `isExpression`, so `/api/bars`, `/api/quotes`, the screener,
+the MTF matrix, the tester and background alerts all accept one without changes of their own.
+
+- **Grammar.** Operands are symbols or positive numbers. The operators are `+ - * /` with the usual precedence, and
+  parentheses group. `+` and `-` need spaces around them so `BRK-B` and `BTC-USD` stay tickers. An expression may use at most
+  6 symbols and 120 characters. `printExpression` gives a canonical text (operands through `parseSymbol`, fixed spacing), which
+  is the response's `symbol` and the cache key.
+- **Fetching.** Each symbol goes through its own provider chain in parallel, with the same window (`to`, `limit`, adjust
+  mode). A failure names the symbol that failed. `hasMore` is true only when every symbol has more history. `components`
+  lists each symbol's provider.
+- **Alignment (no look-ahead).** The first symbol sets the bar times, calendar and time zone. Each other symbol contributes
+  its bar for the same period: the exact open time for intraday intervals, and for 1D/1W/1M/3M the local trading day,
+  Monday-based week, month or quarter (`periodKey`), because providers stamp those bars differently. When a symbol has no bar
+  for the period (holiday, weekend), its last earlier close stands in for all four prices. Bars before every symbol has
+  history are dropped, as are non-finite results (division by zero).
+- **OHLC.** Open, high, low and close are each computed field by field, and then high and low are widened to cover open and
+  close. A ratio's true intrabar extremes cannot be recovered from OHLC, so this is the usual charting convention. The
+  DeMark-style studies read these highs and lows. Volume is 0. A bar is provisional when any matched component bar is.
+- **Live.** An expression polls (it never opens a Binance stream), on the first symbol's market hours.
+
 ## Server (`apps/server`)
 
 - `handle(req, env, fetcher)` routes web-standard `Request`s, so the same code runs as a Vercel Node function, under

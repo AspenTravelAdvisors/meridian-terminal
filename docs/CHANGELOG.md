@@ -3,6 +3,12 @@
 ## Unreleased
 
 ### Added
+- **Ratio and spread charts** (symbol expressions): type `SPY/RSP`, `ETHUSDT/BTCUSDT`, `XOM - CVX` or `(XLY + XLK)/2` in
+  symbol search to chart arithmetic on symbols, with every study, alerts, the screener, the MTF Matrix, the tester and
+  watchlist quotes. The first symbol sets the bar times. OHLC is combined field by field with no look-ahead. `ETH/BTC`
+  suggests the Binance cross pair first. Charts show an **Expression** badge. `@meridian/data` → `expression.ts`; see
+  `ARCHITECTURE.md` § "Symbol expressions".
+- The price axis shows enough decimals for small prices (a 0.003 ratio no longer reads `0.00`).
 - **Forward Cone** (Studies → Meridian, in the default stack): the range of outcomes for the next 21 bars (8 / 13 / 34 as
   presets), taken from what followed past bars in the same Sequential phase, cloud position and DeM I zone and scaled by
   current volatility. Draws a median path with 50% and 80% bands past the last bar, target and stop lines with the share of
