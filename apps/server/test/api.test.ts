@@ -10,7 +10,38 @@ const post = (path: string, body: unknown) =>
 describe('API', () => {
   it('health reports the rule-based analyst without a key', async () => {
     const r = await get('/api/health');
-    expect(await r.json()).toMatchObject({ ok: true, analyst: 'rule-based' });
+    expect(await r.json()).toMatchObject({ ok: true, analyst: 'rule-based', providers: { okx: true, finra: true } });
+  });
+  it('serves positioning series and rejects bad kinds', async () => {
+    const funding = {
+      code: '0',
+      data: [{ fundingTime: '1700000000000', fundingRate: '0.0001', realizedRate: '0.0001' }],
+    };
+    const finra = [
+      {
+        symbolCode: 'AAPL',
+        settlementDate: '2026-10-30',
+        currentShortPositionQuantity: 100,
+        previousShortPositionQuantity: 90,
+        daysToCoverQuantity: 2.5,
+        changePercent: 11,
+        averageDailyVolumeQuantity: 40,
+      },
+    ];
+    const fetcher = (async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('funding-rate-history')) return new Response(JSON.stringify(funding), { status: 200 });
+      if (url.includes('consolidatedShortInterest')) return new Response(JSON.stringify(finra), { status: 200 });
+      return new Response('offline', { status: 503 });
+    }) as unknown as typeof fetch;
+    const c = await handle(new Request('http://localhost/api/positioning?symbol=BINANCE:BTCUSDT&kind=funding'), env, fetcher);
+    expect(c.status).toBe(200);
+    const cj = (await c.json()) as { points: { v: number }[]; source: string };
+    expect(cj.source).toBe('okx');
+    expect(cj.points[0].v).toBeCloseTo(0.01);
+    const e = await handle(new Request('http://localhost/api/positioning?symbol=AAPL&kind=shortInterest'), env, fetcher);
+    expect(((await e.json()) as { points: unknown[] }).points).toHaveLength(1);
+    expect((await get('/api/positioning?symbol=AAPL&kind=nope')).status).toBe(400);
   });
   it('serves simulated bars in wire format with CDN caching', async () => {
     const r = await get('/api/bars?symbol=SIM:DEMO&interval=1D&limit=50');

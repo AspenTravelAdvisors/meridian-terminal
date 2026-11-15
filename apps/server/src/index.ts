@@ -4,6 +4,7 @@ import { alertRoutes } from './routes/alerts';
 import { analystRoute } from './routes/analyst';
 import { barsRoute, healthRoute, quotesRoute, searchRoute } from './routes/market';
 import { notifyRoute } from './routes/notify';
+import { positioningRoute } from './routes/positioning';
 import { pushRoutes } from './routes/push';
 import { matrixRoute, scanRoute } from './routes/scan';
 import { syncRoutes } from './routes/sync';
@@ -21,6 +22,7 @@ const ROUTES: Record<string, { GET?: Handler; POST?: Handler }> = {
   '/api/bars': { GET: barsRoute },
   '/api/search': { GET: searchRoute },
   '/api/quotes': { GET: quotesRoute },
+  '/api/positioning': { GET: positioningRoute },
   '/api/scan': { POST: scanRoute },
   '/api/matrix': { POST: matrixRoute },
   '/api/tester': { GET: testerRoute },

@@ -16,6 +16,7 @@ import { dema, ema, hma, sma, tema, vwap, wma } from './studies/std/ma';
 import { cci, macd, mfi, roc, rsi, stochastic, stochRsi, williamsR } from './studies/std/momentum';
 import { correlation, linreg, pivotPoints, relativeStrength, zigzag } from './studies/std/structure';
 import { adx, atr, bollinger, donchian, historicalVolatility, keltner, psar, supertrend } from './studies/std/volatility';
+import { fundingRate, longShortRatio, openInterest, shortInterest } from './studies/std/positioning';
 import { adLine, cmf, obv, sessionVolumeProfile, volume } from './studies/std/volume';
 
 /** Every study, in Studies-dialog order. */
@@ -75,6 +76,10 @@ export const STUDIES: AnyStudyDef[] = [
   adLine,
   volume,
   sessionVolumeProfile,
+  fundingRate,
+  openInterest,
+  longShortRatio,
+  shortInterest,
   pivotPoints,
   zigzag,
   linreg,

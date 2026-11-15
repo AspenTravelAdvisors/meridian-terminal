@@ -22,6 +22,7 @@ export * from './studies/std/ma';
 export * from './studies/std/momentum';
 export * from './studies/std/volatility';
 export { obv, cmf, adLine, volume, sessionVolumeProfile, volumeProfileOf, volumeProfileBars } from './studies/std/volume';
+export { fundingRate, openInterest, longShortRatio, shortInterest } from './studies/std/positioning';
 export * from './studies/std/structure';
 export * from './signals/tester';
 export * from './signals/record';

@@ -353,14 +353,16 @@ the **future** using real future session times. Chikou is plotted 26 bars back a
 Signals classify TK crosses as strong/neutral/weak by cloud position, and flag cloud breaks, Kumo twists, Chikou crosses and a
 flat Kijun ("magnet"). Optional time-theory marks are drawn at 9/17/26/33/42/65/76 bars from a pivot.
 
-**Standard library (33):** SMA/EMA/WMA/HMA/DEMA/TEMA, VWAP, Supertrend, Parabolic SAR, ADX/DMI, pivot points, ZigZag, linear
+**Standard library (37):** SMA/EMA/WMA/HMA/DEMA/TEMA, VWAP, Supertrend, Parabolic SAR, ADX/DMI, pivot points, ZigZag, linear
 regression channel, Bollinger, Keltner, Donchian, ATR, historical volatility, RSI, Stochastic, Stoch RSI, MACD, CCI,
 Williams %R, ROC, MFI, OBV, Chaikin Money Flow, A/D line, Volume, session volume profile, relative strength vs. a benchmark,
-and correlation.
+correlation, and four **positioning** studies (Studies → Volume): Perp Funding Rate, Perp Open Interest, Perp Long/Short
+Ratio (crypto, free OKX feeds) and Equity Short Interest / days to cover (US equities, free FINRA snapshots).
 
 How they complement the DeMark-style set: use a **trend filter** (200-period MA, Supertrend, ADX, or the Ichimoku cloud) to
 decide *which direction of exhaustion matters*. Use **volatility** (ATR, Bollinger width) to size stops. Use **volume** (OBV,
-CMF, the profile) to check whether a move had participation.
+CMF, the profile) to check whether a move had participation. Use **positioning** to see whether leverage is crowded the same
+way as price exhaustion (funding extremes, rising OI, high days to cover).
 
 ---
 

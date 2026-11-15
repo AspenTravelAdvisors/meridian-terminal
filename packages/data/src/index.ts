@@ -5,6 +5,7 @@ export * from './transform';
 export * from './csv';
 export * from './router';
 export * from './expression';
+export * from './positioning';
 export { ProviderError } from './providers/http';
 export { yahoo, parseYahooChart } from './providers/yahoo';
 export { binance, coinbase, toCoinbaseProduct } from './providers/crypto';

@@ -27,6 +27,22 @@ export function alignByTime(base: readonly Bar[], other: readonly Bar[]): Float6
   return out;
 }
 
+/**
+ * Align dated scalar events (funding settlements, OI snapshots, short-interest reports) onto base bars
+ * WITHOUT look-ahead: bar i only sees events whose timestamp is ≤ the bar's close time, and the last
+ * such value is carried forward (step series).
+ */
+export function alignEvents(base: readonly Bar[], baseMs: number, events: readonly { t: number; v: number }[]): Float64Array {
+  const out = new Float64Array(base.length).fill(NaN);
+  let k = -1;
+  for (let i = 0; i < base.length; i++) {
+    const closeT = base[i].t + baseMs;
+    while (k + 1 < events.length && events[k + 1].t <= closeT) k++;
+    if (k >= 0) out[i] = events[k].v;
+  }
+  return out;
+}
+
 /** A Writer that discards drawing and only records the signals of the current bar (for composite studies). */
 export interface SinkWriter extends Writer {
   fired: { id: string; dir: SignalDir }[];

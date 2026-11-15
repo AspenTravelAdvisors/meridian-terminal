@@ -36,6 +36,9 @@ fixtures/           Golden-reference fixtures (hand-computed today; reference CS
 
 - `router.ts` resolves a symbol to a provider chain (`parseSymbol`) and tries each provider in turn. It records fallbacks and
   never substitutes simulated data for a real symbol.
+- `positioning.ts` fetches free leverage/positioning series: OKX public perpetual funding, open interest and long/short
+  account ratio for crypto, and FINRA consolidated short interest (days to cover / shares short) for US equities. No API
+  keys. Served at `GET /api/positioning` and aligned onto chart bars as study aux (`alignEvents`).
 - `sessions.ts` derives exchange calendars from rules (the NYSE holiday rules include an Easter computation).
   `transform.ts` does session-anchored resampling, Heikin Ashi, Renko, range bars, split/dividend adjustment and live-bar
   merging.
@@ -69,9 +72,9 @@ the MTF matrix, the tester and background alerts all accept one without changes 
 
 - `handle(req, env, fetcher)` routes web-standard `Request`s, so the same code runs as a Vercel Node function, under
   `scripts/serve.mjs` and inside the Vite dev server.
-- Routes: `GET /api/bars|search|quotes|health|tester`, `POST /api/scan|matrix|analyst|notify`; accounts under `/api/account/*`,
-  `GET|POST /api/sync`, `/api/push/*`, `GET /api/alerts/activity` and `GET|POST /api/cron/alerts`. Inputs are validated with Zod. The
-  server rate-limits per client and sets CDN cache headers on market data.
+- Routes: `GET /api/bars|search|quotes|positioning|health|tester`, `POST /api/scan|matrix|analyst|notify`; accounts under
+  `/api/account/*`, `GET|POST /api/sync`, `/api/push/*`, `GET /api/alerts/activity` and `GET|POST /api/cron/alerts`. Inputs are
+  validated with Zod. The server rate-limits per client and sets CDN cache headers on market data.
 - `analyst` streams Claude output (`@anthropic-ai/sdk`, adaptive thinking, server-side refusal fallback), with
   `stop_reason` handling. Without a key it uses a deterministic rule-based briefing.
 - `notify` relays alert webhooks and email. Webhook URLs must be public HTTPS; private, loopback and link-local addresses
