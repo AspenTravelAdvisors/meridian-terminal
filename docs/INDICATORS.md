@@ -312,4 +312,19 @@ Chikou  = C                            plotted displacement bars BACK
   - *No look-ahead.* An outcome is filed on the bar that completes it, and a case's whole horizon precedes the bar using it.
     Per bar: `horizon` × 4 histogram increments and two quantile reads.
 
+## §9. Positioning overlays (external feeds)
+These studies do **not** derive from OHLC. The chart loads an auxiliary series from free public APIs and aligns it onto
+bars with `alignEvents` (no look-ahead: a bar only sees events dated at or before its close; values carry forward as a
+step series). Without aux the pane stays empty.
+
+| Study id | Asset class | Metric | Free source | Notes |
+|---|---|---|---|---|
+| `funding-rate` | Crypto perps | Settled funding rate (%) | OKX public funding-rate history | Positive → longs pay shorts. Signals at ±`extremePct`. |
+| `open-interest` | Crypto perps | OI notional (USD) or % change | OKX rubik open-interest history | Display mode `usd` or `changePct`. |
+| `long-short-ratio` | Crypto perps | Accounts long ÷ accounts short | OKX rubik long-short account ratio | Horizontal line at 1.0. |
+| `short-interest` | US equities | Days to cover + optional shares-short % change | FINRA consolidated short interest (public Query API, no key) | Twice-monthly settlement snapshots. **Not** percent of float (float is not free). |
+
+Crypto symbols (`BINANCE:BTCUSDT`, `COINBASE:ETH-USD`, bare `BTCUSDT`, …) map to OKX `{BASE}-USDT-SWAP`. Equity symbols use
+the plain ticker against FINRA. Wrong asset class → empty series with a note from `/api/positioning`.
+
 Every study in this file must appear in the Studies dialog with Inputs generated from its Zod schema and documented ⚠ VERIFY knobs.

@@ -89,3 +89,27 @@ export async function health(): Promise<{ ok: boolean; analyst: string; provider
     return null;
   }
 }
+
+export type PositioningKind = 'funding' | 'openInterest' | 'longShort' | 'shortInterest' | 'daysToCover';
+
+export interface PositioningSeriesDto {
+  kind: string;
+  symbol: string;
+  source: string;
+  unit: string;
+  points: { t: number; v: number }[];
+  note?: string;
+  serverTime?: number;
+}
+
+/** Free positioning feeds: OKX funding/OI/L-S for crypto, FINRA short interest for US equities. */
+export async function fetchPositioningClient(
+  symbol: string,
+  kind: PositioningKind,
+  opts: { interval?: string; from?: number; signal?: AbortSignal } = {},
+): Promise<PositioningSeriesDto> {
+  const q = new URLSearchParams({ symbol, kind });
+  if (opts.interval) q.set('interval', opts.interval);
+  if (opts.from) q.set('from', String(Math.floor(opts.from)));
+  return getJson(`/api/positioning?${q}`, { signal: opts.signal });
+}

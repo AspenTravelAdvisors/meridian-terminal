@@ -148,6 +148,15 @@ const OUTPUTS: Record<string, string> = {
   'correlation:corr': 'Rolling correlation with the comparison symbol (−1 to +1).',
   'hv:hv': 'Historical volatility: annualized standard deviation of returns.',
   'atr:atr': 'Average true range: typical bar size including gaps. Useful for stops and position sizing.',
+  'funding-rate:funding':
+    'Perpetual futures funding rate in percent. Positive means longs pay shorts (longs crowded); negative means shorts pay longs.',
+  'funding-rate:ma': 'Moving average of the funding rate.',
+  'open-interest:oi': 'Open interest in USD notional on perpetual futures. Rising OI with a trend means leverage is building.',
+  'open-interest:chg': 'Percent change in open interest vs the lookback.',
+  'long-short-ratio:ls': 'OKX long/short account ratio. Above 1 means more accounts are long than short.',
+  'short-interest:dtc':
+    'FINRA days to cover: shares short ÷ average daily volume. Higher means a larger short book relative to trading.',
+  'short-interest:chg': 'Percent change in shares short between FINRA settlement dates (twice monthly).',
 };
 
 const MA_LINE =

@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Added
+- **Positioning overlays** (Studies → Volume): crypto **Perp Funding Rate**, **Perp Open Interest**, **Perp Long/Short
+  Ratio** (free OKX public feeds) and equities **Short Interest** (FINRA days to cover + shares-short % change, free public
+  Query API, no key). Chart loads `/api/positioning` as aux and aligns with no look-ahead. Not percent of float; not live
+  broker leverage. `@meridian/data` → `positioning.ts`; engine studies in `studies/std/positioning.ts`.
 - **Ratio and spread charts** (symbol expressions): type `SPY/RSP`, `ETHUSDT/BTCUSDT`, `XOM - CVX` or `(XLY + XLK)/2` in
   symbol search to chart arithmetic on symbols, with every study, alerts, the screener, the MTF Matrix, the tester and
   watchlist quotes. The first symbol sets the bar times. OHLC is combined field by field with no look-ahead. `ETH/BTC`
