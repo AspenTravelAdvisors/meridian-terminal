@@ -43,6 +43,25 @@ export function alignEvents(base: readonly Bar[], baseMs: number, events: readon
   return out;
 }
 
+/**
+ * Place dated events (news, filings) on the bar they happen in, keeping the largest value per bar. An event that falls
+ * between bars (overnight, a weekend) goes to the next bar, the first one that can react to it, never an earlier one.
+ * Events before the first bar opens or after the last bar closes are dropped. Unlike `alignEvents` nothing carries forward.
+ */
+export function bucketEvents(base: readonly Bar[], baseMs: number, events: readonly { t: number; v: number }[]): Float64Array {
+  const out = new Float64Array(base.length).fill(NaN);
+  if (!base.length) return out;
+  const sorted = [...events].sort((a, b) => a.t - b.t);
+  let i = 0;
+  for (const e of sorted) {
+    if (!Number.isFinite(e.v) || e.t < base[0].t) continue;
+    while (i < base.length && base[i].t + baseMs <= e.t) i++;
+    if (i >= base.length) break;
+    if (!(out[i] >= e.v)) out[i] = e.v;
+  }
+  return out;
+}
+
 /** A Writer that discards drawing and only records the signals of the current bar (for composite studies). */
 export interface SinkWriter extends Writer {
   fired: { id: string; dir: SignalDir }[];

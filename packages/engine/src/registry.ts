@@ -18,6 +18,7 @@ import { correlation, linreg, pivotPoints, relativeStrength, zigzag } from './st
 import { adx, atr, bollinger, donchian, historicalVolatility, keltner, psar, supertrend } from './studies/std/volatility';
 import { fundingRate, longShortRatio, openInterest, shortInterest } from './studies/std/positioning';
 import { adLine, cmf, obv, sessionVolumeProfile, volume } from './studies/std/volume';
+import { newsEvents } from './studies/std/news';
 
 /** Every study, in Studies-dialog order. */
 export const STUDIES: AnyStudyDef[] = [
@@ -46,6 +47,7 @@ export const STUDIES: AnyStudyDef[] = [
   exhaustionZone,
   exhaustionWindow,
   forwardCone,
+  newsEvents,
   // Ichimoku
   ichimoku,
   // Standard library
