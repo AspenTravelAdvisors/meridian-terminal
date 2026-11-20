@@ -12,6 +12,7 @@ import { fmtPrice, fmtTime, fmtVol } from '../lib/format';
 import { useDrawings, useJournal, useScripts, useSettings, useUi, useWorkspace } from '../state/store';
 import type { Drawing, PaneConfig, StudyInstanceCfg, TfBucket } from '../state/types';
 import { useAux } from './aux';
+import { withNewsTips } from './news';
 import { chartActions, crosshairBus, rangeBus, snapshotters } from './bus';
 import { DrawingController, DrawingsPrimitive } from './drawings';
 import { ExplainCard } from './ExplainCard';
@@ -65,7 +66,8 @@ export const ChartPane = memo(function ChartPane({ pane, active, solo }: { pane:
   const aux = useAux(pane.symbol, cfgs, effective, pane.interval);
 
   // ── engine worker: full load vs incremental append ─────────────────────
-  const [results, setResults] = useState<StudyResult[]>([]);
+  const [rawResults, setResults] = useState<StudyResult[]>([]);
+  const results = useMemo(() => withNewsTips(rawResults, cfgs, aux.notes), [rawResults, cfgs, aux.notes]);
   const [computeMs, setComputeMs] = useState(0);
   const clientRef = useRef<EngineClient | null>(null);
   const sent = useRef({ key: '', firstT: NaN, finalLen: 0, lastFinalT: NaN });

@@ -132,3 +132,19 @@ test('ratio chart: a typed expression charts one symbol divided by another, with
   await expect(page.getByRole('option').first()).toContainText('BINANCE:ETHBTC');
   expect(errs).toEqual([]);
 });
+
+test('Market-Moving News: added from the Studies dialog, it loads /api/news and opens its settings', async ({ page }) => {
+  const errs = errors(page);
+  const news = page.waitForResponse((r) => r.url().includes('/api/news?') && r.status() === 200);
+  await page.getByRole('button', { name: 'Studies' }).click();
+  await page.getByRole('dialog').getByLabel('Search studies').fill('news');
+  await page.getByRole('dialog').getByText('Market-Moving News').first().click();
+  await page.keyboard.press('Escape');
+  const body = (await (await news).json()) as { events: { scope: string }[] };
+  expect(body.events.some((e) => e.scope === 'market')).toBe(true);
+  await page.getByRole('button', { name: 'News controls' }).click();
+  await page.getByRole('button', { name: 'News settings' }).click();
+  await expect(page.getByRole('dialog').getByLabel(/Only near a price flip/)).toBeChecked();
+  await expect(page.getByRole('dialog').getByLabel(/Require a price reaction/)).toBeChecked();
+  expect(errs).toEqual([]);
+});

@@ -70,7 +70,7 @@ export function ExplainCard({ e, x, y, w, h, time, pinned, onClose, onSettings }
       {pinned ? (
         <>
           {e.meaning && <p className="mt-1.5 text-dim">{e.meaning}</p>}
-          {e.detail && <p className="mt-1.5 line-clamp-4 rounded bg-raised px-1.5 py-1 text-text">{e.detail}</p>}
+          {e.detail && <p className="mt-1.5 line-clamp-6 whitespace-pre-line rounded bg-raised px-1.5 py-1 text-text">{e.detail}</p>}
           {e.items && (
             <ul className="mt-1.5 flex flex-col gap-0.5">
               {e.items.length ? e.items.map((it, k) => <li key={k} style={{ color: dirColor(it.dir) }}>{it.text}</li>) : <li className="text-faint">No signals fired on this bar.</li>}
@@ -85,7 +85,7 @@ export function ExplainCard({ e, x, y, w, h, time, pinned, onClose, onSettings }
         </>
       ) : (
         <>
-          {e.detail && e.detail.toLowerCase() !== e.title.toLowerCase() && <div className="mt-0.5 line-clamp-2 text-dim">{e.detail}</div>}
+          {e.detail && e.detail.toLowerCase() !== e.title.toLowerCase() && <div className="mt-0.5 line-clamp-3 whitespace-pre-line text-dim">{e.detail}</div>}
           <div className="mt-0.5 text-[10px] text-faint">Click for what this means</div>
         </>
       )}

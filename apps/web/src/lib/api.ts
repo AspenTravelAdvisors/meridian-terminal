@@ -113,3 +113,29 @@ export async function fetchPositioningClient(
   if (opts.from) q.set('from', String(Math.floor(opts.from)));
   return getJson(`/api/positioning?${q}`, { signal: opts.signal });
 }
+
+export interface NewsEventDto {
+  t: number;
+  scope: 'ticker' | 'industry' | 'market';
+  weight: 1 | 2 | 3;
+  headline: string;
+  source: string;
+  precise: boolean;
+  url?: string;
+}
+
+export interface NewsFeedDto {
+  symbol: string;
+  events: NewsEventDto[];
+  sectors: string[];
+  sources: string[];
+  notes: string[];
+}
+
+/** Rated company (SEC 8-K), industry and market-wide events for the Market-Moving News study. */
+export async function fetchNewsClient(symbol: string, opts: { from?: number; to?: number; signal?: AbortSignal } = {}): Promise<NewsFeedDto> {
+  const q = new URLSearchParams({ symbol });
+  if (opts.from !== undefined) q.set('from', String(Math.max(0, Math.floor(opts.from))));
+  if (opts.to !== undefined) q.set('to', String(Math.floor(opts.to)));
+  return getJson(`/api/news?${q}`, { signal: opts.signal });
+}

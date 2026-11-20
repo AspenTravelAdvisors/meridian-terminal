@@ -157,6 +157,7 @@ const OUTPUTS: Record<string, string> = {
   'short-interest:dtc':
     'FINRA days to cover: shares short ÷ average daily volume. Higher means a larger short book relative to trading.',
   'short-interest:chg': 'Percent change in shares short between FINRA settlement dates (twice monthly).',
+  'news-events:news': 'Which news scopes qualified on this bar: 1 company + 2 industry + 4 market-wide. Negative when the nearby price flip turned down.',
 };
 
 const MA_LINE =
@@ -300,6 +301,14 @@ function markerMeaning(studyId: string, cfg: Cfg, h: ChartHit): Pick<Explanation
       meaning:
         'How many of the four Sequential/Combo rule variants finished a 13 near this bar. More agreement means the signal is less sensitive to rule choices.',
     };
+  if (studyId === 'news-events') {
+    const scope = t.split('+').map((x) => ({ CO: 'company', IND: 'industry', MKT: 'market-wide' })[x] ?? x).join(' and ');
+    return {
+      title: `${cap(scope)} news${/bullish price flip/.test(h.tip ?? '') ? ' at a bullish flip' : /bearish price flip/.test(h.tip ?? '') ? ' at a bearish flip' : ''}`,
+      meaning:
+        'A significant event on this bar that moved the price and came within a few bars of a price flip. Below the bar = the flip turned up; above = it turned down. The headline is first in the detail; the marker appears only once the flip and the reaction have both happened, so it can show up a few bars after the news.',
+    };
+  }
   return null;
 }
 
