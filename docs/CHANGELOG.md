@@ -3,6 +3,12 @@
 ## Unreleased
 
 ### Added
+- **Market-Moving News** (Studies → Meridian composites): boxed `CO` / `IND` / `MKT` markers for significant company,
+  industry and market-wide news, shown only where the news moved price (true range ≥ 1.5× its average) and a price flip
+  happened within 3 bars. Sources are free: SEC 8-K filings rated by item (set `SEC_USER_AGENT`) and a built-in calendar of
+  landmark events matched to the symbol's sector. Hover a marker for the headlines. Signals `NEWS_AT_FLIP_UP` /
+  `NEWS_AT_FLIP_DOWN` / `NEWS_EVENT`. `GET /api/news`; `@meridian/data` → `news.ts`; engine study `studies/std/news.ts`;
+  rules in `INDICATORS.md` §10.
 - **Positioning overlays** (Studies → Volume): crypto **Perp Funding Rate**, **Perp Open Interest**, **Perp Long/Short
   Ratio** (free OKX public feeds) and equities **Short Interest** (FINRA days to cover + shares-short % change, free public
   Query API, no key). Chart loads `/api/positioning` as aux and aligns with no look-ahead. Not percent of float; not live

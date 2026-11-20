@@ -77,6 +77,7 @@ Full rules for DeMark studies and Ichimoku are in `docs/INDICATORS.md`.
 **DeMark-style (extended):** TD Lines (supply/demand, qualifiers, projections) · TD Points · TD REI + TD POQ · TD Pressure · TD Differential / Reverse / Anti-Differential · TD Open, TD Clop, TD Clopwin, TD Trap · TD Camouflage · TD Moving Averages I & II · TD Trend Factor · TD Risk Levels overlay.
 **Ichimoku:** full Kinko Hyo with future cloud, configurable periods (9/26/52 and crypto 20/60/120 presets), Kumo twist markers, and TK cross signals classified by cloud position.
 **Standard library:** SMA, EMA, WMA, HMA, DEMA, TEMA, VWAP (session + anchored), Bollinger, Keltner, Donchian, ATR, Supertrend, Parabolic SAR, ADX/DMI, RSI, Stochastic, StochRSI, MACD, CCI, Williams %R, ROC, MFI, OBV, CMF, A/D line, Volume + MA, Volume Profile (visible range + session), Pivot Points (classic/Fib/Camarilla/Woodie), ZigZag, Linear Regression channel, Relative Strength vs benchmark, Correlation coefficient, Historical Volatility.
+**News (free feeds):** Market-Moving News: rated company (SEC 8-K), industry and market-wide events, shown where price reacted near a price flip. See `INDICATORS.md` §10.
 **Positioning (free feeds):** Perp Funding Rate, Perp Open Interest, Perp Long/Short Ratio (OKX public; crypto), Equity Short Interest / days to cover (FINRA; US equities). See `INDICATORS.md` §9.
 
 ---

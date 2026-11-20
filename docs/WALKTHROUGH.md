@@ -344,6 +344,25 @@ Widening the window lets Combo (which often finishes earlier) and Sequential (la
 **Signal heat strip** (Settings): a strip along the bottom of the price pane showing which DeMark-style events fired on each
 bar. Click or hover a cell for the detail.
 
+**Market-Moving News** (Studies → Meridian composites) marks significant news on the price pane, but only where it mattered:
+the news moved this symbol (a bar with a range at least 1.5× its recent average, on the day or the day after) **and** a
+price flip happened within 3 bars either side. That keeps the chart to the handful of events that coincided with a turn.
+
+- `CO` = company news (an 8-K filing: earnings, a deal closing, bankruptcy, restatement, …, or a coin event such as a
+  halving), `IND` = industry news (the SVB failure for banks, an OPEC decision for energy, DeepSeek for chips), `MKT` =
+  market-wide news (Brexit, an emergency Fed cut, the 2025 tariff shock).
+- **Below the bar, green:** the nearby flip turned price up. **Above, red:** it turned down. Hover for the headline(s) and how
+  far away the flip was; the stars give the importance (★ notable, ★★ major, ★★★ landmark).
+- A marker can appear a few bars **after** the news: when the flip comes later, the marker is placed back on the news bar once
+  the flip prints. Nothing is ever shown before it could have been known.
+- Settings: pick the scopes, the minimum importance (default ★★), the flip window, and the reaction threshold. Turn off
+  **Only near a price flip** or **Require a price reaction** to see every rated event.
+- Alerts, the screener and the Signal Tester can use `NEWS_AT_FLIP_UP` / `NEWS_AT_FLIP_DOWN`, e.g. "after a market-wide
+  shock at a bullish flip, what did this symbol do over the next 20 bars?"
+- Company filings need `SEC_USER_AGENT` on the server (an app name and a contact e-mail; SEC asks every automated client
+  for one). Without it you still get the industry and market-wide calendar. The calendar is built in and updated with the
+  app; it does not stream live headlines.
+
 ---
 
 ## Ichimoku and the standard library

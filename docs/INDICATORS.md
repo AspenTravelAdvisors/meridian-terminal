@@ -327,4 +327,39 @@ step series). Without aux the pane stays empty.
 Crypto symbols (`BINANCE:BTCUSDT`, `COINBASE:ETH-USD`, bare `BTCUSDT`, …) map to OKX `{BASE}-USDT-SWAP`. Equity symbols use
 the plain ticker against FINRA. Wrong asset class → empty series with a note from `/api/positioning`.
 
+## §10. Market-Moving News (`news-events`, external feeds)
+Not derived from OHLC alone. The chart loads rated events from `GET /api/news` and places each one on the bar it happens
+in, or on the next bar when it falls between bars (overnight, a weekend). Events before the first bar or after the last
+bar closes are dropped (`bucketEvents`). Three aux columns hold each bar's largest event weight per scope: `newsTicker`,
+`newsIndustry`, `newsMarket`. Without aux the study draws nothing.
+
+**Sources (free, no API key):**
+
+| Scope | Source | Weight (1 notable · 2 major · 3 landmark) |
+|---|---|---|
+| Company (`CO`) | SEC EDGAR 8-K filings for US registrants. Needs `SEC_USER_AGENT` on the server. | By the filing's most important item: 1.03 bankruptcy, 1.05 cyber incident, 3.01 delisting, 4.02 restatement, 5.01 change in control = 3; 2.01 deal closed, 2.02 earnings, 2.05 restructuring, 2.06 impairment, 4.01 auditor change = 2; 1.01/1.02 agreements, 5.02 officer change, 7.01, 8.01 = 1. Amendments (8-K/A) and filings with only votes or exhibits are ignored. |
+| Company (`CO`) | Built-in calendar: crypto coins (halvings, the Merge, ETF launches) and a few equity events no filing describes. | Per entry. |
+| Industry (`IND`) | Built-in calendar, matched to the symbol's sector (built-in ticker table, else the SEC industry code; crypto symbols are `crypto`). | Per entry. |
+| Market (`MKT`) | Built-in calendar (crashes, central-bank shocks, elections, wars). Crypto symbols get only entries flagged as having moved crypto too. Symbol expressions get these only. | Per entry. |
+
+Calendar dates are the first session that reacted. Day-precision events sit at 15:00 UTC (inside the US session year-round).
+EDGAR acceptance times are US Eastern wall-clock values and are converted to UTC.
+
+**Rule, per event bar `e`** (every threshold is an input):
+1. *Importance:* an enabled scope (`ticker`, `industry`, `market`) has weight ≥ `minWeight` (default 2) on bar `e`.
+2. *Reaction* (`requireReaction`, default on): for some bar `j` in `e … e + reactionBars − 1` (default 2 bars, which covers
+   news after the close), `TR[j] ÷ mean(TR[j−atrLength … j−1]) ≥ reactionAtr` (defaults 14 bars, 1.5×). Fewer than
+   `atrLength` prior bars → the mean of those available.
+3. *Price flip* (`requireFlip`, default on): a price flip (§1.1, lookback `flipLookback`, default 4) on some bar `f` with
+   `|f − e| ≤ flipWindow` (default 3). The nearest flip already seen wins; on a tie, the later one.
+4. The event qualifies on the first bar where 1–3 all hold, and is dropped once `e + max(flipWindow, reactionBars − 1)` has
+   passed without that.
+
+**Outputs.** A boxed marker on bar `e` (text `CO`, `IND`, `MKT` or a `+` join), below the bar for a bullish flip and above for
+a bearish one, coloured to match; neutral (`info`, above) when the flip requirement is off and none was near. Its `at` is the
+qualifying bar, so a flip after the news finalizes the marker later: **no look-ahead**. Signals `NEWS_AT_FLIP_UP` (bull),
+`NEWS_AT_FLIP_DOWN` (bear) and `NEWS_EVENT` (neutral) fire on the qualifying bar. A `news` data column holds the scope bits
+(1 company + 2 industry + 4 market), negative for a bearish flip. Headlines are not engine output: the chart adds them to
+each marker's tooltip from the same `/api/news` response.
+
 Every study in this file must appear in the Studies dialog with Inputs generated from its Zod schema and documented ⚠ VERIFY knobs.

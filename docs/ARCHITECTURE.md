@@ -39,6 +39,11 @@ fixtures/           Golden-reference fixtures (hand-computed today; reference CS
 - `positioning.ts` fetches free leverage/positioning series: OKX public perpetual funding, open interest and long/short
   account ratio for crypto, and FINRA consolidated short interest (days to cover / shares short) for US equities. No API
   keys. Served at `GET /api/positioning` and aligned onto chart bars as study aux (`alignEvents`).
+- `news.ts` + `newsCalendar.ts` build rated news events: a built-in calendar of landmark market-wide, industry and coin
+  events (offline, deterministic) and, for US stocks, SEC EDGAR 8-K filings rated by item. SEC needs a User-Agent with a
+  contact, so filings are on only when `SEC_USER_AGENT` is set; the ticker→CIK table is cached per server instance for a
+  day. Served at `GET /api/news` (CDN-cached for an hour) and placed on bars as study aux (`bucketEvents`). The chart adds
+  the headlines to the News study's marker tooltips (`apps/web/src/chart/news.ts`), since the engine only sees weights.
 - `sessions.ts` derives exchange calendars from rules (the NYSE holiday rules include an Easter computation).
   `transform.ts` does session-anchored resampling, Heikin Ashi, Renko, range bars, split/dividend adjustment and live-bar
   merging.
@@ -72,7 +77,7 @@ the MTF matrix, the tester and background alerts all accept one without changes 
 
 - `handle(req, env, fetcher)` routes web-standard `Request`s, so the same code runs as a Vercel Node function, under
   `scripts/serve.mjs` and inside the Vite dev server.
-- Routes: `GET /api/bars|search|quotes|positioning|health|tester`, `POST /api/scan|matrix|analyst|notify`; accounts under
+- Routes: `GET /api/bars|search|quotes|positioning|news|health|tester`, `POST /api/scan|matrix|analyst|notify`; accounts under
   `/api/account/*`, `GET|POST /api/sync`, `/api/push/*`, `GET /api/alerts/activity` and `GET|POST /api/cron/alerts`. Inputs are
   validated with Zod. The server rate-limits per client and sets CDN cache headers on market data.
 - `analyst` streams Claude output (`@anthropic-ai/sdk`, adaptive thinking, server-side refusal fallback), with
