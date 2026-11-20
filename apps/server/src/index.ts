@@ -3,6 +3,7 @@ import { accountRoutes } from './routes/account';
 import { alertRoutes } from './routes/alerts';
 import { analystRoute } from './routes/analyst';
 import { barsRoute, healthRoute, quotesRoute, searchRoute } from './routes/market';
+import { newsRoute } from './routes/news';
 import { notifyRoute } from './routes/notify';
 import { positioningRoute } from './routes/positioning';
 import { pushRoutes } from './routes/push';
@@ -23,6 +24,7 @@ const ROUTES: Record<string, { GET?: Handler; POST?: Handler }> = {
   '/api/search': { GET: searchRoute },
   '/api/quotes': { GET: quotesRoute },
   '/api/positioning': { GET: positioningRoute },
+  '/api/news': { GET: newsRoute },
   '/api/scan': { POST: scanRoute },
   '/api/matrix': { POST: matrixRoute },
   '/api/tester': { GET: testerRoute },

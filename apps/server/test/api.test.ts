@@ -12,6 +12,31 @@ describe('API', () => {
     const r = await get('/api/health');
     expect(await r.json()).toMatchObject({ ok: true, analyst: 'rule-based', providers: { okx: true, finra: true } });
   });
+  it('serves rated news events from the built-in calendar without SEC, and filings with it', async () => {
+    const r = await get(`/api/news?symbol=JPM&from=${Date.UTC(2023, 0, 1)}&to=${Date.UTC(2023, 11, 31)}`);
+    expect(r.status).toBe(200);
+    expect(r.headers.get('Cache-Control')).toMatch(/s-maxage=3600/);
+    const j = (await r.json()) as { events: { scope: string; headline: string }[]; notes: string[] };
+    expect(j.events.some((e) => e.scope === 'industry' && e.headline.includes('Silicon Valley Bank'))).toBe(true);
+    expect(j.notes.join(' ')).toMatch(/SEC_USER_AGENT/);
+    const sec = (async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('company_tickers')) return new Response(JSON.stringify({ '0': { cik_str: 19617, ticker: 'JPM' } }));
+      if (url.includes('CIK0000019617'))
+        return new Response(
+          JSON.stringify({
+            sic: '6021',
+            filings: { recent: { accessionNumber: ['1-2'], filingDate: ['2023-04-14'], acceptanceDateTime: ['2023-04-14T06:46:00.000Z'], form: ['8-K'], items: ['2.02'], primaryDocument: ['e.htm'] } },
+          }),
+        );
+      return new Response('offline', { status: 503 });
+    }) as unknown as typeof fetch;
+    const r2 = await handle(new Request(`http://localhost/api/news?symbol=JPM&from=${Date.UTC(2023, 0, 1)}&to=${Date.UTC(2023, 11, 31)}`), { SEC_USER_AGENT: 'Meridian test ops@example.com' }, sec);
+    const j2 = (await r2.json()) as { events: { source: string; headline: string }[]; sources: string[] };
+    expect(j2.sources).toContain('sec');
+    expect(j2.events.find((e) => e.source === 'sec')?.headline).toBe('8-K: Earnings release');
+    expect((await get('/api/news?symbol=%3Cbad%3E')).status).toBe(400);
+  });
   it('serves positioning series and rejects bad kinds', async () => {
     const funding = {
       code: '0',

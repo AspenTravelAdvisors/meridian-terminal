@@ -6,6 +6,8 @@ export interface ServerEnv {
   ALPACA_KEY_ID?: string;
   ALPACA_SECRET_KEY?: string;
   TWELVE_DATA_API_KEY?: string;
+  /** SEC asks automated clients for a User-Agent naming the app and a contact e-mail; company filings are off without it */
+  SEC_USER_AGENT?: string;
   ALLOWED_ORIGINS?: string;
   RESEND_API_KEY?: string;
   ALERT_EMAIL_FROM?: string;

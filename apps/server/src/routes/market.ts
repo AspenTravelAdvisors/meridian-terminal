@@ -54,6 +54,7 @@ export function healthRoute(_req: Request, env: ServerEnv): Response {
       sim: true,
       okx: true,
       finra: true,
+      sec: !!env.SEC_USER_AGENT,
       alpaca: !!(env.ALPACA_KEY_ID && env.ALPACA_SECRET_KEY),
       twelvedata: !!env.TWELVE_DATA_API_KEY,
     },
