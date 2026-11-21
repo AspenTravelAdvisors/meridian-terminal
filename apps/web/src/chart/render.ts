@@ -107,6 +107,27 @@ export interface RenderInput {
   hollowProvisional: boolean;
   extraMarkers: MarkerItem[];
   scriptPlots: { uid: string; overlay: boolean; plots: { title: string; color: string; values: number[]; style: string }[]; hlines: { value: number; title: string; color: string }[] }[];
+  /** study uid picked in the legend: every other study fades back (like solo on a mixing board) */
+  solo?: string | null;
+}
+
+/** Opacity left to the other studies while one is soloed. */
+export const SOLO_FADE = 0.15;
+
+/** `color` at `k` times its opacity (hex with or without alpha, rgb() and rgba()); other forms pass through. */
+export function fadeColor(color: string, k = SOLO_FADE): string {
+  const f = (a: number) => +(a * k).toFixed(3);
+  if (color.startsWith('#')) {
+    if (color.length === 9) {
+      const n = parseInt(color.slice(1, 7), 16);
+      return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${f(parseInt(color.slice(7), 16) / 255)})`;
+    }
+    return withAlpha(color, k);
+  }
+  const m = /^rgba?\(([^)]+)\)$/.exec(color);
+  if (!m) return color;
+  const [r, g, b, a = '1'] = m[1].split(',').map((x) => x.trim());
+  return `rgba(${r}, ${g}, ${b}, ${f(Number(a))})`;
 }
 
 /** Keeps LWC series in sync with study results; dense annotations go to primitives. */
@@ -184,6 +205,7 @@ export class StudyRenderer {
       this.sig = sig;
     }
     const col = (c: string) => resolveColor(c, pal);
+    const solo = inp.solo && cfgs.some((c) => c.uid === inp.solo) ? inp.solo : null;
     const runs: LevelRun[] = [];
     const segments: GeoSegment[] = [];
     const paths: PivotPath[] = [];
@@ -232,6 +254,9 @@ export class StudyRenderer {
 
     for (const c of cfgs) {
       const pane = layout.get(c.uid) ?? 0;
+      const faded = !!solo && c.uid !== solo;
+      const soloed = c.uid === solo;
+      const fade = (x: string) => (faded ? fadeColor(x) : x);
       if (c.id === 'script') {
         const sp = inp.scriptPlots.find((x) => x.uid === c.uid);
         if (!sp) continue;
@@ -241,8 +266,10 @@ export class StudyRenderer {
               ? this.chart.addSeries(HistogramSeries, { color: p.color, priceLineVisible: false, lastValueVisible: false }, pane)
               : this.chart.addSeries(LineSeries, { color: p.color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, lineType: p.style === 'step' ? LineType.WithSteps : LineType.Simple }, pane),
           );
+          s.applyOptions(p.style === 'histogram' ? { color: fade(p.color) } : { color: fade(p.color), lineWidth: (soloed ? 3 : 2) as 2 });
           s.setData(pointsOf(p.values) as never);
           if (k === 0 && !e.priceLines.length) for (const h of sp.hlines) e.priceLines.push(s.createPriceLine({ price: h.value, color: h.color, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: h.title }));
+          if (k === 0) sp.hlines.forEach((h, j) => e.priceLines[j]?.applyOptions({ color: fade(h.color) }));
         });
         continue;
       }
@@ -265,18 +292,18 @@ export class StudyRenderer {
           const lo = o as LineOutput;
           if (o.kind === 'line' && lo.render === 'level') {
             const v = r.lines[o.id];
-            const color = st.color ?? col(lo.color);
+            const color = fade(st.color ?? col(lo.color));
             let start = -1;
             for (let i = 0; i <= v.length; i++) {
               const same = i < v.length && start >= 0 && v[i] === v[start];
               if (same) continue;
-              if (start >= 0 && Number.isFinite(v[start])) runs.push({ i1: start, i2: i - 1, price: v[start], color, dash: lo.style ?? 'solid', width: st.width ?? lo.width ?? 1, label: lo.label, src: c.uid, out: o.id });
+              if (start >= 0 && Number.isFinite(v[start])) runs.push({ i1: start, i2: i - 1, price: v[start], color, dash: lo.style ?? 'solid', width: st.width ?? lo.width ?? 1, label: lo.label, src: c.uid, out: o.id, faded: faded || undefined });
               start = i < v.length && Number.isFinite(v[i]) ? i : -1;
             }
             continue;
           }
           if (o.hiddenByDefault && st.visible !== true) continue;
-          const color = st.color ?? col(o.color);
+          const color = fade(st.color ?? col(o.color));
           const { s } = ensure(c.uid, o.id, pane, () => {
             if (o.kind === 'histogram') {
               const hs = this.chart.addSeries(HistogramSeries, { color, priceLineVisible: false, lastValueVisible: false, priceScaleId: isVol ? 'vol' : undefined, priceFormat: isVol ? { type: 'volume' } : undefined }, pane);
@@ -301,12 +328,12 @@ export class StudyRenderer {
               pane,
             );
           });
-          s.applyOptions({ color });
+          s.applyOptions(o.kind === 'line' ? { color, lineWidth: ((st.width ?? lo.width ?? 1) + (soloed ? 1 : 0)) as 1, lastValueVisible: pane > 0 && !faded } : { color });
           firstSeries ??= s;
           const vals = r.lines[o.id];
           if (o.kind === 'histogram' || (isVol && o.id === 'vol')) {
-            const pos = st.color ?? col(o.color);
-            const neg = col((o as { negColor?: string }).negColor ?? o.color);
+            const pos = fade(st.color ?? col(o.color));
+            const neg = fade(col((o as { negColor?: string }).negColor ?? o.color));
             const pts = [];
             for (let i = 0; i < vals.length; i++) {
               const v = vals[i];
@@ -320,7 +347,7 @@ export class StudyRenderer {
           if (o.hiddenByDefault && st.visible !== true) continue;
           const a = r.lines[o.a];
           const b = r.lines[o.b];
-          if (a && b) clouds.push({ src: c.uid, out: o.id, a, b, offset: o.offset ?? 0, up: withAlpha(col(o.upColor), 0.16), down: withAlpha(col(o.downColor), 0.16) });
+          if (a && b) clouds.push({ src: c.uid, out: o.id, a, b, offset: o.offset ?? 0, up: fade(withAlpha(col(o.upColor), 0.16)), down: fade(withAlpha(col(o.downColor), 0.16)) });
         } else if (o.kind === 'labels') {
           const hf = o.hideFailedRuns;
           const counts = hf && r.lines[hf.count];
@@ -332,39 +359,40 @@ export class StudyRenderer {
       const e = this.entries.get(c.uid);
       if (e && firstSeries && !e.priceLines.length)
         for (const o of outs) if (o.kind === 'hline') e.priceLines.push(firstSeries.createPriceLine({ price: o.value, color: col(o.color), lineWidth: 1, lineStyle: lineStyleOf(o.style), axisLabelVisible: false, title: '' }));
+      if (e) outs.filter((o) => o.kind === 'hline').forEach((o, j) => e.priceLines[j]?.applyOptions({ color: fade(col((o as { color: string }).color)) }));
       // markers
       for (const m of r.markers)
         if (m.i < n) marks.push({ i: m.i, text: m.text, pos: m.pos, color: col(m.color), row: m.row ?? 0, size: m.size ?? 1, style: m.style ?? 'solid', provisional: m.provisional, price: m.price, src: c.uid, tip: m.tooltip });
       // geometry
       const g = r.geometry;
       // the engine names a segment's dash `style`; the primitive reads `dash`
-      for (const s of g.segments ?? []) segments.push({ ...s, dash: s.style, color: col(s.color), src: c.uid });
+      for (const s of g.segments ?? []) segments.push({ ...s, dash: s.style, color: fade(col(s.color)), src: c.uid });
       // pivots carrying their own colour (D-Wave up vs down) split into one path per contiguous colour run
       const piv = g.pivots ?? [];
       for (let a = 0; a < piv.length; ) {
         const pc = piv[a].color ?? g.polylineColor ?? 'accent';
         let b = a + 1;
         while (b < piv.length && (piv[b].color ?? g.polylineColor ?? 'accent') === pc) b++;
-        paths.push({ points: piv.slice(a, b), color: col(pc), src: c.uid });
+        paths.push({ points: piv.slice(a, b), color: fade(col(pc)), src: c.uid });
         a = b;
       }
       for (const t of g.timeMarks ?? []) {
         // projected marks carry their date: the point of a forward time mark is when it lands
         const at = t.i >= n ? tm.displayAt(t.i) : null;
         const label = at === null ? t.label : `${t.label} · ${shortDate(at, intraday, new Date(at * 1000).getUTCFullYear() !== lastYear)}`;
-        timeMarks.push({ ...t, label, color: col(t.color ?? 'muted'), src: c.uid });
+        timeMarks.push({ ...t, label, color: fade(col(t.color ?? 'muted')), src: c.uid });
         marksAhead = Math.max(marksAhead, t.i - (n - 1));
       }
       for (const s of g.segments ?? []) ahead = Math.max(ahead, s.i2 - (n - 1));
       for (const fa of g.fans ?? []) {
         const fc = col(fa.color);
-        fans.push({ src: c.uid, i0: fa.i0, p0: fa.p0, mid: fa.mid, bands: fa.bands.map((b, k) => ({ ...b, fill: withAlpha(fc, k === 0 ? 0.1 : 0.14) })), color: fc, label: fa.label });
+        fans.push({ src: c.uid, i0: fa.i0, p0: fa.p0, mid: fa.mid, bands: fa.bands.map((b, k) => ({ ...b, fill: fade(withAlpha(fc, k === 0 ? 0.1 : 0.14)) })), color: fade(fc), label: fa.label });
         marksAhead = Math.max(marksAhead, fa.i0 + fa.mid.length - (n - 1));
       }
-      for (const gh of g.ghosts ?? []) ghosts.push(gh);
-      for (const p of g.profiles ?? []) profiles.push({ ...p, color: col('info'), upColor: withAlpha(col('bull'), 0.5) });
-      // heat strip
-      for (const s of r.signals) {
+      for (const gh of g.ghosts ?? []) ghosts.push(faded ? { ...gh, faded } : gh);
+      for (const p of g.profiles ?? []) profiles.push({ ...p, color: fade(col('info')), upColor: fade(withAlpha(col('bull'), 0.5)) });
+      // heat strip (only the soloed study's signals while one is soloed)
+      if (!faded) for (const s of r.signals) {
         const h = heat.get(s.i) ?? { bull: 0, bear: 0, neutral: 0 };
         h[s.dir]++;
         heat.set(s.i, h);
@@ -375,6 +403,7 @@ export class StudyRenderer {
     this.levels.ghostColors = { up: pal.up, down: pal.down };
     this.levels.setData({ runs, segments, paths, timeMarks, profiles, clouds, fans, ghosts, last: n - 1 });
     this.markers.hollowProvisional = inp.hollowProvisional;
+    this.markers.solo = solo;
     this.markers.setData(
       marks,
       columns,

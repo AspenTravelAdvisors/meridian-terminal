@@ -214,6 +214,15 @@ function ChartSurface(p: SurfaceProps) {
   const [paneTops, setPaneTops] = useState<number[]>([0]);
   const [editText, setEditText] = useState<Drawing | null>(null);
   const [tip, setTip] = useState<{ hit: ChartHit; x: number; y: number; pinned: boolean } | null>(null);
+  // the study tapped in the legend: it stays bright and every other study fades back (solo, as on a mixing board)
+  const [soloUid, setSoloUid] = useState<string | null>(null);
+  const solo = soloUid && p.cfgs.some((c) => c.uid === soloUid) ? soloUid : null;
+  useEffect(() => {
+    if (!solo) return;
+    const onKey = (k: KeyboardEvent) => k.key === 'Escape' && setSoloUid(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [solo]);
   const tipRef = useRef(tip);
   tipRef.current = tip;
   const [behind, setBehind] = useState(false);
@@ -504,7 +513,10 @@ function ChartSurface(p: SurfaceProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [display, tm, pane.chartType, settings.palette, seriesKey]);
-  useEffect(() => setTip(null), [seriesKey]);
+  useEffect(() => {
+    setTip(null);
+    setSoloUid(null);
+  }, [seriesKey]);
   useEffect(() => {
     if (!prims.current) return;
     const on = settings.chartTips && !tool;
@@ -527,7 +539,7 @@ function ChartSurface(p: SurfaceProps) {
         if (i >= 0 && i < n) extra.push({ i, text: '✎', pos: 'above', color: pal.warn, row: 7, size: 2, style: 'solid', src: 'journal', tip: note.body ? `${note.title} — ${note.body}` : note.title });
       }
     for (const sp of p.scriptPlots) for (const s of sp.signals) if (s.i < n) extra.push({ i: s.i, text: s.text, pos: s.dir === 'bear' ? 'above' : 'below', color: s.dir === 'bull' ? pal.bull : s.dir === 'bear' ? pal.bear : pal.info, row: 6, size: 1, style: 'solid', src: sp.uid, tip: s.id });
-    const ahead = r.render({ results: map, cfgs: p.cfgs, tm, pal, bars: display, provisionalFrom, hollowProvisional: settings.hollowProvisional, extraMarkers: extra, scriptPlots: p.scriptPlots });
+    const ahead = r.render({ results: map, cfgs: p.cfgs, tm, pal, bars: display, provisionalFrom, hollowProvisional: settings.hollowProvisional, extraMarkers: extra, scriptPlots: p.scriptPlots, solo });
     projAhead.current = ahead;
     // once per series (and again if a later result reaches further), widen a view that is following the newest bar so
     // projections (Exhaustion Window, Ichimoku time counts, the Forward Cone) and their dates are on screen; a view
@@ -549,7 +561,7 @@ function ChartSurface(p: SurfaceProps) {
       setPaneTops(chart.panes().map((pn) => (pn.getHTMLElement()?.getBoundingClientRect().top ?? top0) - top0));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.results, p.cfgs, p.scriptPlots, tm, settings.palette, settings.hollowProvisional, settings.showHeatStrip, notes, pane.symbol]);
+  }, [p.results, p.cfgs, p.scriptPlots, tm, settings.palette, settings.hollowProvisional, settings.showHeatStrip, notes, pane.symbol, solo]);
 
   // drawings
   useEffect(() => {
@@ -589,7 +601,7 @@ function ChartSurface(p: SurfaceProps) {
   return (
     <div className="relative h-full w-full" onPointerDown={() => useWorkspace.getState().setActive(pane.id)}>
       <div ref={box} className="absolute inset-0" data-testid={`chart-${pane.id}`} />
-      <Legend surface={p} i={i} paneTops={paneTops} />
+      <Legend surface={p} i={i} paneTops={paneTops} solo={solo} setSolo={setSoloUid} />
       {tip && explained && (
         <ExplainCard
           e={explained}
@@ -732,14 +744,15 @@ function TextEditor({ initial, onDone }: { initial: string; onDone(t: string | n
 }
 
 // ── Legend ────────────────────────────────────────────────────────────────
-function Legend({ surface: p, i, paneTops }: { surface: SurfaceProps; i: number; paneTops: number[] }) {
+function Legend({ surface: p, i, paneTops, solo, setSolo }: { surface: SurfaceProps; i: number; paneTops: number[]; solo: string | null; setSolo(uid: string | null): void }) {
   const b = p.display[i];
   const prev = p.display[i - 1];
   const showValues = useSettings((s) => s.showLegendValues);
   const ws = useWorkspace.getState();
   const ui = useUi.getState();
-  // touch has no hover: tapping a study name toggles its controls
-  const [openUid, setOpenUid] = useState<string | null>(null);
+  // tapping a study name solos it on the chart and pins its controls open (touch has no hover); tap again or Esc to release
+  const openUid = solo;
+  const setOpenUid = setSolo;
   const chg = b && prev ? b.c - prev.c : 0;
   const byUid = useMemo(() => new Map(p.results.map((r) => [r.id, r])), [p.results]);
   // which pane each non-overlay study occupies (same rule as the renderer)
@@ -779,20 +792,35 @@ function Legend({ surface: p, i, paneTops }: { surface: SurfaceProps; i: number;
             .filter((x) => x.v !== undefined && Number.isFinite(x.v))
         : [];
     const err = (r as (StudyResult & { error?: string }) | undefined)?.error ?? sp?.error;
+    const soloed = openUid === c.uid;
+    const muted = openUid !== null && !soloed;
     return (
-      <div key={c.uid} className="legend-row group flex items-center gap-1.5">
-        <button type="button" className="font-medium text-text" aria-label={`${name} controls`} {...toggleProps(c.uid)}>{name}</button>
+      <div
+        key={c.uid}
+        className={`legend-row group flex flex-wrap items-center gap-1.5 rounded transition-opacity ${soloed ? '-mx-1 bg-panel/95 px-1 py-0.5 shadow-md ring-1 ring-accent' : ''} ${muted ? 'opacity-40 hover:opacity-100 focus-within:opacity-100' : ''}`}
+        data-solo={soloed || undefined}
+      >
+        <button type="button" className={`font-medium ${soloed ? 'text-accent' : 'text-text'}`} aria-label={`${name} controls`} aria-pressed={soloed} title={soloed ? 'Soloed: tap again (or Esc) to show every study' : 'Tap to solo this study and show its controls'} {...toggleProps(c.uid)}>{name}</button>
         {nums && <span className="text-faint">{nums}</span>}
         {r?.provisional && <span className="rounded bg-raised px-1 text-[9px] uppercase tracking-wide text-warn" title="Forming bar — counts are provisional until the bar closes">prov</span>}
         {err && <span className="text-danger" title={err}>⚠</span>}
         {vals.map((x) => (
           <span key={x.id} className="tabular-nums text-dim">{c.id === 'volume' ? fmtVol(Math.abs(x.v!)) : fmtPrice(x.v!)}</span>
         ))}
-        <span className={`pointer-events-auto ml-1 items-center gap-0.5 group-focus-within:flex group-hover:flex ${openUid === c.uid ? 'flex' : 'hidden'}`}>
-          <button className="icon-btn" title="Hide" aria-label={`Hide ${name}`} onClick={() => ws.updateStudy(p.pane.id, c.uid, { visible: false })}><EyeOff className="size-3" /></button>
-          {c.id !== 'script' && <button className="icon-btn" title="Settings" aria-label={`${name} settings`} onClick={() => ui.set({ studySettings: { paneId: p.pane.id, uid: c.uid } })}><Settings2 className="size-3" /></button>}
-          <button className="icon-btn" title="Remove" aria-label={`Remove ${name}`} onClick={() => ws.removeStudy(p.pane.id, c.uid)}><X className="size-3" /></button>
-        </span>
+        {soloed ? (
+          // soloed: the controls become labelled chips, big enough to hit on a phone
+          <span className="pointer-events-auto flex items-center gap-1">
+            <button className="solo-btn" aria-label={`Hide ${name}`} onClick={() => ws.updateStudy(p.pane.id, c.uid, { visible: false })}><EyeOff className="size-3.5" />Hide</button>
+            {c.id !== 'script' && <button className="solo-btn" aria-label={`${name} settings`} onClick={() => ui.set({ studySettings: { paneId: p.pane.id, uid: c.uid } })}><Settings2 className="size-3.5" />Settings</button>}
+            <button className="solo-btn solo-btn-danger" aria-label={`Remove ${name}`} onClick={() => ws.removeStudy(p.pane.id, c.uid)}><X className="size-3.5" />Remove</button>
+          </span>
+        ) : (
+          <span className="pointer-events-auto ml-1 hidden items-center gap-0.5 group-focus-within:flex group-hover:flex">
+            <button className="icon-btn" title="Hide" aria-label={`Hide ${name}`} onClick={() => ws.updateStudy(p.pane.id, c.uid, { visible: false })}><EyeOff className="size-3" /></button>
+            {c.id !== 'script' && <button className="icon-btn" title="Settings" aria-label={`${name} settings`} onClick={() => ui.set({ studySettings: { paneId: p.pane.id, uid: c.uid } })}><Settings2 className="size-3" /></button>}
+            <button className="icon-btn" title="Remove" aria-label={`Remove ${name}`} onClick={() => ws.removeStudy(p.pane.id, c.uid)}><X className="size-3" /></button>
+          </span>
+        )}
       </div>
     );
   };

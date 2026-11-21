@@ -111,6 +111,13 @@ body,
   .legend-row button {
     pointer-events: auto;
   }
+  /* labelled Hide / Settings / Remove chips on a soloed legend row */
+  .solo-btn {
+    @apply inline-flex min-h-6 items-center gap-1 rounded border border-border-strong bg-raised px-1.5 text-[11px] font-medium text-text hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent;
+  }
+  .solo-btn-danger {
+    @apply hover:border-danger hover:text-danger;
+  }
 }
 
 /* dockview → Meridian tokens */

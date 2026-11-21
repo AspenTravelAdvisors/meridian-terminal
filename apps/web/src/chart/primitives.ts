@@ -4,6 +4,8 @@ import type { AutoscaleInfo, Coordinate, IChartApi, IPrimitivePaneRenderer, ISer
 type CanvasRenderingTarget2D = Parameters<IPrimitivePaneRenderer['draw']>[0];
 
 type Ctx = CanvasRenderingContext2D;
+/** Opacity of other studies' labels and ghost candles while one study is soloed (matches render.ts SOLO_FADE). */
+const SOLO_ALPHA = 0.15;
 export type Dash = 'solid' | 'dashed' | 'dotted';
 
 export function setDash(ctx: Ctx, d: Dash | undefined, w = 1) {
@@ -168,6 +170,8 @@ interface Cand {
   provisional: boolean;
   price?: number;
   slot?: number;
+  /** belongs to a study other than the soloed one */
+  faded?: boolean;
   hit: () => ChartHit;
 }
 
@@ -179,6 +183,8 @@ export class TextMarkersPrimitive extends BasePrimitive {
   private lows: ArrayLike<number> = [];
   private boxes: { x1: number; y1: number; x2: number; y2: number; hit: ChartHit }[] = [];
   hollowProvisional = true;
+  /** study uid soloed in the legend: labels of other studies fade back and give way to its labels */
+  solo: string | null = null;
   bg = '#0b0f14';
   protected override zOrder = 'top' as const;
 
@@ -221,7 +227,11 @@ export class TextMarkersPrimitive extends BasePrimitive {
     // Collect every label, then stack each bar side compactly in row order (empty rows leave no gap) and draw
     // the most important first; small labels that would overlap one already drawn are dropped.
     const cands: Cand[] = [];
-    const add = (c: Cand) => cands.push(c);
+    const solo = this.solo;
+    const add = (c: Cand, src?: string) => {
+      if (solo && src && src !== 'journal' && src !== solo) c.faded = true;
+      cands.push(c);
+    };
     for (const col of this.columns) {
       if (dense) continue;
       for (let i = from; i <= to; i++) {
@@ -231,7 +241,7 @@ export class TextMarkersPrimitive extends BasePrimitive {
         const a = Math.abs(v);
         const color = v > 0 ? col.posColor : col.negColor;
         const provisional = i >= col.provisionalFrom;
-        add({ i, pos, row: col.row, text: String(a), color, size: 1, style: col.mutedAbove !== undefined && a > col.mutedAbove ? 'muted' : 'solid', provisional, hit: () => ({ kind: 'count', src: col.src, out: col.out, i, value: v, text: String(a), color, provisional }) });
+        add({ i, pos, row: col.row, text: String(a), color, size: 1, style: col.mutedAbove !== undefined && a > col.mutedAbove ? 'muted' : 'solid', provisional, hit: () => ({ kind: 'count', src: col.src, out: col.out, i, value: v, text: String(a), color, provisional }) }, col.src);
       }
     }
     for (let i = from; i <= to; i++) {
@@ -239,7 +249,7 @@ export class TextMarkersPrimitive extends BasePrimitive {
       if (!ms) continue;
       for (const m of ms)
         if (!dense || m.size >= 2)
-          add({ i: m.i, pos: m.pos, row: m.row, text: m.text, color: m.color, size: m.size, style: m.style, provisional: !!m.provisional, price: m.price, hit: () => ({ kind: m.src === 'journal' ? 'note' : 'marker', src: m.src, i: m.i, text: m.text, tip: m.tip, pos: m.pos, color: m.color, provisional: m.provisional }) });
+          add({ i: m.i, pos: m.pos, row: m.row, text: m.text, color: m.color, size: m.size, style: m.style, provisional: !!m.provisional, price: m.price, hit: () => ({ kind: m.src === 'journal' ? 'note' : 'marker', src: m.src, i: m.i, text: m.text, tip: m.tip, pos: m.pos, color: m.color, provisional: m.provisional }) }, m.src);
     }
     const slots = new Map<string, Cand[]>();
     for (const c of cands) {
@@ -253,7 +263,8 @@ export class TextMarkersPrimitive extends BasePrimitive {
       a.sort((p, q) => p.row - q.row);
       a.forEach((c, k) => (c.slot = k));
     }
-    const prio = (c: Cand) => c.size * 10 + (c.style === 'boxed' ? 5 : 0) - (c.style === 'muted' ? 3 : 0);
+    // the soloed study's labels are placed first; faded labels only fill space that is left
+    const prio = (c: Cand) => c.size * 10 + (c.style === 'boxed' ? 5 : 0) - (c.style === 'muted' ? 3 : 0) - (c.faded ? 100 : 0);
     const order = cands.map((c, k) => ({ c, k, p: prio(c) })).sort((a, b) => b.p - a.p || a.c.row - b.c.row || a.k - b.k);
     const occ = new Map<number, { x1: number; x2: number; y1: number; y2: number }[]>();
     const CELL = 24;
@@ -282,7 +293,7 @@ export class TextMarkersPrimitive extends BasePrimitive {
       const tw = ctx.measureText(c.text).width;
       // tight ink box for overlap tests, so single-digit counts on neighbouring bars still fit side by side
       const ink = { x1: x - tw / 2, x2: x + tw / 2, y1: y - fs * 0.75, y2: y + 1 };
-      if (c.size < 2 && clashes(ink)) continue;
+      if ((c.size < 2 || c.faded) && clashes(ink)) continue;
       claim(ink);
       this.drawLabel(ctx, x, y, fs, c);
       const half = tw / 2 + 3;
@@ -292,7 +303,7 @@ export class TextMarkersPrimitive extends BasePrimitive {
 
   private drawLabel(ctx: Ctx, x: number, y: number, fs: number, c: Cand) {
     const { text, color, style, provisional } = c;
-    ctx.globalAlpha = style === 'muted' ? 0.55 : 1;
+    ctx.globalAlpha = (style === 'muted' ? 0.55 : 1) * (c.faded ? SOLO_ALPHA : 1);
     const hollow = style === 'hollow' || (provisional && this.hollowProvisional);
     if (style === 'boxed') {
       const tw = ctx.measureText(text).width + 6;
@@ -337,6 +348,8 @@ export interface LevelRun {
   label?: string;
   src?: string;
   out?: string;
+  /** another study is soloed: drawn faded and without its price-scale tag */
+  faded?: boolean;
 }
 export interface GeoSegment {
   i1: number;
@@ -371,6 +384,8 @@ export interface GhostCandle {
   h: number;
   l: number;
   c: number;
+  /** another study is soloed */
+  faded?: boolean;
 }
 const signedPct = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`;
 export interface CloudData {
@@ -406,7 +421,7 @@ export class LevelsPrimitive extends BasePrimitive {
   setData(p: Partial<Pick<LevelsPrimitive, 'runs' | 'segments' | 'paths' | 'timeMarks' | 'profiles' | 'clouds' | 'fans' | 'ghosts' | 'last'>>) {
     Object.assign(this, p);
     this.axisViews = this.runs
-      .filter((r) => r.label && r.i2 === this.last)
+      .filter((r) => r.label && r.i2 === this.last && !r.faded)
       .map((r) => ({
         coordinate: () => this.y(r.price) ?? -1000,
         text: () => this.series?.priceFormatter().format(r.price) ?? r.price.toFixed(2),
@@ -513,8 +528,8 @@ export class LevelsPrimitive extends BasePrimitive {
     // ghost candles: one past case replayed from the last close, faint so they never read as real bars
     if (this.ghosts.length) {
       const bw = Math.max(1, Math.floor(this.barSpacing() * 0.6));
-      ctx.globalAlpha = 0.35;
       for (const g of this.ghosts) {
+        ctx.globalAlpha = 0.35 * (g.faded ? SOLO_ALPHA : 1);
         const x = this.x(g.i);
         const yo = this.y(g.o);
         const yc = this.y(g.c);

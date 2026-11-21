@@ -148,3 +148,19 @@ test('Market-Moving News: added from the Studies dialog, it loads /api/news and 
   await expect(page.getByRole('dialog').getByLabel(/Require a price reaction/)).toBeChecked();
   expect(errs).toEqual([]);
 });
+
+test('solo: tapping a study name highlights it, shows labelled controls, and Esc releases it', async ({ page }) => {
+  const seq = page.getByRole('button', { name: 'Seq controls' });
+  await seq.click();
+  await expect(seq).toHaveAttribute('aria-pressed', 'true');
+  const row = page.locator('.legend-row[data-solo]');
+  await expect(row).toHaveCount(1);
+  await expect(row.getByRole('button', { name: 'Hide Seq' })).toContainText('Hide');
+  await expect(row.getByRole('button', { name: 'Seq settings' })).toContainText('Settings');
+  await expect(row.getByRole('button', { name: 'Remove Seq' })).toContainText('Remove');
+  // the other rows fade back
+  await expect(page.locator('.legend-row', { has: page.getByRole('button', { name: 'Combo controls' }) })).toHaveClass(/opacity-40/);
+  await page.keyboard.press('Escape');
+  await expect(seq).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.legend-row[data-solo]')).toHaveCount(0);
+});
