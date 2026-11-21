@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Added
+- **Solo a study** from the chart legend: tap or click a study's name and every other study fades to 15% (price-scale tags
+  hidden, heat strip filtered) while the soloed one draws slightly thicker. Its row is outlined, and Hide, Settings and Remove
+  become labelled, phone-sized chips. Tap again or press `Esc` to release.
 - **Market-Moving News** (Studies → Meridian composites): boxed `CO` / `IND` / `MKT` markers for significant company,
   industry and market-wide news, shown only where the news moved price (true range ≥ 1.5× its average) and a price flip
   happened within 3 bars. Sources are free: SEC 8-K filings rated by item (set `SEC_USER_AGENT`) and a built-in calendar of

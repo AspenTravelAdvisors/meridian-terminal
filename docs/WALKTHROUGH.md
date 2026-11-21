@@ -132,7 +132,13 @@ Meridian: never act on a provisional 9 or 13 as if it were complete.
 Press `/` or click **Studies**. Browse by category, search, star favourites, or open **Scripts** (your own) and
 **Templates** (saved sets of studies).
 
-Click the gear next to a study's name in the chart legend to open its settings:
+**Solo a study:** click or tap its name in the chart legend. That study stays bright (its lines get 1 px thicker) and every
+other study fades back, like solo on a mixing board. The price-scale tags of the faded studies are hidden and the signal heat
+strip shows only the soloed study's signals. Its row is outlined, and its **Hide**, **Settings** and **Remove** buttons
+appear as labelled chips large enough to tap on a phone. Tap the name again, or press `Esc`, to bring every study back.
+Hovering a name with a mouse still shows the small icon buttons without soloing.
+
+Click the gear next to a study's name in the chart legend (or **Settings** on a soloed study) to open its settings:
 - **Inputs** are generated from the study's rules. A **⚠** badge marks rules still awaiting verification. **Presets** apply
   common variants, such as the crypto Ichimoku periods or the 70/30 zones for DeMarker.
 - **Style:** colours and widths for each output.
