@@ -8,6 +8,7 @@ import { ScenarioPanel } from '../panels/Scenario';
 import { MatrixPanel, ScreenerPanel, TesterPanel } from '../panels/Signals';
 import { TdStatusPanel } from '../panels/TdStatus';
 import { WatchlistPanel } from '../panels/Watchlist';
+import { WindowTimelinePanel } from '../panels/WindowTimeline';
 import { AnalystPanel, JournalPanel, ScriptEditorPanel } from '../panels/Workbench';
 
 /** Panel id → component, shared by the desktop dock and the mobile shell (ids match PANEL_DEFS). */
@@ -16,6 +17,7 @@ export const PANELS: Record<string, ComponentType> = {
   details: SymbolDetailsPanel,
   alerts: AlertsPanel,
   tdstatus: TdStatusPanel,
+  windows: WindowTimelinePanel,
   datawindow: DataWindowPanel,
   inspector: RuleInspectorPanel,
   objects: ObjectTreePanel,

@@ -6,6 +6,7 @@ export const PANEL_DEFS: { id: string; title: string; area: PanelArea }[] = [
   { id: 'details', title: 'Symbol', area: 'right-top' },
   { id: 'alerts', title: 'Alerts', area: 'right-top' },
   { id: 'tdstatus', title: 'DeMark Status', area: 'right-bottom' },
+  { id: 'windows', title: 'Window Timeline', area: 'right-bottom' },
   { id: 'datawindow', title: 'Data Window', area: 'right-bottom' },
   { id: 'inspector', title: 'Rule Inspector', area: 'right-bottom' },
   { id: 'objects', title: 'Object Tree', area: 'right-bottom' },
@@ -56,7 +57,7 @@ export function buildDefaultLayout(a: DockviewApi) {
   a.addPanel({ id: 'details', component: 'details', title: 'Symbol', position: { referencePanel: 'watchlist', direction: 'within' } });
   a.addPanel({ id: 'alerts', component: 'alerts', title: 'Alerts', position: { referencePanel: 'watchlist', direction: 'within' } });
   a.addPanel({ id: 'tdstatus', component: 'tdstatus', title: 'DeMark Status', position: { referencePanel: 'watchlist', direction: 'below' } });
-  for (const id of ['datawindow', 'inspector', 'objects', 'analyst', 'journal']) a.addPanel({ id, component: id, title: PANEL_DEFS.find((d) => d.id === id)!.title, position: { referencePanel: 'tdstatus', direction: 'within' } });
+  for (const id of ['windows', 'datawindow', 'inspector', 'objects', 'analyst', 'journal']) a.addPanel({ id, component: id, title: PANEL_DEFS.find((d) => d.id === id)!.title, position: { referencePanel: 'tdstatus', direction: 'within' } });
   const bottom = a.addPanel({ id: 'portfolio', component: 'portfolio', title: 'Portfolio', position: { referencePanel: 'charts', direction: 'below' } });
   for (const id of ['screener', 'matrix', 'tester', 'scenario', 'script', 'alertlog']) a.addPanel({ id, component: id, title: PANEL_DEFS.find((d) => d.id === id)!.title, position: { referencePanel: 'portfolio', direction: 'within' } });
   a.getPanel('watchlist')?.api.setActive();

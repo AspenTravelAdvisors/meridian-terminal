@@ -3,6 +3,12 @@
 ## Unreleased
 
 ### Added
+- **Window Timeline** panel (tab next to DeMark Status; phone: More): the Exhaustion Window projections of the monthly,
+  weekly and daily charts (and optionally 4-hour) drawn as bars on one calendar, from the earliest date a 13 can complete to
+  the estimate at its pace so far, with setup 9s as diamonds. Where two or more timeframes overlap on the same side, a beam
+  and a `W+D`-style bar in the alignment lane mark it, and a list gives each upcoming overlap with its counts. Side, range
+  (1M–1Y), 9s, Combo and 4H filters; dark theme uses a neon-on-grid look, light theme a blueprint version. Logic in
+  `apps/web/src/lib/windowTimeline.ts` (unit-tested); the engine is unchanged.
 - **Solo a study** from the chart legend: tap or click a study's name and every other study fades to 15% (price-scale tags
   hidden, heat strip filtered) while the soloed one draws slightly thicker. Its row is outlined, and Hide, Settings and Remove
   become labelled, phone-sized chips. Tap again or press `Esc` to release.

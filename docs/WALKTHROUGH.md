@@ -289,8 +289,8 @@ every support in it failed.
 completes if it keeps going, and where each running countdown can reach 13. When every bar so far has counted, one mark (`B13`)
 shows it; otherwise `earliest` is the soonest it can happen (every bar from here counts) and `est.` is where it lands at the
 pace so far. Combo marks are lighter (`Combo B13`). Each mark's label carries its date, the time axis runs on past the last bar to the
-furthest mark, and a chart that opens on the newest bar widens to show them; compare the dates across a daily and a weekly
-pane to see where the windows line up. `WINDOW_BUY_NEAR` / `WINDOW_SELL_NEAR` fire when a 13 is 3 bars away or less.
+furthest mark, and a chart that opens on the newest bar widens to show them. To see where the windows of several
+timeframes line up, open the **Window Timeline** panel (below). `WINDOW_BUY_NEAR` / `WINDOW_SELL_NEAR` fire when a 13 is 3 bars away or less.
 A countdown can still be cancelled or recycled first, so the window says when to watch, not that a turn will come.
 
 **Forward Cone** answers "what usually came next?" It finds every past bar on this chart that was in the same state as the
@@ -435,6 +435,24 @@ row to load it.
 
 The statistics are the reality check. If a symbol's past sell 9s were followed by *further* gains most of the time, a new
 sell 9 on that symbol deserves little weight.
+
+**Window Timeline** (tab next to DeMark Status; on phones, More → Window Timeline) puts the Exhaustion Window of every
+timeframe on one calendar, so you can see at a glance when they line up:
+- One row each for **M / W / D** (turn on **4H** for a fourth). Each running countdown is a bar from the earliest date it
+  can reach 13 (the bright left edge) to the date it lands on at its pace so far. Solid bars are Sequential, hatched bars
+  Combo, diamonds setup 9s. Green is buy, red is sell. The cyan **NOW** line is today.
+- Where bars from two or more timeframes overlap on the same side, a shaded **beam** runs down the rows and the **ALN** lane
+  at the bottom shows a bar labelled with the timeframes (`W+D`). Sequential and Combo on the same timeframe don't count:
+  that's what Count Consensus is for.
+- Hover or tab to any bar for its count and dates in the readout line under the timeline. The **Alignments** list gives
+  every overlap still ahead, with the counts behind it. Click a bar, a row label or an alignment to open that timeframe's
+  chart (an alignment opens its lowest timeframe).
+- Controls: **All / Buy / Sell**, range **1M / 3M / 6M / 1Y** (windows past the range are counted at the bottom right),
+  and **9s** / **Combo** to hide those marks; hidden marks also stop counting toward alignments. Your choices are
+  remembered on this device.
+
+Dates come from each timeframe's own bars and trading calendar, so a weekly bar covers its whole week and daily bars skip
+weekends and holidays. As with the chart marks, a countdown can be cancelled or recycled before its window arrives.
 
 ---
 

@@ -1,4 +1,4 @@
-import { type AdjustMode, INTERVAL_MS, type Interval, type SymbolInfo, isExpression, isOpen, mergeBars, parseSymbol } from '@meridian/data';
+import { type AdjustMode, type CalendarId, INTERVAL_MS, type Interval, type SymbolInfo, isExpression, isOpen, mergeBars, parseSymbol } from '@meridian/data';
 import type { Bar } from '@meridian/engine';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -187,6 +187,8 @@ export interface BarsSource {
   simulated: boolean;
   /** bars requested (the dataset may hold fewer) */
   limit: number;
+  /** trading calendar, for projecting future bar dates */
+  calendar: CalendarId;
 }
 
 /** One-shot fetch with an in-memory cache (panels: TD status D/W/M, tester, portfolio history). */
@@ -197,7 +199,7 @@ export function getBarsSourced(symbol: string, interval: Interval, limit = 1500,
   if (hit && Date.now() - hit.at < ttlMs) return hit.p;
   const p = fetchBarsClient(symbol, interval, { limit }).then((r) => ({
     bars: r.bars,
-    source: { symbol: r.symbol, interval, provider: r.local ? 'sim (in-browser)' : r.provider, adjust: r.adjust, simulated: !!r.simulated, limit },
+    source: { symbol: r.symbol, interval, provider: r.local ? 'sim (in-browser)' : r.provider, adjust: r.adjust, simulated: !!r.simulated, limit, calendar: r.info?.calendar ?? '24x7' },
   }));
   p.catch(() => memo.delete(k));
   memo.set(k, { at: Date.now(), p });

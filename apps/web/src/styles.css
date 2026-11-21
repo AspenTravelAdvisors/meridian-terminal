@@ -198,3 +198,298 @@ body {
 [data-shell='mobile'] .panel-body {
   padding-bottom: 12px;
 }
+
+/* ── Window Timeline: grid-and-neon HUD. Tokens are scoped to the panel; light theme gets a blueprint variant. ── */
+.tron {
+  --tron-bg: #02060b;
+  --tron-panel: #050c14;
+  --tron-line: #00e5ff;
+  --tron-grid: rgba(0, 229, 255, 0.055);
+  --tron-grid-2: rgba(0, 229, 255, 0.16);
+  --tron-edge: rgba(0, 229, 255, 0.4);
+  --tron-halo: rgba(0, 229, 255, 0.12);
+  --tron-buy: #1effa2;
+  --tron-sell: #ff3a6e;
+  --tron-text: #cdf9ff;
+  --tron-dim: rgba(205, 249, 255, 0.52);
+  --tron-fill: 0.28;
+  --tron-glow: 0.9;
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  background: radial-gradient(120% 60% at 50% 0%, var(--tron-halo), transparent 70%), var(--tron-bg);
+  color: var(--tron-text);
+  padding: 10px 10px 14px;
+}
+[data-theme='light'] .tron {
+  --tron-bg: #eef7fb;
+  --tron-panel: #f8fcfe;
+  --tron-line: #0284c7;
+  --tron-grid: rgba(2, 132, 199, 0.07);
+  --tron-grid-2: rgba(2, 132, 199, 0.2);
+  --tron-edge: rgba(2, 132, 199, 0.45);
+  --tron-halo: rgba(2, 132, 199, 0.08);
+  --tron-buy: #059669;
+  --tron-sell: #e11d48;
+  --tron-text: #0a3447;
+  --tron-dim: rgba(10, 52, 71, 0.6);
+  --tron-fill: 0.22;
+  --tron-glow: 0.3;
+}
+.tron-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.tron-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--tron-line);
+  text-shadow: 0 0 calc(8px * var(--tron-glow)) var(--tron-line);
+}
+.tron-sym {
+  margin-left: 6px;
+  color: var(--tron-text);
+  letter-spacing: 0.08em;
+  text-shadow: none;
+}
+.tron-sub {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tron-dim);
+}
+.tron-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tron-seg {
+  display: inline-flex;
+  border: 1px solid var(--tron-edge);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+.tron-seg button {
+  height: 22px;
+  padding: 0 7px;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tron-dim);
+  background: transparent;
+  transition: color 120ms, background 120ms;
+}
+.tron-seg button + button {
+  border-left: 1px solid var(--tron-grid-2);
+}
+.tron-seg button:hover {
+  color: var(--tron-text);
+  background: var(--tron-halo);
+}
+.tron-seg button[aria-pressed='true'] {
+  color: var(--tron-bg);
+  background: var(--tron-line);
+  box-shadow: 0 0 calc(10px * var(--tron-glow)) var(--tron-line);
+}
+.tron-stage {
+  position: relative;
+  border: 1px solid var(--tron-edge);
+  background: var(--tron-panel);
+  box-shadow:
+    inset 0 0 28px var(--tron-halo),
+    0 0 calc(14px * var(--tron-glow)) var(--tron-halo);
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  overflow: hidden;
+}
+.tron-stage::before,
+.tron-stage::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+  border-color: var(--tron-line);
+  border-style: solid;
+  filter: drop-shadow(0 0 calc(4px * var(--tron-glow)) var(--tron-line));
+}
+.tron-stage::before {
+  top: 3px;
+  right: 3px;
+  border-width: 2px 2px 0 0;
+}
+.tron-stage::after {
+  bottom: 3px;
+  left: 3px;
+  border-width: 0 0 2px 2px;
+}
+.tron-stage svg text {
+  font-family: inherit;
+}
+.tron-axis {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  fill: var(--tron-dim);
+}
+.tron-tf {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  fill: var(--tron-line);
+}
+.tron-tf-sm {
+  font-size: 9px;
+  fill: var(--tron-dim);
+}
+.tron-label {
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+}
+.tron-glow {
+  opacity: var(--tron-glow);
+  pointer-events: none;
+}
+.tron-hit {
+  cursor: pointer;
+  outline: none;
+}
+.tron-hit:focus-visible > rect:not(.tron-glow),
+.tron-hit:focus-visible > path:not(.tron-glow) {
+  stroke: var(--focus) !important;
+  stroke-width: 2px !important;
+}
+.tron-hit:focus-visible > text.tron-tf {
+  text-decoration: underline;
+}
+.tron-now {
+  animation: tron-pulse 2.6s ease-in-out infinite;
+}
+@keyframes tron-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+.tron-floor {
+  position: relative;
+  height: 40px;
+  margin-top: -4px;
+  overflow: hidden;
+  perspective: 120px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 95%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 95%);
+}
+.tron-floor::before {
+  content: '';
+  position: absolute;
+  inset: 0 -60% -160% -60%;
+  background-image:
+    linear-gradient(var(--tron-grid-2) 1px, transparent 1px),
+    linear-gradient(90deg, var(--tron-grid-2) 1px, transparent 1px);
+  background-size: 26px 26px;
+  transform: rotateX(64deg);
+  transform-origin: top center;
+  animation: tron-floor 2.8s linear infinite;
+}
+@keyframes tron-floor {
+  to {
+    background-position:
+      0 26px,
+      0 0;
+  }
+}
+.tron-hud {
+  margin-top: 8px;
+  min-height: 2.4em;
+  padding: 5px 9px;
+  border-left: 2px solid var(--tron-line);
+  background: linear-gradient(90deg, var(--tron-halo), transparent 85%);
+  font-size: 10.5px;
+  line-height: 1.45;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tron-text);
+}
+.tron-list {
+  margin-top: 10px;
+}
+.tron-list-head {
+  padding: 0 2px 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tron-line);
+  border-bottom: 1px solid var(--tron-grid-2);
+}
+.tron-list-head span {
+  color: var(--tron-dim);
+}
+.tron-empty {
+  padding: 8px 2px;
+  font-size: 10.5px;
+  color: var(--tron-dim);
+}
+.tron-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 2px 8px;
+  width: 100%;
+  padding: 6px 4px;
+  text-align: left;
+  font: inherit;
+  font-size: 11px;
+  color: var(--tron-text);
+  background: transparent;
+  border-bottom: 1px solid var(--tron-grid-2);
+}
+.tron-row:hover,
+.tron-row[aria-pressed='true'] {
+  background: var(--tron-halo);
+}
+.tron-pill {
+  padding: 0 5px;
+  border: 1px solid;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.tron-tfs {
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--tron-line);
+}
+.tron-when {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tron-lead {
+  color: var(--tron-dim);
+  font-size: 10px;
+}
+.tron-parts {
+  grid-column: 2 / -1;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--tron-dim);
+}
+.tron-note {
+  margin-top: 10px;
+  font-size: 9.5px;
+  line-height: 1.5;
+  color: var(--tron-dim);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tron-now,
+  .tron-floor::before {
+    animation: none;
+  }
+}
