@@ -39,6 +39,36 @@ const isPeak = (pts: PivotPath['points'], k: number) => {
   const next = pts[k + 1]?.price ?? prev;
   return p >= prev && p >= next;
 };
+/** One pivot label to place: centred on `x`, baseline `y`, pushed `dir` (-1 up for peaks, +1 down for troughs) on overlap. */
+export interface PivotLabelBox {
+  x: number;
+  y: number;
+  text: string;
+  dir: -1 | 1;
+}
+/** row step and approximate glyph box of the 11px bold pivot labels (no canvas needed, so hit-testing agrees) */
+const PIVOT_ROW = 12;
+const pivotHalfWidth = (text: string) => 3.5 * text.length + 2;
+/**
+ * Move pivot labels apart so none overprints another: each label, in order, keeps its place unless its box meets one
+ * already placed, in which case it steps one row further from its pivot (up above a peak, down below a trough) until it
+ * is clear. D-Wave's up and down sequences share bars (one's wave 5 is often the other's start), so their labels collide
+ * without this. Returns the adjusted baselines, in input order.
+ */
+export function layoutPivotLabels(items: PivotLabelBox[], maxRows = 8): number[] {
+  const placed: { x1: number; x2: number; y1: number; y2: number }[] = [];
+  return items.map((it) => {
+    const hw = pivotHalfWidth(it.text);
+    let y = it.y;
+    for (let r = 0; r < maxRows; r++) {
+      const b = { x1: it.x - hw, x2: it.x + hw, y1: y - 10, y2: y + 2 };
+      if (!placed.some((o) => b.x1 < o.x2 && b.x2 > o.x1 && b.y1 < o.y2 && b.y2 > o.y1)) break;
+      y += it.dir * PIVOT_ROW;
+    }
+    placed.push({ x1: it.x - hw, x2: it.x + hw, y1: y - 10, y2: y + 2 });
+    return y;
+  });
+}
 const better = (a: Scored | null, b: Scored) => (!a || b.prio > a.prio || (b.prio === a.prio && b.dist < a.dist) ? b : a);
 const segDist = (px: number, py: number, x1: number, y1: number, x2: number, y2: number) => {
   const dx = x2 - x1;
@@ -649,41 +679,36 @@ export class LevelsPrimitive extends BasePrimitive {
         } else ctx.lineTo(x, y);
       });
       ctx.stroke();
-      ctx.font = '700 11px ui-sans-serif, system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      pts.forEach((pt, k) => {
-        const x = this.x(pt.i);
-        const y = this.y(pt.price);
-        if (x === null || y === null) return;
-        const peak = isPeak(pts, k);
-        const ty = this.pivotLabelY(pt.i, y, peak);
-        ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
-        if (pt.locked) {
-          ctx.fillStyle = p.color;
-          ctx.fill();
-        } else {
-          ctx.strokeStyle = p.color;
-          ctx.stroke();
-        }
-        if (pt.label && pt.label !== '◦') {
-          ctx.fillStyle = p.color;
-          if (pt.locked) ctx.fillText(pt.label, x, ty);
-          else {
-            ctx.lineWidth = 1;
-            ctx.strokeText(pt.label, x, ty);
-          }
-        }
+    }
+    // pivot dots and labels, laid out together so one sequence's labels never overprint another's
+    ctx.font = '700 11px ui-sans-serif, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    for (const { p, pt, x, y, ty, plus } of this.pivotLabels()) {
+      if (plus) {
         // "+" where the wave was first recognised before it shifted right
-        if (pt.first) {
-          const fx = this.x(pt.first.i);
-          const fy = this.y(pt.first.price);
-          if (fx !== null && fy !== null) {
-            ctx.fillStyle = p.color;
-            ctx.fillText('+', fx, this.pivotLabelY(pt.first.i, fy, peak));
-          }
+        ctx.fillStyle = p.color;
+        ctx.fillText('+', x, ty);
+        continue;
+      }
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      if (pt.locked) {
+        ctx.fillStyle = p.color;
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+      if (pt.label && pt.label !== '◦') {
+        ctx.fillStyle = p.color;
+        if (pt.locked) ctx.fillText(pt.label, x, ty);
+        else {
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = 1;
+          ctx.strokeText(pt.label, x, ty);
         }
-      });
+      }
     }
     // time marks (Ichimoku time theory) — may lie in the future
     ctx.font = '10px ui-sans-serif, system-ui, sans-serif';
@@ -719,22 +744,46 @@ export class LevelsPrimitive extends BasePrimitive {
     return peak ? y - Math.max(14, 12 * n + 12) : y + Math.max(22, 12 * n + 16);
   }
 
+  /** every on-screen pivot (and "+" first-recognition mark) with its label baseline after overlap avoidance */
+  private pivotLabels() {
+    const vr = this.visible();
+    const out: { p: PivotPath; pt: PivotPath['points'][number]; x: number; y: number; ty: number; plus: boolean; dir: -1 | 1; text: string }[] = [];
+    for (const p of this.paths)
+      p.points.forEach((pt, k) => {
+        // off-screen pivots still anchor their path's line but need no label (completed sequences pile up on long histories)
+        if (!vr || pt.i < vr.from - 2 || pt.i > vr.to + 2) return;
+        const x = this.x(pt.i);
+        const y = this.y(pt.price);
+        if (x === null || y === null) return;
+        const peak = isPeak(p.points, k);
+        const dir = peak ? -1 : 1;
+        out.push({ p, pt, x, y, ty: this.pivotLabelY(pt.i, y, peak), plus: false, dir, text: pt.label && pt.label !== '◦' ? pt.label : '' });
+        if (pt.first) {
+          const fx = this.x(pt.first.i);
+          const fy = this.y(pt.first.price);
+          if (fx !== null && fy !== null) out.push({ p, pt, x: fx, y: fy, ty: this.pivotLabelY(pt.first.i, fy, peak), plus: true, dir, text: '+' });
+        }
+      });
+    // labelled pivots claim their place first; "+" marks and unlabelled dots give way
+    const order = out.map((_, j) => j).filter((j) => out[j].text).sort((a, b) => Number(out[a].plus) - Number(out[b].plus) || a - b);
+    const ys = layoutPivotLabels(order.map((j) => ({ x: out[j].x, y: out[j].ty, text: out[j].text, dir: out[j].dir })));
+    order.forEach((j, r) => (out[j].ty = ys[r]));
+    return out;
+  }
+
   override explainAt(x: number, y: number): ChartHit | null {
     const vr = this.visible();
     if (!vr) return null;
     let best: Scored | null = null;
     const near = 5;
-    for (const p of this.paths)
-      p.points.forEach((pt, k) => {
-        const px = this.x(pt.i);
-        const py = this.y(pt.price);
-        if (px === null || py === null) return;
-        // the label sits clear of the bar's count stack, so measure to the nearer of the pivot and its label
-        const ly = this.pivotLabelY(pt.i, py, isPeak(p.points, k)) - 4;
-        const d = Math.min(Math.hypot(x - px, y - py), Math.hypot(x - px, y - ly));
-        // the wave label sits beside the pivot, so accept a generous radius
-        if (d <= 10) best = better(best, { hit: { kind: 'pivot', src: p.src, i: pt.i, text: pt.label, value: pt.price, color: p.color, provisional: !pt.locked }, prio: 3, dist: d });
-      });
+    for (const { p, pt, x: px, y: py, ty, plus } of this.pivotLabels()) {
+      if (plus) continue;
+      // the label sits clear of the bar's count stack (and of other pivots' labels), so measure to the nearer of the
+      // pivot and its label as laid out
+      const d = Math.min(Math.hypot(x - px, y - py), Math.hypot(x - px, y - (ty - 4)));
+      // the wave label sits beside the pivot, so accept a generous radius
+      if (d <= 10) best = better(best, { hit: { kind: 'pivot', src: p.src, i: pt.i, text: pt.label, value: pt.price, color: p.color, provisional: !pt.locked }, prio: 3, dist: d });
+    }
     for (const r of this.runs) {
       if (r.i2 < vr.from || r.i1 > vr.to) continue;
       const x1 = this.x(r.i1 - 0.5);

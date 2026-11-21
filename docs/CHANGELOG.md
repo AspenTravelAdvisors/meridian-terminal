@@ -48,6 +48,9 @@
 - **D-Wave colours and label spacing:** up sequences draw red and down sequences green (each pivot carries its own colour,
   so one study can draw two colours). Wave labels and `+` marks now sit beyond the counts and markers stacked on that bar
   instead of a fixed 8 px from the high or low, so they no longer print over Sequential/Combo numbers.
+- **D-Wave labels no longer overlap each other:** when up- and down-sequence labels (or a `+` mark) land on the same or
+  neighbouring bars, for example one sequence's wave 5 on the other's start, the later label steps one row further from
+  its pivot until it is clear. Hover explanations follow the moved labels.
 - Strategy stops and targets now also apply on the entry bar when entering at the open (switch: *Check stops on the entry
   bar*). Signal exits default to the next open. With both switched back, results match the previous simulator exactly.
 - **Combined signal rules** in the Signal Tester: long/short entry and exit groups (ALL / ANY) built from study signals
