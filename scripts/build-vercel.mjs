@@ -87,6 +87,8 @@ writeFileSync(
         { src: '/assets/(.*)', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }, continue: true },
         { src: '/(sw\\.js|manifest\\.webmanifest)', headers: { 'Cache-Control': 'no-cache' }, continue: true },
         { handle: 'filesystem' },
+        // a missing asset (an old build's chunk) must 404, not fall through to index.html as HTML
+        { src: '/assets/(.*)', status: 404 },
         { src: '/api/(.*)', dest: '/api' },
         { src: '/(.*)', dest: '/index.html' },
       ],

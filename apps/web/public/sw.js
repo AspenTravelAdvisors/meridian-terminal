@@ -1,5 +1,5 @@
 /* Meridian Terminal service worker: offline shell + cached market data (stale-while-revalidate). */
-const VERSION = 'meridian-v3';
+const VERSION = 'meridian-v4';
 const SHELL = ['/', '/index.html', '/theme-init.js', '/favicon.svg', '/apple-touch-icon.png', '/icon-192.png', '/manifest.webmanifest'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -20,7 +20,22 @@ self.addEventListener('fetch', (e) => {
   // Password gate pages (apps/server/src/gate.ts) always go to the network and are never cached.
   if (url.pathname === '/__login' || url.pathname === '/__logout') return;
   if (url.pathname.startsWith('/assets/')) {
-    e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); return res; })));
+    // Cache only a real file: a sign-in redirect or an HTML fallback must never be stored under a script's URL,
+    // or the app stays blank until the cache is cleared.
+    e.respondWith(
+      caches.match(req).then(
+        (hit) =>
+          hit ||
+          fetch(req).then((res) => {
+            const type = res.headers.get('content-type') || '';
+            if (res.ok && !res.redirected && res.type === 'basic' && !type.includes('text/html')) {
+              const copy = res.clone();
+              caches.open(VERSION).then((c) => c.put(req, copy));
+            }
+            return res;
+          }),
+      ),
+    );
     return;
   }
   if (/^\/api\/(bars|quotes|search)/.test(url.pathname)) {

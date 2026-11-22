@@ -45,7 +45,12 @@ createServer(async (req, res) => {
   for (const [k, v] of Object.entries(security)) if (k !== 'Strict-Transport-Security') res.setHeader(k, v);
   if (url.pathname.startsWith('/api/')) return api(req, res);
   let file = normalize(join(dist, decodeURIComponent(url.pathname)));
-  if (!file.startsWith(dist) || !existsSync(file) || statSync(file).isDirectory()) file = join(dist, 'index.html');
+  const missing = !file.startsWith(dist) || !existsSync(file) || statSync(file).isDirectory();
+  if (missing && url.pathname.startsWith('/assets/')) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('not found');
+  }
+  if (missing) file = join(dist, 'index.html');
   res.setHeader('Content-Type', TYPES[extname(file)] ?? 'application/octet-stream');
   if (file.includes('/assets/')) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   createReadStream(file).pipe(res);
