@@ -129,6 +129,70 @@ export interface Settings {
 export type { AlertCondition } from '@meridian/engine';
 export interface Alert extends AlertSpec {
   interval: Interval;
+  /** a price alert that follows a key level from AI analyst briefings (updated by each new briefing of the same chart) */
+  track?: AlertTrack;
+}
+
+export interface AlertTrack {
+  source: 'analyst';
+  /** level key as it appears in the briefing snapshot, e.g. "Seq tdstBuy" */
+  key: string;
+  /** the name Meridian last generated; a renamed alert keeps the user's name */
+  autoName: string;
+  /** creation time of the briefing that last set the value */
+  updatedAt: number;
+  /** the latest briefing of this chart no longer has this level (the last value is kept) */
+  stale?: boolean;
+}
+
+// ── AI analyst ─────────────────────────────────────────────────────────────
+export type AnalystKind = 'chart' | 'portfolio';
+
+/** A numeric key level taken from the engine snapshot sent with a briefing. */
+export interface AnalystLevel {
+  key: string;
+  value: number;
+}
+
+/** The most recent briefing; held (and persisted) until the user asks for a new one. */
+export interface AnalystRun {
+  id: string;
+  kind: AnalystKind;
+  symbol?: string;
+  interval?: Interval;
+  question?: string;
+  text: string;
+  /** model id, 'rule-based', or null before the server answered */
+  engine: string | null;
+  createdAt: number;
+  status: 'streaming' | 'done' | 'error' | 'stopped';
+  error?: string;
+  levels: AnalystLevel[];
+  /** last close of the chart when the snapshot was taken */
+  lastClose?: number;
+  simulated?: boolean;
+  /** result of updating level alerts after this briefing */
+  levelSync?: { updated: number; stale: number };
+  /** id in the saved library, once saved */
+  savedId?: string;
+}
+
+export interface SavedAnalysis {
+  id: string;
+  title: string;
+  tags: string[];
+  kind: AnalystKind;
+  symbol?: string;
+  interval?: Interval;
+  question?: string;
+  text: string;
+  engine: string | null;
+  levels: AnalystLevel[];
+  lastClose?: number;
+  simulated?: boolean;
+  /** when the briefing was generated */
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface AlertLogEntry {

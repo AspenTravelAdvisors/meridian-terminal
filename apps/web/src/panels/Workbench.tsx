@@ -1,17 +1,13 @@
-import { buildLedger, valuePositions } from '@meridian/portfolio';
-import { getStudy } from '@meridian/engine';
 import { del as idbDel, get as idbGet, set as idbSet } from 'idb-keyval';
-import { Bot, Camera, Check, FilePlus2, Play, Plus, Save, Send, ShieldAlert, Square, Trash2 } from 'lucide-react';
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { Camera, Check, FilePlus2, Play, Plus, Save, ShieldAlert, Trash2 } from 'lucide-react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { chartActions, snapshotters } from '../chart/bus';
 import { Empty, Select } from '../components/ui';
 import { runScriptSandboxed } from '../engine/script';
-import { signInIfRequired } from '../lib/api';
 import { canvasToBlob } from '../lib/download';
 import { fmtTime, signalLabel } from '../lib/format';
-import { Markdown } from '../lib/markdown';
-import { newStudy, useJournal, usePortfolio, useScripts, useUi, useWorkspace } from '../state/store';
-import { fetchMatrix, useActive, useQuotes } from './hooks';
+import { newStudy, useJournal, useScripts, useUi, useWorkspace } from '../state/store';
+import { useActive } from './hooks';
 
 // ── Script editor ──────────────────────────────────────────────────────────
 const MonacoEditor = lazy(() => import('@monaco-editor/react').then((m) => ({ default: m.default })));
@@ -412,158 +408,6 @@ export function JournalPanel() {
           );
         })}
       </ul>
-    </div>
-  );
-}
-
-// ── AI Analyst ─────────────────────────────────────────────────────────────
-const SUGGESTIONS = ['Where is the nearest exhaustion risk?', 'Do the timeframes agree?', 'What would invalidate the current setup?'];
-
-export function AnalystPanel() {
-  const { pane, rt } = useActive();
-  const pf = usePortfolio();
-  const [kind, setKind] = useState<'chart' | 'portfolio'>('chart');
-  const [question, setQuestion] = useState('');
-  const [text, setText] = useState('');
-  const [engine, setEngine] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [withMtf, setWithMtf] = useState(true);
-  const abort = useRef<AbortController | null>(null);
-  const ledger = useMemo(() => (pf.txs.length ? buildLedger(pf.accounts, pf.txs) : null), [pf.accounts, pf.txs]);
-  const quotes = useQuotes(kind === 'portfolio' ? (ledger?.positions.map((p) => p.symbol) ?? []) : []);
-
-  const chartContext = async () => {
-    const n = rt.bars.length;
-    const chips: { study: string; text: string; dir: string }[] = [];
-    const levels: Record<string, number | null> = {};
-    const recentSignals: { study: string; id: string; barsAgo: number; dir: string; price?: number; provisional?: boolean }[] = [];
-    for (const r of rt.results) {
-      const cfg = pane.studies.find((s) => s.uid === r.id);
-      const def = cfg ? getStudy(cfg.id) : undefined;
-      const label = def ? `DeMark-style ${def.shortName}`.replace(/^DeMark-style (?!TD)/, '') : (cfg?.id ?? r.id);
-      for (const c of r.status?.chips ?? []) chips.push({ study: label, text: c.text, dir: c.dir });
-      for (const [k, v] of Object.entries(r.status?.values ?? {})) if (typeof v === 'number' && Number.isFinite(v) && /tdst|risk|target|proj|support|resist|stop|level/i.test(k)) levels[`${def?.shortName ?? r.id} ${k}`] = +v.toPrecision(8);
-      for (const s of r.signals) if (n - 1 - s.i <= 60) recentSignals.push({ study: def?.shortName ?? r.id, id: s.id, barsAgo: n - 1 - s.i, dir: s.dir, price: s.price, provisional: s.i === n - 1 && rt.bars[n - 1]?.final === false ? true : undefined });
-    }
-    recentSignals.sort((a, b) => a.barsAgo - b.barsAgo);
-    const last = rt.bars[n - 1];
-    let mtf: { interval: string; label: string; score: number }[] | undefined;
-    if (withMtf) {
-      try {
-        const cells = await fetchMatrix([pane.symbol], ['1h', '4h', '1D', '1W', '1M']);
-        mtf = cells.filter((c) => c.cell).map((c) => ({ interval: c.interval, label: c.cell!.label, score: +c.cell!.score.toFixed(3) }));
-      } catch {
-        /* optional */
-      }
-    }
-    const ret = (k: number) => (n > k ? +((100 * (rt.bars[n - 1].c / rt.bars[n - 1 - k].c - 1)).toFixed(2)) : null);
-    return {
-      simulated: !!rt.simulated,
-      provider: rt.provider,
-      lastBar: last ? { t: new Date(last.t).toISOString(), o: last.o, h: last.h, l: last.l, c: last.c, forming: last.final === false } : null,
-      returnsPct: { '5 bars': ret(5), '20 bars': ret(20), '60 bars': ret(60) },
-      chips,
-      levels,
-      recentSignals: recentSignals.slice(0, 25),
-      mtf,
-    };
-  };
-
-  const portfolioContext = () => {
-    if (!ledger) return { positions: [] };
-    const qmap = Object.fromEntries(Object.entries(quotes.data ?? {}).map(([k, v]) => [k, { last: v.last, prevClose: v.prevClose }]));
-    const v = valuePositions(ledger, qmap);
-    return {
-      total: +v.total.toFixed(2),
-      cash: +v.cash.toFixed(2),
-      positions: v.rows.map((r) => ({ symbol: r.symbol, weightPct: +(100 * r.weight).toFixed(2), unrealizedPct: +r.unrealizedPct.toFixed(2), dayChangePct: +r.dayChangePct.toFixed(2) })),
-      quotesMissing: v.rows.filter((r) => !qmap[r.symbol]).map((r) => r.symbol),
-    };
-  };
-
-  const ask = async (qText = question) => {
-    abort.current?.abort();
-    const ac = new AbortController();
-    abort.current = ac;
-    setBusy(true);
-    setErr(null);
-    setText('');
-    setEngine(null);
-    try {
-      const context = kind === 'chart' ? await chartContext() : portfolioContext();
-      const res = await fetch('/api/analyst', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, symbol: kind === 'chart' ? pane.symbol : undefined, interval: kind === 'chart' ? pane.interval : undefined, question: qText || undefined, context }),
-        signal: ac.signal,
-      });
-      signInIfRequired(res);
-      if (!res.ok || !res.body) {
-        const j = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(j?.error ?? `HTTP ${res.status} — the analyst API is unavailable on this host`);
-      }
-      setEngine(res.headers.get('X-Meridian-Analyst'));
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let acc = '';
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        acc += dec.decode(value, { stream: true });
-        setText(acc);
-      }
-    } catch (e) {
-      if ((e as Error).name !== 'AbortError') setErr((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="space-y-1.5 border-b border-border p-2">
-        <div className="flex items-center gap-2">
-          <Select<'chart' | 'portfolio'> label="Briefing type" value={kind} onChange={setKind} options={[{ value: 'chart', label: `Chart · ${pane.symbol} ${pane.interval}` }, { value: 'portfolio', label: 'Portfolio' }]} />
-          {kind === 'chart' && (
-            <label className="flex items-center gap-1 text-[11px] text-dim"><input type="checkbox" checked={withMtf} onChange={(e) => setWithMtf(e.target.checked)} /> include MTF</label>
-          )}
-        </div>
-        <form
-          className="flex gap-1.5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void ask();
-          }}
-        >
-          <input className="input flex-1" placeholder="Ask about this chart (optional)" value={question} onChange={(e) => setQuestion(e.target.value)} aria-label="Question for the analyst" />
-          {busy ? (
-            <button type="button" className="btn" onClick={() => abort.current?.abort()}><Square className="size-3.5" /> Stop</button>
-          ) : (
-            <button type="submit" className="btn btn-primary" disabled={kind === 'chart' ? !rt.bars.length : !ledger}><Send className="size-3.5" /> Brief me</button>
-          )}
-        </form>
-        <div className="flex flex-wrap gap-1">
-          {SUGGESTIONS.map((s) => (
-            <button key={s} className="chip" onClick={() => (setQuestion(s), void ask(s))} disabled={busy}>{s}</button>
-          ))}
-        </div>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto p-3 text-[13px] leading-relaxed" aria-live="polite">
-        {err && <p className="rounded border border-warn/40 bg-warn/10 p-2 text-warn">{err}</p>}
-        {!text && !busy && !err && (
-          <Empty icon={<Bot className="size-6" />} title="AI chart analyst">
-            Sends the engine's structured output (signals, levels, timeframe matrix) — never screenshots — and returns a plain-English briefing. Analysis only, not advice.
-          </Empty>
-        )}
-        {busy && !text && <p className="text-faint">Assembling the snapshot and thinking…</p>}
-        {text && <Markdown text={text} />}
-      </div>
-      {engine && (
-        <div className="border-t border-border px-3 py-1 text-[10px] text-faint">
-          {engine === 'rule-based' ? 'Rule-based summary (no ANTHROPIC_API_KEY on the server)' : `Generated by ${engine}`} · verify numbers against the chart
-        </div>
-      )}
     </div>
   );
 }

@@ -3,14 +3,17 @@ import { type Bar, type StudyResult, getStudy, resolveConfig } from '@meridian/e
 import type { Account, Transaction } from '@meridian/portfolio';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { toSaved } from '../lib/analyst';
 import type {
   Alert,
   AlertLogEntry,
+  AnalystRun,
   Drawing,
   DrawingType,
   GridLayout,
   JournalNote,
   PaneConfig,
+  SavedAnalysis,
   SavedLayout,
   Settings,
   StudyInstanceCfg,
@@ -430,6 +433,84 @@ export const useScripts = create<ScriptsState>()(
   ),
 );
 
+// ── AI analyst ─────────────────────────────────────────────────────────────
+/** Saved library limit (the synced document stays well under the server's size cap). */
+export const MAX_SAVED_ANALYSES = 500;
+interface AnalystLibraryState {
+  saved: SavedAnalysis[];
+  /** save every finished briefing automatically */
+  autoSave: boolean;
+  /** update alerts that follow a key level whenever a new briefing of that chart finishes */
+  syncLevels: boolean;
+  /** saves a briefing (or returns the id it was saved under); null when the library is full */
+  save(r: AnalystRun): string | null;
+  update(id: string, patch: Partial<Pick<SavedAnalysis, 'title' | 'tags'>>): void;
+  remove(id: string): void;
+  setPrefs(p: Partial<Pick<AnalystLibraryState, 'autoSave' | 'syncLevels'>>): void;
+}
+export const useAnalystLibrary = create<AnalystLibraryState>()(
+  persist(
+    (set, get) => ({
+      saved: [],
+      autoSave: false,
+      syncLevels: true,
+      save(r) {
+        const existing = (r.savedId && get().saved.find((s) => s.id === r.savedId)) || get().saved.find((s) => s.createdAt === r.createdAt && s.text === r.text);
+        if (existing) return existing.id;
+        if (get().saved.length >= MAX_SAVED_ANALYSES) return null;
+        const item = toSaved(r, uid('an'), Date.now());
+        set({ saved: [item, ...get().saved] });
+        return item.id;
+      },
+      update: (id, patch) => set({ saved: get().saved.map((s) => (s.id === id ? { ...s, ...patch, updatedAt: Date.now() } : s)) }),
+      remove: (id) => set({ saved: get().saved.filter((s) => s.id !== id) }),
+      setPrefs: (p) => set(p),
+    }),
+    { name: 'meridian.analyst', storage },
+  ),
+);
+
+interface AnalystSessionState {
+  /** the last briefing, held until the user starts a new one */
+  current: AnalystRun | null;
+  tab: 'briefing' | 'saved';
+  query: string;
+  scope: 'symbol' | 'all';
+  /** saved briefing to expand when the Saved tab opens (from the command palette) */
+  focusId: string | null;
+  set(patch: Partial<Omit<AnalystSessionState, 'set' | 'patchRun'>>): void;
+  /** patch the current briefing, only if it is still the run `id` (a newer briefing replaces an older stream) */
+  patchRun(id: string, patch: Partial<AnalystRun>): void;
+}
+export const useAnalystSession = create<AnalystSessionState>()(
+  persist(
+    (set, get) => ({
+      current: null,
+      tab: 'briefing',
+      query: '',
+      scope: 'all',
+      focusId: null,
+      set: (patch) => set(patch),
+      patchRun(id, patch) {
+        const c = get().current;
+        if (c && c.id === id) set({ current: { ...c, ...patch } });
+      },
+    }),
+    {
+      // local to this device: the held briefing is a working view, the saved library is what syncs
+      name: 'meridian.analyst.last',
+      storage,
+      partialize: (s) => ({ current: s.current, tab: s.tab, query: s.query, scope: s.scope }) as Partial<AnalystSessionState>,
+      // a reload cuts a stream short: keep what arrived and say it stopped
+      merge: (persisted, cur) => {
+        const p = (persisted ?? {}) as Partial<AnalystSessionState>;
+        const c = p.current;
+        return { ...cur, ...p, current: c && c.status === 'streaming' ? { ...c, status: 'stopped' } : (c ?? null) };
+      },
+    },
+  ),
+);
+
 // ── Runtime (not persisted): live chart state shared with panels ──────────
 export interface PaneRuntime {
   bars: Bar[];
@@ -516,6 +597,7 @@ export const SYNCED_STORES = {
   'meridian.journal': useJournal,
   'meridian.scripts': useScripts,
   'meridian.studyDefaults': useStudyDefaults,
+  'meridian.analyst': useAnalystLibrary,
 } as const;
 
 // ── Option position scenarios (one saved position) ─────────────────────────

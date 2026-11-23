@@ -52,6 +52,11 @@ const MERGERS: Record<string, Merger> = {
   }),
   'meridian.journal': (r, l) => ({ ...r, notes: unionById(arr<WithId & { createdAt: number }>(r.notes), arr(l.notes)).sort((a, b) => b.createdAt - a.createdAt) }),
   'meridian.scripts': (r, l) => ({ ...r, scripts: unionById(arr<WithId & { updatedAt?: number }>(r.scripts), arr(l.scripts), newer) }),
+  // saved AI analyst briefings: keep saves from every device; a later rename/tag edit wins
+  'meridian.analyst': (r, l) => ({
+    ...r,
+    saved: unionById(arr<WithId & { updatedAt?: number; createdAt?: number }>(r.saved), arr(l.saved), newer).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
+  }),
   'meridian.layouts': (r, l) => ({ ...r, layouts: unionById(arr(r.layouts), arr(l.layouts)), templates: unionById(arr(r.templates), arr(l.templates)) }),
   'meridian.drawings': (r, l) => {
     const rb = obj<WithId[]>(r.bySymbol);

@@ -1,6 +1,6 @@
 import { INTERVALS, type Interval } from '@meridian/data';
 import { ALERT_DRAWING_TYPES, type AlertContext, type AlertHit, alertBars, alertPayload, getStudy, shouldFire } from '@meridian/engine';
-import { Bell, BellOff, Cloud, CloudOff, Pencil, Trash2 } from 'lucide-react';
+import { Bell, BellOff, Bot, Cloud, CloudOff, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { openPanel } from '../components/panels';
 import { Empty, Field, Switch } from '../components/ui';
@@ -274,6 +274,17 @@ export function AlertsPanel() {
               <div className="text-[10px] text-faint">
                 {a.mode === 'once' ? 'once' : 'per bar'} · {a.timing} {a.lastFiredAt ? `· last ${new Date(a.lastFiredAt).toLocaleString()}` : ''} {a.lastError ? `· ⚠ ${a.lastError}` : ''}
               </div>
+              {a.track?.source === 'analyst' && (
+                <p className="text-[10px] text-faint">
+                  <Bot className="mr-1 inline size-3 align-[-2px]" />
+                  <span className={a.track.stale ? 'text-warn' : ''}>
+                    {a.track.stale ? `${a.track.key} is not in the latest briefing — kept at the last value` : `Follows ${a.track.key} from AI briefings · updated ${new Date(a.track.updatedAt).toLocaleString()}`}
+                  </span>{' '}
+                  <button className="text-accent underline" onClick={() => update(a.id, { track: undefined })} title="Keep this alert at its current price and stop updating it from briefings">
+                    Stop following
+                  </button>
+                </p>
+              )}
             </div>
             <button className="icon-btn" aria-label="Rename" onClick={() => { const n = prompt('Alert name', a.name); if (n) update(a.id, { name: n }); }}><Pencil className="size-3.5" /></button>
             <button className="icon-btn" aria-label="Delete alert" onClick={() => remove(a.id)}><Trash2 className="size-3.5" /></button>

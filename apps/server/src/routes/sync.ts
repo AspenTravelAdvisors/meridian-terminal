@@ -24,6 +24,7 @@ export const SYNC_KEYS = [
   'meridian.journal',
   'meridian.scripts',
   'meridian.studyDefaults',
+  'meridian.analyst',
 ] as const;
 export type SyncKey = (typeof SYNC_KEYS)[number];
 

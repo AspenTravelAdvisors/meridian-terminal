@@ -3,9 +3,11 @@ import { STUDIES } from '@meridian/engine';
 import { AlertCircle, CheckCircle2, Info, TriangleAlert, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { chartActions } from '../chart/bus';
+import { searchAnalyses } from '../lib/analyst';
 import { health } from '../lib/api';
 import { describeBars, fmtPrice } from '../lib/format';
-import { activePane, useDrawings, useSettings, useUi, useWorkspace } from '../state/store';
+import { openSavedAnalysis } from '../panels/Analyst';
+import { activePane, useAnalystLibrary, useAnalystSession, useDrawings, useSettings, useUi, useWorkspace } from '../state/store';
 import { CHART_TYPES, GRID_LAYOUTS, type DrawingType } from '../state/types';
 import { PANEL_DEFS, openPanel } from './panels';
 import { snapshot } from './TopBar';
@@ -210,11 +212,17 @@ export function CommandPalette() {
       { id: 'cb', group: 'View', label: 'Toggle colorblind-safe palette', run: () => useSettings.getState().set({ palette: useSettings.getState().palette === 'colorblind' ? 'standard' : 'colorblind' }) },
       { id: 'sim', group: 'Data', label: 'Open simulated demo series (SIM:DEMO)', run: () => ws().setSymbol(p().id, 'SIM:DEMO') },
       { id: 'clear', group: 'Drawings', label: 'Remove all drawings on this symbol', run: () => useDrawings.getState().clear(p().symbol) },
+      { id: 'an-saved', group: 'AI analyst', label: 'Search saved AI briefings', run: () => (useAnalystSession.getState().set({ tab: 'saved' }), openPanel('analyst')) },
     ];
   }, []);
   const list = useMemo(() => {
     const s = q.toLowerCase().trim();
-    return (s ? cmds.filter((c) => c.label.toLowerCase().includes(s)) : cmds).slice(0, 60);
+    if (!s) return cmds.slice(0, 60);
+    // saved analyst briefings are searchable from here too (same query syntax as the Saved tab)
+    const saved: Cmd[] = searchAnalyses(useAnalystLibrary.getState().saved, q)
+      .slice(0, 8)
+      .map(({ item }) => ({ id: `an-${item.id}`, group: 'Saved briefing', label: `${item.title} · ${new Date(item.createdAt).toLocaleDateString()}`, run: () => openSavedAnalysis(item.id) }));
+    return [...cmds.filter((c) => c.label.toLowerCase().includes(s)).slice(0, 60 - saved.length), ...saved];
   }, [q, cmds]);
   useEffect(() => {
     if (open) {

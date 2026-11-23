@@ -54,6 +54,51 @@ test('analyst returns a briefing (rule-based without an API key)', async ({ page
   await expect(page.getByText(/not investment advice/i).last()).toBeVisible({ timeout: 30_000 });
 });
 
+test('analyst holds the last briefing, saves and finds it, and alerts on its key levels', async ({ page }) => {
+  const errs = errors(page);
+  const tab = (name: string) => page.locator('.dv-tab', { hasText: name }).click();
+  await tab('AI Analyst');
+  await page.getByRole('textbox', { name: 'Question for the analyst' }).fill('Where is TDST?');
+  await page.getByRole('button', { name: 'Brief me' }).click();
+  const advice = page.getByText(/not investment advice/i).last();
+  await expect(advice).toBeVisible({ timeout: 30_000 });
+
+  // held while the panel is hidden and across a reload, until a new briefing is asked for
+  await tab('Journal');
+  await tab('AI Analyst');
+  await expect(advice).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('SIMULATED').first()).toBeVisible({ timeout: 20_000 });
+  await tab('AI Analyst');
+  await expect(advice).toBeVisible();
+  await expect(page.getByText('“Where is TDST?”')).toBeVisible();
+
+  // a key level becomes a price alert that follows later briefings
+  const levels = page.getByRole('region', { name: 'Key levels' });
+  await expect(levels).toBeVisible();
+  await levels.getByRole('button', { name: /^Alert when price reaches/ }).first().click();
+  await expect(levels.getByRole('button', { name: /Alerting/ }).first()).toBeVisible();
+
+  // save, then find it in the Saved tab and from the command palette
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Saved', exact: true })).toBeDisabled();
+  await page.getByRole('tab', { name: /Saved \(1\)/ }).click();
+  const search = page.getByRole('textbox', { name: 'Search saved briefings' });
+  await search.fill('tdst sym:sim:demo');
+  await expect(page.getByRole('button', { name: /SIM:DEMO 1D — Where is TDST\?/ })).toBeVisible();
+  await search.fill('nothing-like-this');
+  await expect(page.getByText('No matches')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+k');
+  await page.getByRole('textbox', { name: 'Command' }).fill('where is tdst');
+  await page.getByRole('option', { name: /Where is TDST\?.*Saved briefing/ }).click();
+  await expect(page.getByRole('button', { name: /SIM:DEMO 1D — Where is TDST\?/ })).toHaveAttribute('aria-expanded', 'true');
+
+  await tab('Alerts');
+  await expect(page.getByText(/Follows .* from AI briefings/).first()).toBeVisible();
+  expect(errs).toEqual([]);
+});
+
 test('theme toggles and persists', async ({ page }) => {
   await page.getByRole('button', { name: 'Toggle theme' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
