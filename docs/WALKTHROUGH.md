@@ -750,6 +750,26 @@ risk levels, recent returns, the multi-timeframe matrix and, for portfolios, pos
   *analysis only*. Still check every number against the chart.
 - Without a server API key you get a deterministic, rule-based summary of the same data instead.
 
+**The last briefing stays put.** The panel keeps your last briefing until you press **Brief me** or a suggestion again. That
+includes its question, its text and its key levels. Switching panels, moving around on a phone or reloading the page does
+not clear it, and a briefing keeps streaming while the panel is hidden. If the chart now shows another symbol, a note says
+which chart the briefing came from. **×** clears it, and the copy button copies it as Markdown.
+
+**Saving and finding briefings.** Press **Save** (or turn on *Save every briefing* in the Saved tab). Saved briefings sync
+to your account when you are signed in. In the **Saved** tab, type to search. Every word must match somewhere in the
+title, question, text, tags or key levels, and you can search a level by value (e.g. `40.93`). Filters: `#tag`,
+`sym:AAPL`, `kind:chart` / `kind:portfolio`, or the *SYMBOL only* scope. Open a result to read it, add comma-separated tags,
+rename, copy or delete it. You can also search saved briefings straight from the command palette (Ctrl/⌘ K).
+
+**Key levels and alerts.** Under a chart briefing, **Key levels** lists the price levels from the snapshot with the distance
+from the close. **Alert** creates a price alert that fires when price reaches that level (crosses above if price is below
+it, crosses below if price is above). **Alert all** does the same for every level. While *Keep level alerts updated* is
+on, each later finished briefing of the same symbol and timeframe moves these alerts to the new level and resets the
+direction toward price. Their generated name follows too unless you renamed them, and a fired *only once* alert is re-armed.
+Paused alerts stay paused. A stopped or failed briefing changes nothing. If a level is no longer in the data (for
+example, a TDST that was cancelled), the alert keeps its last price and the Alerts panel marks it. **Stop following** in the
+Alerts panel freezes an alert at its current price.
+
 ---
 
 ## Strategic playbooks

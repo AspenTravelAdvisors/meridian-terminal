@@ -81,7 +81,11 @@ the MTF matrix, the tester and background alerts all accept one without changes 
   `/api/account/*`, `GET|POST /api/sync`, `/api/push/*`, `GET /api/alerts/activity` and `GET|POST /api/cron/alerts`. Inputs are
   validated with Zod. The server rate-limits per client and sets CDN cache headers on market data.
 - `analyst` streams Claude output (`@anthropic-ai/sdk`, adaptive thinking, server-side refusal fallback), with
-  `stop_reason` handling. Without a key it uses a deterministic rule-based briefing.
+  `stop_reason` handling. Without a key it uses a deterministic rule-based briefing. The client (`apps/web/src/panels/Analyst.tsx`)
+  streams outside the React tree into `useAnalystSession` (`meridian.analyst.last`, this device only), so the last briefing
+  is held across panel switches and reloads until a new one starts. Saved briefings live in `useAnalystLibrary`
+  (`meridian.analyst`, synced; merged by id, newer edit wins). Search, key-level filtering and level-alert updates are
+  pure functions in `apps/web/src/lib/analyst.ts`.
 - `notify` relays alert webhooks and email. Webhook URLs must be public HTTPS; private, loopback and link-local addresses
   are refused (SSRF guard).
 - **Database** (`src/db`): a Drizzle schema plus matching idempotent DDL, run on cold start. With `DATABASE_URL` it uses

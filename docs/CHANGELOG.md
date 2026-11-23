@@ -3,6 +3,18 @@
 ## Unreleased
 
 ### Added
+- **AI analyst keeps, saves and searches briefings.** The last briefing (its question, text and key levels) is held in the
+  panel across tab switches, phone navigation and reloads until you ask for a new one. Streaming carries on while the panel
+  is hidden. **Save** adds it to a library (up to 500), or turn on *Save every briefing*. The **Saved** tab searches
+  titles, questions, briefing text, tags and level names and values. It also takes `#tag`, `sym:AAPL` and
+  `kind:portfolio`, highlights matches and shows a snippet. Saved briefings show up in the command palette (Ctrl/⌘ K) and
+  sync to your account (`meridian.analyst`).
+- **Level alerts from the analyst.** A chart briefing lists its key levels (TDST, risk levels, projections) with the distance
+  from the close. **Alert** or **Alert all** creates price alerts that follow those levels. Each later finished briefing of
+  the same symbol and timeframe moves them to the new value and resets their direction toward price. Their generated name
+  updates too unless you renamed them, and a fired one-shot alert is re-armed. A level that drops out of the data keeps its
+  last value and is flagged. Alerts panel shows *Follows … from AI briefings* with **Stop following**. Switch: *Keep level
+  alerts updated*.
 - **Window Timeline** panel (tab next to DeMark Status; phone: More): the Exhaustion Window projections of the monthly,
   weekly and daily charts (and optionally 4-hour) drawn as bars on one calendar, from the earliest date a 13 can complete to
   the estimate at its pace so far, with setup 9s as diamonds. Where two or more timeframes overlap on the same side, a beam
@@ -104,6 +116,8 @@
   furthest mark (the future never takes more than half the width); the scroll-to-newest button does the same.
 
 ### Fixed
+- AI analyst snapshot: Exhaustion Zone level *counts* (`buyLevels`, `sellLevels`) and other off-scale values are no longer
+  sent as price "levels to watch". A level now needs a level-like name and a value within 5× of the last close.
 - **Changing symbol or timeframe left the chart mis-scrolled and mis-scaled until a reload.** For one render after a change,
   the chart received the previous series' bars under the new symbol/interval and anchored its view to them, and study lines
   kept the previous series' points on the shared time axis while the new results computed. Both shifted the view once the new
