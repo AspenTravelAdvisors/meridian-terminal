@@ -116,7 +116,7 @@ previous `N` highs (Symbolik: wave 1 is at least a 13-bar high). Config `basis: 
 | Wave A begins | 13-bar low |
 | Wave B begins | 8-bar high |
 | Wave C begins | 21-bar low |
-| Wave C locked | price below Wave A's low |
+| Wave C locked | price below Wave A's low (confirms C; see below for where the label sits) |
 
 **Qualifiers and shift rules**
 - Wave 3's peak close must exceed Wave 1's peak close, and Wave 5's must exceed Wave 3's. If not, the wave is not confirmed.
@@ -125,6 +125,10 @@ previous `N` highs (Symbolik: wave 1 is at least a 13-bar high). Config `basis: 
   Re-evaluating moves **Wave 1 to the old Wave 3 peak**, the highest high since Wave 1 began; the old 3 and 4 are dropped.
   The same applies when price falls below Wave 2 while Wave 3 is still forming (reference chart, VERIFY_LOG note 7).
 - Once Wave C breaks Wave A's low close, Wave 5 is locked permanently.
+- **Where the C label sits** (config `cLabel`, default `trailExtreme`): breaking Wave A confirms C and fires `DWAVE_C_LOCKED`
+  on that bar, but the C label keeps moving to each new extreme of the move until the next sequence's Wave 1 begins, so C
+  lands on the low of the whole decline (the next sequence's origin). `firstBreak` freezes C on the first bar past Wave A
+  (reference charts, VERIFY_LOG notes 7–8).
 - Down-sequence mirrors everything.
 - Presets: `"High/low 21/13/8"` (default), `"Close-based 21/13/8"` (closes, strict N − 1 test), and `"Alt (H/L) 8/5/13"`
   (8/5/13/8/21/13/8/21 ladder seen at some vendors).

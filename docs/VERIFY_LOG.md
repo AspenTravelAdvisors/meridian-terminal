@@ -23,6 +23,7 @@ existed.
 | 2026-10-27 | DeMark-style D-Wave | Lookback ladder (`lbOrigin…lbC`) | 21/13/8/21/13/21/13/8/21 | `verify.test.ts` › D-Wave ladder | Symbolik descriptions ² | wave 1 = 13 **confirmed**; the rest open (reference only says the later waves use Fibonacci lookbacks) |
 | 2026-10-27 | DeMark-style D-Wave | "+" first-recognition mark | drawn where a wave was first recognised when its end later shifts right | `demark.test.ts` › shifts wave 2 right… | Symbolik descriptions ² | **added** |
 | 2026-10-29 | DeMark-style D-Wave | Re-evaluation when wave 2 shifts right | wave 1 moves to the old wave-3 peak (highest high since wave 1 began) | `demark.test.ts` › re-evaluates wave 1 to the old wave-3 peak… | Symbolik reference chart (note 7) | **fixed** — wave 1 used to stay put, then "extend" to a lower, later high |
+| 2026-11-23 | DeMark-style D-Wave | Wave C label placement (`cLabel`) | **`trailExtreme`** — breaking wave A confirms C (signal on that bar); the label follows the move to its extreme until the next sequence's wave 1 | `demark.test.ts` › places wave C at the extreme of the move…; `verify.test.ts` | Symbolik reference charts (notes 7–8) | **fixed** — C used to freeze on the first bar past wave A; kept as `firstBreak` |
 | 2026-10-27 | DeMark-style Propulsion | Ratio / construction (`propulsionRules`) | 0.236 ratio, trigger P + M, target P + 2M, level-2 points, swing-high reference, pullback above A | `verify.test.ts`; `demark.test.ts` › projects trigger P + M and target P + 2M | Symbolik descriptions ² | open — reference names a Momentum level and an Exhaustion level (matches our trigger/target), but gives no formula |
 | 2026-10-27 | DeMark-style Lines | Breakout qualifiers Q1–Q3 (`useQ1..3`) | all on | `demark.test.ts` › draws a supply line…flags a break | Symbolik descriptions ² | open — reference adds a third **Cancelled** line state; qualifier and cancel rules not given |
 | 2026-10-27 | DeMark-style DeMarker II | Components (`rangeBasis`, `clampPriorClose`) | **`plain`** (C − L, H − C) / clamp on | `demark.test.ts` › uses the plain low and high…; `verify.test.ts` | Symbolik descriptions ² | **fixed** — was true low / true high (four on/off switches replaced). ⚠ open: the reference does not mention the clamp; kept because it holds the 0–100 range through gaps |
@@ -90,6 +91,12 @@ existed.
    - **Up-sequence fixed:** 0 74,888 (09-15), 1 81,925, 2 80,085, 3 87,397 (09-21), 4 82,709. On 10-15 wave 4 fell below wave
      2. Meridian kept wave 1 at 81,925 and moved it to the 10-16 high (82,831) when price passed 81,925. The vendor puts
      wave 1 on the 09-21 peak and wave 2 on the 10-24 low (79,107), which is what the fix now produces.
-   - **Still open:** the vendor draws the earlier down-sequence's C at the 09-21 peak (87,397). Meridian locks C at 82,087 on
-     the first bar past wave A, and the rest of the rally becomes the next sequence's 0. The vendor also shows both
-     directions at once; Meridian's `direction: auto` shows one.
+   - **C placement (fixed 2026-11-23, note 8):** the vendor draws the earlier down-sequence's C at the 09-21 peak (87,397).
+     Meridian used to lock C at 82,087 on the first bar past wave A, with the rest of the rally becoming the next sequence's
+     0. The vendor also shows both directions at once; Meridian's `direction: auto` shows one.
+8. **Reference-chart check, D-Wave wave C (2026-11-23).** Brian sent Symbolik and Meridian charts of BTC-USD 1D on
+   2026-11-23. Both have the up-sequence's A and B in the same places, but the vendor puts C at the low of the whole
+   November decline (the same bar as the down-sequence's wave 3, about 55k), while Meridian froze C on the first bar below
+   wave A (about 78k). Taken with note 7, the vendor treats the break of wave A as confirmation and keeps the C label on the
+   extreme of the move. Meridian now does the same by default (`cLabel: 'trailExtreme'`): C trails new extremes until the
+   next sequence's wave 1 begins; `DWAVE_C_LOCKED` still fires on the break bar. `firstBreak` keeps the old placement.

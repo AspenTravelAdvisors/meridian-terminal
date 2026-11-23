@@ -208,6 +208,42 @@ describe('DeMark-style D-Wave', () => {
     for (const id of seq) if (id === order[k]) k++;
     expect(k).toBe(order.length);
   });
+  it('places wave C at the extreme of the move, not on the first bar past wave A (cLabel)', () => {
+    // BTC 1D, Nov 2026 (VERIFY_LOG note 8): the vendor draws C at the low of the whole decline. Breaking wave A's low
+    // only confirms C; the label keeps trailing new lows until the next sequence's wave 1 begins.
+    const c = legs(100, [
+      [60, 60], // decline → origin
+      [30, 100], // wave 1
+      [25, 80], // wave 2
+      [40, 140], // wave 3
+      [25, 120], // wave 4
+      [30, 160], // wave 5
+      [25, 130], // A (low close 130, bar 235)
+      [15, 145], // B
+      [40, 100], // C: passes A's low on bar 264, bottoms on bar 290
+      [25, 125], // rally → the next sequence's wave 1 starts, C is final
+      [20, 95], // a later, lower low belongs to the next sequence, not to C
+    ]);
+    const bars = barsFromCloses(c);
+    const run = (cLabel?: string) => {
+      const r = computeStudy(dwave, resolveConfig(dwave, { direction: 'up', ...(cLabel ? { cLabel } : {}) }), bars);
+      const C = (r.geometry.pivots ?? []).find((p) => p.label === 'C');
+      const locked = r.signals.find((s) => s.id === 'DWAVE_C_LOCKED');
+      return { C, locked };
+    };
+    const trail = run();
+    expect(trail.C?.i).toBe(290);
+    expect(trail.C?.price).toBe(99.5);
+    expect(trail.C?.locked).toBe(true);
+    // "+" stays where C was first recognised (the 21-bar low after B)
+    expect(trail.C?.first?.i).toBeLessThan(264);
+    // the confirmation still fires on the first bar past wave A
+    expect(trail.locked?.i).toBe(264);
+
+    const first = run('firstBreak');
+    expect(first.C?.i).toBe(first.locked?.i);
+    expect(first.C!.price).toBeGreaterThan(125);
+  });
   it('shifts wave 2 right when wave 4 undercuts wave 2', () => {
     const c = legs(100, [
       [60, 60],

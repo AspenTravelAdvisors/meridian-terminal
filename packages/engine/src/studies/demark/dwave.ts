@@ -25,6 +25,12 @@ export const dwaveSchema = z.object({
   lbA: ladder(13, 'Wave A low'),
   lbB: ladder(8, 'Wave B high'),
   lbC: ladder(21, 'Wave C low'),
+  cLabel: choice(['trailExtreme', 'firstBreak'] as const, 'trailExtreme', {
+    title: 'Wave C label',
+    description:
+      'trailExtreme: once C passes wave A, the label keeps following new extremes until the next sequence starts wave 1 · firstBreak: C is frozen on the first bar past wave A.',
+    verify: 'INDICATORS §3 wave C',
+  }),
   direction: choice(['auto', 'up', 'down', 'both'] as const, 'auto', {
     title: 'Sequences shown',
     description: 'auto shows whichever sequence is further advanced.',
@@ -61,6 +67,8 @@ interface Seq {
   a: P;
   b: P;
   c: P;
+  /** after C passes wave A (cLabel trailExtreme): the completed sequence's C, still trailing until wave 1 restarts */
+  trailC: P;
   lastEvent: number;
   done: Pivot[][];
 }
@@ -69,7 +77,7 @@ export interface DWaveState {
   seq: [Seq, Seq];
 }
 
-const newSeq = (): Seq => ({ phase: 0, o: NONE, w1: NONE, w2: NONE, w3: NONE, w4: NONE, w5: NONE, a: NONE, b: NONE, c: NONE, lastEvent: -1, done: [] });
+const newSeq = (): Seq => ({ phase: 0, o: NONE, w1: NONE, w2: NONE, w3: NONE, w4: NONE, w5: NONE, a: NONE, b: NONE, c: NONE, trailC: NONE, lastEvent: -1, done: [] });
 
 const hiOf = (cfg: DWaveCfg, x: SeriesCtx, s: Sg, i: number) => (cfg.basis === 'close' ? mC(x, s, i) : mH(x, s, i));
 const loOf = (cfg: DWaveCfg, x: SeriesCtx, s: Sg, i: number) => (cfg.basis === 'close' ? mC(x, s, i) : mL(x, s, i));
@@ -101,14 +109,18 @@ function nLow(cfg: DWaveCfg, x: SeriesCtx, s: Sg, i: number, n: number): boolean
   return true;
 }
 
+function pivotOf(pt: P, s: Sg, label: string, locked: boolean): Pivot {
+  const pv: Pivot = { i: pt.i, price: s * pt.p, label, locked };
+  // "+" where the wave was first recognised, when its end has since shifted right
+  if (pt.fi >= 0 && pt.fi !== pt.i) pv.first = { i: pt.fi, price: s * pt.fp };
+  return pv;
+}
+
 function pivots(q: Seq, s: Sg): Pivot[] {
   const out: Pivot[] = [];
   const add = (pt: P, label: string, lockedAt: number) => {
     if (pt.i < 0 || q.phase < lockedAt - 1) return;
-    const pv: Pivot = { i: pt.i, price: s * pt.p, label, locked: q.phase >= lockedAt };
-    // "+" where the wave was first recognised, when its end has since shifted right
-    if (pt.fi >= 0 && pt.fi !== pt.i) pv.first = { i: pt.fi, price: s * pt.fp };
-    out.push(pv);
+    out.push(pivotOf(pt, s, label, q.phase >= lockedAt));
   };
   if (q.o.i >= 0) out.push({ i: q.o.i, price: s * q.o.p, label: '0', locked: q.phase >= 1 });
   add(q.w1, '1', 2);
@@ -130,7 +142,7 @@ function emitSig(q: Seq, x: SeriesCtx, w: Writer, i: number, up: boolean, id: st
 function restartSeq(q: Seq, i: number, lo: number): void {
   q.phase = 0;
   q.o = at(i, lo);
-  q.w1 = q.w2 = q.w3 = q.w4 = q.w5 = q.a = q.b = q.c = NONE;
+  q.w1 = q.w2 = q.w3 = q.w4 = q.w5 = q.a = q.b = q.c = q.trailC = NONE;
 }
 
 function step(cfg: DWaveCfg, q: Seq, x: SeriesCtx, s: Sg, i: number, w: Writer, keep: number): void {
@@ -140,11 +152,19 @@ function step(cfg: DWaveCfg, q: Seq, x: SeriesCtx, s: Sg, i: number, w: Writer, 
 
   switch (q.phase) {
     case 0: {
+      if (q.trailC.i >= 0 && lo < q.trailC.p) {
+        // cLabel trailExtreme: the completed sequence's C follows the move to its extreme
+        q.trailC = mv(q.trailC, i, lo);
+        const last = q.done[q.done.length - 1];
+        const k = last ? last.findIndex((p) => p.label === 'C') : -1;
+        if (k >= 0) last![k] = pivotOf(q.trailC, s, 'C', true);
+      }
       if (nLow(cfg, x, s, i, cfg.lbOrigin) || (q.o.i >= 0 && lo < q.o.p)) q.o = at(i, lo);
       const t = q.o.i >= 0 && i > q.o.i && nHigh(cfg, x, s, i, cfg.lbW1);
       if (w.inspecting) w.inspect(`${up ? 'Up' : 'Down'} D-Wave: ${cfg.lbW1}-bar high after origin → wave 1`, t);
       if (t) {
         q.phase = 1;
+        q.trailC = NONE; // the next sequence has begun → the previous C is final
         q.w1 = at(i, hi);
         emitSig(q, x, w, i, up, '1_START', true);
       }
@@ -259,11 +279,13 @@ function step(cfg: DWaveCfg, q: Seq, x: SeriesCtx, s: Sg, i: number, w: Writer, 
         // Wave C closes below wave A's low → C locked, wave 5 locked permanently; sequence complete.
         emitSig(q, x, w, i, up, 'C_LOCKED', false);
         q.phase = 9;
+        const c = q.c;
         if (keep > 0) {
           q.done.push(pivots(q, s));
           if (q.done.length > keep) q.done.shift();
         }
         restartSeq(q, i, lo);
+        if (keep > 0 && cfg.cLabel === 'trailExtreme') q.trailC = c;
       } else if (hi > q.w5.p) {
         q.phase = 5;
         q.w5 = mv(q.w5, i, hi);
@@ -292,6 +314,7 @@ export const dwave: StudyDef<DWaveCfg, DWaveState> = {
     { key: 'lbOrigin', note: 'INDICATORS §3 lookback ladder' },
     { key: 'basis', note: 'INDICATORS §3' },
     { key: 'nBarTest', note: 'INDICATORS §3' },
+    { key: 'cLabel', note: 'INDICATORS §3 wave C' },
   ],
   outputs: () => [{ kind: 'data', id: 'wave', title: 'Wave phase (+up / −down)' }],
   signals: [

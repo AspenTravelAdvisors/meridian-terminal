@@ -27,6 +27,10 @@ describe('⚠ VERIFY defaults are pinned', () => {
     expect(d).toMatchObject({ basis: 'highLow', nBarTest: 'atLeastPriorN' });
   });
 
+  it('D-Wave: wave C trails the move to its extreme after passing wave A', () => {
+    expect(defaultsOf(dwave).cLabel).toBe('trailExtreme');
+  });
+
   it('Propulsion: ratio 0.236, trigger P + M, target P + 2M', () => {
     const r = defaultsOf(propulsion).propulsionRules as Record<string, unknown>;
     expect(r).toMatchObject({ propRatio: 0.236, targetMult: 2, pointLevel: 2, refPrice: 'swingHigh', requireAboveA: true });

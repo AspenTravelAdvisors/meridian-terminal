@@ -51,6 +51,9 @@
   bars and skipped signals by reason. All of it is in the run record, CSV (shares, notional, P/L, equity value) and the API.
 
 ### Changed
+- **D-Wave wave C sits on the extreme of the move:** breaking wave A now confirms C (`DWAVE_C_LOCKED` still fires on
+  that bar), and the C label keeps following new lows (highs for a down sequence) until the next sequence's wave 1 begins,
+  matching Symbolik (VERIFY_LOG note 8). New setting *Wave C label* (`cLabel`); `firstBreak` restores the old placement.
 - **D-Wave colours and label spacing:** up sequences draw red and down sequences green (each pivot carries its own colour,
   so one study can draw two colours). Wave labels and `+` marks now sit beyond the counts and markers stacked on that bar
   instead of a fixed 8 px from the high or low, so they no longer print over Sequential/Combo numbers.
